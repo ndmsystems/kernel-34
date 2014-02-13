@@ -2968,7 +2968,7 @@ ppp_create_interface(struct net *net, int unit, int *retp)
 	skb_queue_head_init(&ppp->mrq);
 #endif /* CONFIG_PPP_MULTILINK */
 
-	ppp->stats64 = alloc_percpu(struct ppp_link_pcpu_stats);
+	ppp->stats64 = netdev_alloc_pcpu_stats(struct ppp_link_pcpu_stats);
 	if (!ppp->stats64)
 		goto out2;
 

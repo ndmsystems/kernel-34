@@ -86,7 +86,7 @@ static int ubr_init(struct net_device *dev)
 {
 	struct ubr_private *ubr = netdev_priv(dev);
 
-	ubr->stats = alloc_percpu(struct br_cpu_netstats);
+	ubr->stats = netdev_alloc_pcpu_stats(struct br_cpu_netstats);
 	if (!ubr->stats)
 		return -ENOMEM;
 
