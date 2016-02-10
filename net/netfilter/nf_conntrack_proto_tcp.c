@@ -29,6 +29,10 @@
 #include <net/netfilter/ipv4/nf_conntrack_ipv4.h>
 #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>
 
+#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+extern int ipv4_fastnat_conntrack;
+#endif /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+
 /* Do not check the TCP window for incoming packets  */
 static int nf_ct_tcp_no_window_check __read_mostly = 1;
 
@@ -388,7 +392,11 @@ static void tcp_options(const struct sk_buff *skb,
 
 	ptr = skb_header_pointer(skb, dataoff + sizeof(struct tcphdr),
 				 length, buff);
-	BUG_ON(ptr == NULL);
+	if(ptr == NULL) {
+		if (net_ratelimit())
+			printk(KERN_INFO "bad tcp_options pointer");
+		return;
+	}
 
 	state->td_scale =
 	state->flags = 0;
@@ -443,7 +451,11 @@ static void tcp_sack(const struct sk_buff *skb, unsigned int dataoff,
 
 	ptr = skb_header_pointer(skb, dataoff + sizeof(struct tcphdr),
 				 length, buff);
-	BUG_ON(ptr == NULL);
+	if(ptr == NULL) {
+		if (net_ratelimit())
+			printk(KERN_INFO "bad tcp_sack pointer");
+		return;
+	}
 
 	/* Fast path for timestamp-only option */
 	if (length == TCPOLEN_TSTAMP_ALIGNED
@@ -521,7 +533,7 @@ static bool tcp_in_window(const struct nf_conn *ct,
 	__u32 seq, ack, sack, end, win, swin;
 	s32 receiver_offset;
 	bool res;
-#if defined (CONFIG_RA_NAT_NONE)
+#if defined (CONFIG_RA_NAT_NONE) || !(defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE))
 	struct net *net = nf_ct_net(ct);
 #endif
 
@@ -655,7 +667,7 @@ static bool tcp_in_window(const struct nf_conn *ct,
 		 before(sack, receiver->td_end + 1),
 		 after(sack, receiver->td_end - MAXACKWINDOW(sender) - 1));
 
-#if defined (CONFIG_RA_NAT_NONE)
+#if defined (CONFIG_RA_NAT_NONE) || !(defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE))
 	if (before(seq, sender->td_maxend + 1) &&
 	    after(end, sender->td_end - receiver->td_maxwin - 1) &&
 	    before(sack, receiver->td_end + 1) &&
@@ -791,6 +803,11 @@ static int tcp_error(struct net *net, struct nf_conn *tmpl,
 		return -NF_ACCEPT;
 	}
 
+#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+	if (ipv4_fastnat_conntrack)
+		return NF_ACCEPT;
+#endif /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+
 	/* Checksum invalid? Ignore.
 	 * We skip checking packets on the outgoing path
 	 * because the checksum is assumed to be correct.
@@ -840,7 +857,11 @@ static int tcp_packet(struct nf_conn *ct,
 	unsigned int index;
 
 	th = skb_header_pointer(skb, dataoff, sizeof(_tcph), &_tcph);
-	BUG_ON(th == NULL);
+	if(th == NULL) {
+		if (net_ratelimit())
+			printk(KERN_INFO "bad tcp_packet pointer");
+		return -NF_ACCEPT;
+	}
 
 	spin_lock_bh(&ct->lock);
 	old_state = ct->proto.tcp.state;
@@ -1077,7 +1098,11 @@ static bool tcp_new(struct nf_conn *ct, const struct sk_buff *skb,
 	const struct ip_ct_tcp_state *receiver = &ct->proto.tcp.seen[1];
 
 	th = skb_header_pointer(skb, dataoff, sizeof(_tcph), &_tcph);
-	BUG_ON(th == NULL);
+	if(th == NULL) {
+		if (net_ratelimit())
+			printk(KERN_INFO "bad tcp_new pointer");
+		return false;
+	}
 
 	/* Don't need lock here: this conntrack not in circulation yet */
 	new_state = tcp_conntracks[0][get_conntrack_index(th)][TCP_CONNTRACK_NONE];
@@ -1577,7 +1602,11 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp4 __read_mostly =
 	.packet 		= tcp_packet,
 	.get_timeouts		= tcp_get_timeouts,
 	.new 			= tcp_new,
+#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+	.error			= NULL,
+#else
 	.error			= tcp_error,
+#endif
 #if IS_ENABLED(CONFIG_NF_CT_NETLINK)
 	.to_nlattr		= tcp_to_nlattr,
 	.nlattr_size		= tcp_nlattr_size,

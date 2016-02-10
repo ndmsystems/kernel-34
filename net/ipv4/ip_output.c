@@ -812,6 +812,12 @@ static int __ip_append_data(struct sock *sk,
 	int csummode = CHECKSUM_NONE;
 	struct rtable *rt = (struct rtable *)cork->dst;
 
+	/* bug fix for udp_sendmsg, McMCC, 07112009 */
+	if (unlikely(rt == NULL))
+		return -EFAULT;
+	if (unlikely(inet == NULL))
+		return -EFAULT;
+
 	skb = skb_peek_tail(queue);
 
 	exthdrlen = !skb ? rt->dst.header_len : 0;

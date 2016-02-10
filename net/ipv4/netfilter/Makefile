@@ -16,6 +16,7 @@ iptable_nat-y	:= nf_nat_rule.o nf_nat_standalone.o
 # connection tracking
 obj-$(CONFIG_NF_CONNTRACK_IPV4) += nf_conntrack_ipv4.o
 
+obj-$(CONFIG_FAST_NAT) += fast_nat.o
 obj-$(CONFIG_NF_NAT) += nf_nat.o
 
 # defrag

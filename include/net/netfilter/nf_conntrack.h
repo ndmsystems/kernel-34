@@ -144,6 +144,11 @@ struct nf_conn {
 	} layer7;
 #endif
 
+#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+	/* fast nat ext */
+	u_int32_t fast_ext;
+#endif /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+
 	/* Extensions */
 	struct nf_ct_ext *ext;
 #ifdef CONFIG_NET_NS
