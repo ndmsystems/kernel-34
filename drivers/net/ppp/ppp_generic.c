@@ -34,6 +34,7 @@
 #include <linux/filter.h>
 #include <linux/ppp-ioctl.h>
 #include <linux/ppp_channel.h>
+#include <linux/ppp_hook.h>
 #include <linux/ppp-comp.h>
 #include <linux/skbuff.h>
 #include <linux/rtnetlink.h>
@@ -265,6 +266,15 @@ struct ppp_net {
 #define seq_after(a, b)		((s32)((a) - (b)) > 0)
 
 /* Prototypes. */
+int ppp_chan_stats_switch_get(struct ppp_channel *chan);
+void ppp_stat_add(struct ppp_channel *chan, struct sk_buff *skb);
+void ppp_stat_add_tx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes);
+void ppp_stat_add_rx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes);
+int ppp_stats_switch_get(struct net_device *dev);
+void ppp_stats_switch_set(struct net_device *dev, int on);
+void ppp_stats_update(struct net_device *dev,
+		      u32 rx_bytes, u32 rx_packets,
+		      u32 tx_bytes, u32 tx_packets);
 static int ppp_unattached_ioctl(struct net *net, struct ppp_file *pf,
 			struct file *file, unsigned int cmd, unsigned long arg);
 static void ppp_xmit_process(struct ppp *ppp);
@@ -970,6 +980,24 @@ static int __init ppp_init(void)
 
 	/* not a big deal if we fail here :-) */
 	device_create(ppp_class, NULL, MKDEV(PPP_MAJOR, 0), NULL, "ppp");
+
+	BUG_ON(ppp_chan_stats_switch_get_hook != NULL);
+	rcu_assign_pointer(ppp_chan_stats_switch_get_hook, ppp_chan_stats_switch_get);
+
+	BUG_ON(ppp_stat_add_tx_hook != NULL);
+	rcu_assign_pointer(ppp_stat_add_tx_hook, ppp_stat_add_tx);
+
+	BUG_ON(ppp_stat_add_rx_hook != NULL);
+	rcu_assign_pointer(ppp_stat_add_rx_hook, ppp_stat_add_rx);
+
+	BUG_ON(ppp_stats_switch_get_hook != NULL);
+	rcu_assign_pointer(ppp_stats_switch_get_hook, ppp_stats_switch_get);
+
+	BUG_ON(ppp_stats_switch_set_hook != NULL);
+	rcu_assign_pointer(ppp_stats_switch_set_hook, ppp_stats_switch_set);
+
+	BUG_ON(ppp_stats_update_hook != NULL);
+	rcu_assign_pointer(ppp_stats_update_hook, ppp_stats_update);
 
 	return 0;
 
@@ -2344,6 +2372,21 @@ char *ppp_dev_name(struct ppp_channel *chan)
 		read_unlock_bh(&pch->upl);
 	}
 	return name;
+}
+
+int ppp_chan_stats_switch_get(struct ppp_channel *chan)
+{
+	struct channel *pch = chan->ppp;
+	int res = -1;
+
+	if (pch) {
+		read_lock_bh(&pch->upl);
+		if (pch->ppp)
+			res = !pch->ppp->stats_off;
+		read_unlock_bh(&pch->upl);
+	}
+
+	return res;
 }
 
 

@@ -134,6 +134,36 @@ int vlan_check_real_dev(struct net_device *real_dev, u16 vlan_id)
 	return 0;
 }
 
+struct net_device * get_vlan_dev_by_real(struct net_device *real_dev, u16 vlan_id)
+{
+	const char *name = real_dev->name;
+
+	if (real_dev->features & NETIF_F_VLAN_CHALLENGED) {
+		pr_info("8021q: VLANs not supported on %s\n", name);
+		return NULL;
+	}
+
+	return vlan_find_dev(real_dev, vlan_id);
+}
+EXPORT_SYMBOL(get_vlan_dev_by_real);
+
+void vlan_dev_update_stats(struct net_device *vlan_dev, u32 recv_bytes, u32 recv_packets,
+	u32 sent_bytes, u32 sent_packets)
+{
+	struct vlan_pcpu_stats * stats =
+		per_cpu_ptr(vlan_dev_priv(vlan_dev)->vlan_pcpu_stats, smp_processor_id());
+
+	if (NULL != stats) {
+		u64_stats_update_begin(&stats->syncp);
+		stats->rx_packets += recv_packets;
+		stats->rx_bytes += recv_bytes;
+		stats->tx_packets += sent_packets;
+		stats->tx_bytes += sent_bytes;
+		u64_stats_update_end(&stats->syncp);
+	}
+}
+EXPORT_SYMBOL(vlan_dev_update_stats);
+
 int register_vlan_dev(struct net_device *dev)
 {
 	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
