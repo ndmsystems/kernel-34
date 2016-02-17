@@ -1242,10 +1242,8 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 	help = nfct_help(ct);
 	if (help && help->helper) {
 #if  defined(CONFIG_RA_HW_NAT) || defined(CONFIG_RA_HW_NAT_MODULE) || IS_ENABLED(CONFIG_RA_HW_NAT)
-            if( IS_SPACE_AVAILABLED(skb) &&
-                    ((FOE_MAGIC_TAG(skb) == FOE_MAGIC_PCI) ||
-                     (FOE_MAGIC_TAG(skb) == FOE_MAGIC_WLAN) ||
-                     (FOE_MAGIC_TAG(skb) == FOE_MAGIC_GE))){
+            if (IS_SPACE_AVAILABLED(skb) &&
+                     (FOE_MAGIC_TAG(skb) == FOE_MAGIC_GE)) {
                     FOE_ALG(skb)=1;
             }
 #endif
