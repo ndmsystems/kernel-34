@@ -21,6 +21,7 @@
  */
 
 #include <linux/gfp.h>
+#include <linux/module.h>
 #include <asm/unaligned.h>
 
 #include "xhci.h"
@@ -544,6 +545,11 @@ void xhci_del_comp_mod_timer(struct xhci_hcd *xhci, u32 status, u16 wIndex)
 	}
 }
 
+/* Implementation USB3-to-USB2 switch, McMCC, 13102014 */
+void (*usb3_to_usb2_set_hook)(struct xhci_hcd *xhci, unsigned short port) = NULL;
+EXPORT_SYMBOL(usb3_to_usb2_set_hook);
+/* End */
+
 int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 		u16 wIndex, char *buf, u16 wLength)
 {
@@ -557,6 +563,10 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 	struct xhci_bus_state *bus_state;
 	u16 link_state = 0;
 	u16 wake_mask = 0;
+	void (*usb3_to_usb2_set)(struct xhci_hcd *xhci, unsigned short port);
+
+	if ((usb3_to_usb2_set = rcu_dereference(usb3_to_usb2_set_hook)))
+		usb3_to_usb2_set(xhci, wIndex);
 
 	max_ports = xhci_get_ports(hcd, &port_array);
 	bus_state = &xhci->bus_state[hcd_index(hcd)];

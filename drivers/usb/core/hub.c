@@ -1943,6 +1943,9 @@ fail:
 	return err;
 }
 
+/* Implementation Microsoft Compatible ID Feature Descriptors, McMCC, 19112013 */
+int (*usb_get_os_str_desc_hook)(struct usb_device *udev) = NULL;
+EXPORT_SYMBOL(usb_get_os_str_desc_hook);
 
 /**
  * usb_enumerate_device - Read device configs/intfs/otg (usbcore-internal)
@@ -1958,6 +1961,7 @@ fail:
  */
 static int usb_enumerate_device(struct usb_device *udev)
 {
+	int (*usb_get_os_str_descriptor)(struct usb_device *udev);
 	int err;
 
 	if (udev->config == NULL) {
@@ -1974,6 +1978,17 @@ static int usb_enumerate_device(struct usb_device *udev)
 	udev->manufacturer = usb_cache_string(udev,
 					      udev->descriptor.iManufacturer);
 	udev->serial = usb_cache_string(udev, udev->descriptor.iSerialNumber);
+
+	/* Get Microsoft Compatible ID Feature Descriptors, McMCC, 19112013 */
+	if ((usb_get_os_str_descriptor = rcu_dereference(usb_get_os_str_desc_hook))) {
+		err = usb_get_os_str_descriptor(udev);
+
+		if (err < 0)
+			return err;
+
+		if (err == 1)
+			usb_set_device_state(udev, USB_STATE_RECONNECTING);
+	}
 
 	err = usb_enumerate_device_otg(udev);
 	if (err < 0)
@@ -4023,6 +4038,51 @@ static struct usb_driver hub_driver = {
 	.id_table =	hub_id_table,
 	.supports_autosuspend =	1,
 };
+
+int enable_hub_control = 0;
+EXPORT_SYMBOL(enable_hub_control);
+
+int khubd_start(void)
+{
+	if (!enable_hub_control)
+		return 0;
+
+	khubd_task = kthread_run(hub_thread, NULL, "khubd");
+	if (!IS_ERR(khubd_task))
+		return 0;
+
+	/* Fall through if kernel_thread failed */
+	enable_hub_control = 0;
+	usb_deregister(&hub_driver);
+	printk(KERN_ERR "%s: can't start khubd\n", usbcore_name);
+
+	return -1;
+}
+EXPORT_SYMBOL(khubd_start);
+
+void khubd_stop(void)
+{
+	if (!enable_hub_control)
+		return;
+
+	kthread_stop(khubd_task);
+
+	usb_deregister(&hub_driver);
+	enable_hub_control = 0;
+}
+EXPORT_SYMBOL(khubd_stop);
+
+int khubd_init(void)
+{
+	if (usb_register(&hub_driver) < 0) {
+		printk(KERN_ERR "%s: can't register hub driver\n",
+		       usbcore_name);
+		return -1;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(khubd_init);
 
 int usb_hub_init(void)
 {

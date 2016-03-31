@@ -154,7 +154,7 @@ int usb_control_msg(struct usb_device *dev, unsigned int pipe, __u8 request,
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(usb_control_msg);
+EXPORT_SYMBOL(usb_control_msg);
 
 /**
  * usb_interrupt_msg - Builds an interrupt urb, sends it off and waits for completion
@@ -880,6 +880,7 @@ char *usb_cache_string(struct usb_device *udev, int index)
 	}
 	return smallbuf;
 }
+EXPORT_SYMBOL(usb_cache_string);
 
 /*
  * usb_get_device_descriptor - (re)reads the device descriptor (usbcore)
