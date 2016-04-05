@@ -3408,6 +3408,7 @@ static int __netif_receive_skb(struct sk_buff *skb)
 	pt_prev = NULL;
 
 another_round:
+	skb->skb_siif = skb->dev->ifindex;
 	skb->skb_iif = skb->dev->ifindex;
 
 	__this_cpu_inc(softnet_data.processed);

@@ -451,6 +451,7 @@ struct sk_buff {
 #endif
 
 	int			skb_iif;
+	int			skb_siif;
 
 	__u32			rxhash;
 

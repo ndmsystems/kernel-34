@@ -393,6 +393,8 @@ ipt_do_table(struct sk_buff *skb,
 		return verdict;
 	}
 #endif
+	if( !in )
+		in = __dev_get_by_index(sock_net(skb->sk), skb->skb_siif);
 
 	ip = ip_hdr(skb);
 	indev = in ? in->name : nulldevname;
