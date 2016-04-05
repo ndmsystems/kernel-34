@@ -64,3 +64,8 @@ config BRIDGE_EAP
 	default y
 	---help---
 	  Bridge do not forward 802.1x/EAP frames and always accept eap to local.
+
+config UBRIDGE
+	tristate "Simplified Ethernet Bridge"
+	depends on BRIDGE
+	default n
