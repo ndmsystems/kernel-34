@@ -9,6 +9,7 @@
 
 struct ppp_channel;
 struct net_device;
+struct new_mc_streams;
 
 int (*ppp_chan_stats_switch_get_hook)(struct ppp_channel *chan);
 EXPORT_SYMBOL(ppp_chan_stats_switch_get_hook);
@@ -72,6 +73,12 @@ EXPORT_SYMBOL(prebind_from_mc_output);
 void (*update_mc_streams)(struct new_mc_streams * streams_list) = NULL;
 EXPORT_SYMBOL(update_mc_streams);
 
+int (*pppoe_pthrough)(struct sk_buff *skb) = NULL;
+EXPORT_SYMBOL(pppoe_pthrough);
+
+int (*ipv6_pthrough)(struct sk_buff *skb) = NULL;
+EXPORT_SYMBOL(ipv6_pthrough);
+
 int (*vpn_pthrough)(struct sk_buff *skb, int in) = NULL;
 EXPORT_SYMBOL(vpn_pthrough);
 
@@ -92,6 +99,7 @@ EXPORT_SYMBOL(fast_nat_hit_hook_func);
 int (*fast_nat_bind_hook_func)(struct nf_conn *ct,
 	enum ip_conntrack_info ctinfo,
 	struct sk_buff *skb,
+	u_int8_t protonum,
 	struct nf_conntrack_l3proto *l3proto,
 	struct nf_conntrack_l4proto *l4proto) = NULL;
 EXPORT_SYMBOL(fast_nat_bind_hook_func);
@@ -99,3 +107,9 @@ EXPORT_SYMBOL(fast_nat_bind_hook_func);
 int ipv4_fastnat_conntrack = 1;
 EXPORT_SYMBOL(ipv4_fastnat_conntrack);
 #endif /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+
+int (*ra_sw_nat_hook_rx) (struct sk_buff * skb) = NULL;
+EXPORT_SYMBOL(ra_sw_nat_hook_rx);
+
+int (*ra_sw_nat_hook_tx) (struct sk_buff * skb, int gmac_no) = NULL;
+EXPORT_SYMBOL(ra_sw_nat_hook_tx);
