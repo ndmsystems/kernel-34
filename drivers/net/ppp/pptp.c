@@ -42,6 +42,17 @@
 
 #include <linux/uaccess.h>
 
+#include <net/fast_vpn.h>
+
+#if defined(CONFIG_RA_HW_NAT) || defined(CONFIG_RA_HW_NAT_MODULE)
+#include <../ndm/hw_nat/ra_nat.h>
+#endif
+
+#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+extern void (*prebind_from_pptptx)(struct sk_buff * skb,
+	struct iphdr * iph_int, struct sock *sock, u32 saddr, u32 daddr);
+#endif // #if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+
 #define PPTP_DRIVER_VERSION "0.8.5"
 
 #define MAX_CALLID 65535
@@ -58,6 +69,12 @@ static const struct proto_ops pptp_ops;
 #define PPP_LCP_ECHOREQ 0x09
 #define PPP_LCP_ECHOREP 0x0A
 #define SC_RCV_BITS	(SC_RCV_B7_1|SC_RCV_B7_0|SC_RCV_ODDP|SC_RCV_EVNP)
+
+static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb);
+
+extern int (*vpn_pthrough)(struct sk_buff *skb, int in);
+extern int (*vpn_pthrough_setup)(uint32_t sip, int add);
+extern int (*pptp_input)(struct sk_buff *skb);
 
 #define MISSING_WINDOW 20
 #define WRAPPED(curseq, lastseq)\
@@ -181,8 +198,13 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 	int islcp;
 	int len;
 	unsigned char *data;
+	__u8 * iph_int;
 	__u32 seq_recv;
 
+#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+	void (*swnat_prebind)(struct sk_buff * skb,
+		struct iphdr * iph_int, struct sock *sock, u32 saddr, u32 daddr);
+#endif // #if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
 
 	struct rtable *rt;
 	struct net_device *tdev;
@@ -216,6 +238,7 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 		skb = new_skb;
 	}
 
+	iph_int = (__u8 *)(skb->data) + 2;
 	data = skb->data;
 	islcp = ((data[0] << 8) + data[1]) == PPP_LCP && 1 <= data[2] && data[2] <= 7;
 
@@ -228,6 +251,15 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 		data = skb_push(skb, 2);
 		data[0] = PPP_ALLSTATIONS;
 		data[1] = PPP_UI;
+
+		/* Get magic from our first outgoing LCP Echo packet from system,
+		 * and will reply with this value till reconnect */
+
+		if ( (((data[2] << 8) + data[3]) == PPP_LCP) &&
+			(data[4] == PPP_LCP_ECHOREP) ) // is our PPP LCP Echo reply 
+		{
+			opt->src_addr.magic_num = (data[8] << 24) + (data[9] << 16) + (data[10] << 8) + data[11];
+		}
 	}
 
 	len = skb->len;
@@ -287,6 +319,28 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 	ip_select_ident(skb, NULL);
 	ip_send_check(iph);
 
+#if (defined(CONFIG_RA_HW_NAT) || defined(CONFIG_RA_HW_NAT_MODULE)) && !defined (CONFIG_RA_HW_NAT_PPTP_L2TP)
+	FOE_ALG_SKIP(skb);
+#endif
+
+#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+	rcu_read_lock();
+	if (SWNAT_PPP_CHECK_MARK(skb)) {
+		/* We already have PPP encap, do skip it */
+		SWNAT_FNAT_RESET_MARK(skb);
+		SWNAT_PPP_RESET_MARK(skb);
+	} else if (SWNAT_FNAT_CHECK_MARK(skb) &&
+		(NULL != (swnat_prebind = rcu_dereference(prebind_from_pptptx)))) {
+
+		sock_hold(sk);
+		swnat_prebind(skb, (struct iphdr *)iph_int, sk, iph->saddr, iph->daddr);
+
+		SWNAT_FNAT_RESET_MARK(skb);
+		SWNAT_PPP_SET_MARK(skb);
+	}
+	rcu_read_unlock();
+#endif // #if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+
 	ip_local_out(skb);
 	return 1;
 
@@ -345,6 +399,37 @@ static int pptp_rcv_core(struct sock *sk, struct sk_buff *skb)
 		goto drop;
 
 	payload = skb->data + headersize;
+
+	/* check for echo-request and perform fast-reply */
+	if( (opt->src_addr.magic_num != 0) &&
+		(payload[0] == PPP_ALLSTATIONS) &&
+		(payload[1] == PPP_UI) && 
+		(PPP_PROTOCOL(payload) == PPP_LCP) &&
+		(payload[4] == PPP_LCP_ECHOREQ) )
+	{
+		unsigned int magic = opt->src_addr.magic_num;
+
+		payload[4] = PPP_LCP_ECHOREP; /* Set Reply flag */
+
+		/* Set our magic number */
+		payload[8] = magic >> 24;
+		payload[9] = magic >> 16;
+		payload[10] = magic >> 8;
+		payload[11] = magic;
+
+		skb_pull(skb, headersize);
+
+		opt->ppp_flags = SC_COMP_AC;
+		opt->seq_recv = seq;
+
+		pptp_xmit(&po->chan, skb);
+		return NET_RX_DROP;
+	}
+
+#if (defined(CONFIG_RA_HW_NAT) || defined(CONFIG_RA_HW_NAT_MODULE)) && !defined (CONFIG_RA_HW_NAT_PPTP_L2TP)
+	FOE_ALG_SKIP(skb);
+#endif
+
 	/* check for expected sequence number */
 	if (seq < opt->seq_recv + 1 || WRAPPED(opt->seq_recv, seq)) {
 		if ((payload[0] == PPP_ALLSTATIONS) && (payload[1] == PPP_UI) &&
@@ -457,6 +542,7 @@ static int pptp_connect(struct socket *sock, struct sockaddr *uservaddr,
 	struct rtable *rt;
 	struct flowi4 fl4;
 	int error = 0;
+	int (*vsetup)(uint32_t sip, int add);
 
 	if (sockaddr_len < sizeof(struct sockaddr_pppox))
 		return -EINVAL;
@@ -513,6 +599,13 @@ static int pptp_connect(struct socket *sock, struct sockaddr *uservaddr,
 		goto end;
 	}
 
+	rcu_read_lock();
+	if( (vsetup = rcu_dereference(vpn_pthrough_setup)) ) 
+		vsetup(sp->sa_addr.pptp.sin_addr.s_addr, FAST_VPN_ACTION_SETUP);
+	rcu_read_unlock();
+
+	opt->src_addr.magic_num = 0;
+
 	opt->dst_addr = sp->sa_addr.pptp;
 	sk->sk_state |= PPPOX_CONNECTED;
 
@@ -546,6 +639,7 @@ static int pptp_release(struct socket *sock)
 	struct pppox_sock *po;
 	struct pptp_opt *opt;
 	int error = 0;
+	int (*vsetup)(uint32_t sip, int add);
 
 	if (!sk)
 		return 0;
@@ -559,6 +653,12 @@ static int pptp_release(struct socket *sock)
 
 	po = pppox_sk(sk);
 	opt = &po->proto.pptp;
+
+	rcu_read_lock();
+	if( (vsetup = rcu_dereference(vpn_pthrough_setup)) ) 
+		vsetup(opt->dst_addr.sin_addr.s_addr, FAST_VPN_ACTION_RELEASE);
+	rcu_read_unlock();
+
 	del_chan(po);
 
 	pppox_unbind_sock(sk);
@@ -610,6 +710,8 @@ static int pptp_create(struct net *net, struct socket *sock)
 
 	opt->seq_sent = 0; opt->seq_recv = 0xffffffff;
 	opt->ack_recv = 0; opt->ack_sent = 0xffffffff;
+
+	opt->src_addr.magic_num = 0;
 
 	error = 0;
 out:
@@ -714,6 +816,8 @@ static int __init pptp_init_module(void)
 		goto out_unregister_sk_proto;
 	}
 
+	rcu_assign_pointer(pptp_input, pptp_rcv);
+
 	return 0;
 
 out_unregister_sk_proto:
@@ -728,6 +832,7 @@ out_mem_free:
 
 static void __exit pptp_exit_module(void)
 {
+	rcu_assign_pointer(pptp_input, NULL);
 	unregister_pppox_proto(PX_PROTO_PPTP);
 	proto_unregister(&pptp_sk_proto);
 	gre_del_protocol(&gre_pptp_protocol, GREPROTO_PPTP);
