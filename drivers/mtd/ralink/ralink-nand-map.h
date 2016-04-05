@@ -25,7 +25,7 @@
 #define NAND_MTD_RWFS_PART_IDX		6
 #endif
 
-static struct mtd_partition rt2880_partitions[] = {
+static struct mtd_partition __rt2880_partitions[] = {
 	{
 		name:   "Bootloader",			/* mtdblock0 */
 		size:   NAND_MTD_BOOT_PART_SIZE,	/* 512K */

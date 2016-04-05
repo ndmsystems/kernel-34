@@ -33,11 +33,11 @@
 #include <ralink/ralink_gpio.h>
 
 #include "ralink-flash.h"
-#include "ralink-flash-map.h"
 #include "ralink_spi.h"
 
+#include "../mtdcore.h"
 //#define SPI_DEBUG
-
+static const char *part_probes[] __initdata = { "ndmpart", NULL };
 /******************************************************************************
  * SPI FLASH elementray definition and function
  ******************************************************************************/
@@ -314,7 +314,7 @@ static struct chip_info chips_data [] = {
 	{ "S25FL032P",		0x01, 0x02154D00, 64 * 1024, 64,  0 },
 	{ "S25FL064P",		0x01, 0x02164D00, 64 * 1024, 128, 0 },
 	{ "S25FL128P",		0x01, 0x20180301, 64 * 1024, 256, 0 },
-	{ "S25FL128S",		0x01, 0x20184D01, 64 * 1024, 256, 0 },
+	{ "S25FL129P",		0x01, 0x20184D01, 64 * 1024, 256, 0 },
 	{ "S25FL256S",		0x01, 0x02194D01, 64 * 1024, 512, 1 },
 
 	{ "S25FL116K",		0x01, 0x40150140, 64 * 1024, 32,  0 },
@@ -1167,20 +1167,9 @@ struct chip_info *chip_prob(void)
 
 static int __init raspi_init(void)
 {
-	struct chip_info *chip;
-	uint64_t flash_size = IMAGE1_SIZE;
-	uint32_t kernel_size = 0x150000;
-#if defined (CONFIG_RT2880_ROOTFS_IN_FLASH) && defined (CONFIG_ROOTFS_IN_FLASH_NO_PADDING)
-	loff_t offs;
-	size_t ret_len = 0;
-	_ihdr_t hdr;
-#endif
-#if defined (SPI_DEBUG)
-	unsigned i;
-#endif
-
-	if (ra_check_flash_type() != BOOT_FROM_SPI)
-		return 0;
+	struct chip_info	*chip;
+	struct mtd_partition	*mtd_parts;
+	unsigned		i, np;
 
 	spic_init();
 
@@ -1242,22 +1231,13 @@ static int __init raspi_init(void)
 				flash->mtd.eraseregions[i].numblocks);
 #endif
 
-#if defined (CONFIG_RT2880_FLASH_AUTO)
-	flash_size = flash->mtd.size;
-#endif
-#if defined (CONFIG_RT2880_ROOTFS_IN_FLASH) && defined (CONFIG_ROOTFS_IN_FLASH_NO_PADDING)
-	offs = MTD_KERNEL_PART_OFFSET;
-	memset(&hdr, 0, sizeof(hdr));
-	ramtd_read(NULL, offs, sizeof(hdr), &ret_len, (u_char *)(&hdr));
-	if (ret_len == sizeof(hdr) && hdr.ih_ksz != 0)
-		kernel_size = ntohl(hdr.ih_ksz);
-#endif
+	np = parse_mtd_partitions(&flash->mtd, part_probes, &mtd_parts, 0);
+	if (np > 0)
+		add_mtd_partitions(&flash->mtd, mtd_parts, np);
+	else
+		printk("No partitions found on a flash.");
 
-	/* calculate partition table */
-	recalc_partitions(flash_size, kernel_size);
-
-	/* register the partitions */
-	return mtd_device_register(&flash->mtd, rt2880_partitions, ARRAY_SIZE(rt2880_partitions));
+	return &flash->mtd;
 }
 
 static void __exit raspi_exit(void)

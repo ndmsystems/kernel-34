@@ -708,7 +708,7 @@ EXPORT_SYMBOL_GPL(deregister_mtd_parser);
  * are changing this array!
  */
 static const char *default_mtd_part_types[] = {
-	"cmdlinepart",
+	"ndmpart",
 	"ofpart",
 	NULL
 };

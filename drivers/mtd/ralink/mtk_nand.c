@@ -27,8 +27,11 @@
 #if defined (CONFIG_MTD_NAND_USE_UBI_PART)
 #include "ralink-nand-map-ubi.h"
 #else
-#include "ralink-nand-map.h"
+//#include "ralink-nand-map.h"
 #endif
+static const char *part_probes[] __initdata = { "ndmpart", NULL };
+static struct mtd_partition *mtd_parts;
+int part_num = 0;
 
 #if defined (CONFIG_MTD_UBI) || defined (CONFIG_MTD_UBI_MODULE)
 #define UBIFS_ECC_0_PATCH
@@ -921,38 +924,36 @@ bool mtk_nand_exec_write_page(struct mtd_info *mtd, u32 u4RowAddr, u32 u4PageSiz
 static int get_start_end_block(struct mtd_info *mtd, int block, int *start_blk, int *end_blk)
 {
 	struct nand_chip *chip = mtd->priv;
-	int i, end_blk_last, part_num = ARRAY_SIZE(rt2880_partitions);
+	int i;
 
 	*start_blk = 0;
-	end_blk_last = 0;
-
-	for (i = 0; i < part_num; i++) {
-		if (rt2880_partitions[i].offset == MTDPART_OFS_APPEND)
-			*start_blk = end_blk_last;
-		else
-			*start_blk = (int)(rt2880_partitions[i].offset >> chip->phys_erase_shift);
-		end_blk_last = *start_blk + (int)(rt2880_partitions[i].size >> chip->phys_erase_shift);
-		
-		if (end_blk_last > *start_blk)
-			*end_blk = end_blk_last - 1;
-		else
-			*end_blk = end_blk_last;
-		
-		if ((block >= *start_blk) && (block <= *end_blk)) {
-#if !defined (CONFIG_MTD_NAND_USE_UBI_PART)
-#if defined (CONFIG_RT2880_ROOTFS_IN_FLASH)
-			/* use merged partition */
-			if (i == NAND_MTD_KERNEL_PART_IDX || i == NAND_MTD_ROOTFS_PART_IDX) {
-				*start_blk = (NAND_MTD_KERNEL_PART_OFFSET >> chip->phys_erase_shift);
-				*end_blk = *start_blk + (NAND_MTD_KERNEL_PART_SIZE >> chip->phys_erase_shift) - 1;
+        for (i = 0; i <= part_num; i++)
+        {
+		if (i == part_num)
+		{
+			// try the last reset partition
+			*end_blk = (chip->chipsize >> chip->phys_erase_shift) - 1;
+			if (*start_blk <= *end_blk)
+			{
+				if ((block >= *start_blk) && (block <= *end_blk))
+					break;
 			}
-#endif
-#endif
-			return 0;
 		}
+		// skip All partition entry
+		else if (mtd_parts[i].size == MTDPART_SIZ_FULL)
+		{
+			continue;
+		}
+                *end_blk = *start_blk + (mtd_parts[i].size >> chip->phys_erase_shift) - 1;
+                if ((block >= *start_blk) && (block <= *end_blk))
+                        break;
+                *start_blk = *end_blk + 1;
+        }
+        if (*start_blk > *end_blk)
+	{
+                return -1;
 	}
-
-	return -1;
+	return 0;
 }
 
 static int block_remap(struct mtd_info *mtd, int block)
@@ -2356,23 +2357,14 @@ static int mtk_nand_probe(struct platform_device *pdev)
 	shift_on_bbt = 1;
 #endif
 
-#if !defined (CONFIG_MTD_NAND_USE_UBI_PART)
-#if defined (CONFIG_RT2880_ROOTFS_IN_FLASH) && defined (CONFIG_ROOTFS_IN_FLASH_NO_PADDING)
-	offs = NAND_MTD_KERNEL_PART_OFFSET;
-	memset(&hdr, 0, sizeof(hdr));
-	mtd_read(mtd, offs, sizeof(hdr), &ret_len, (u_char *)(&hdr));
-	if (ret_len == sizeof(hdr) && hdr.ih_ksz != 0)
-		kernel_size = ntohl(hdr.ih_ksz);
-#endif
-	/* calculate partition table */
-	recalc_partitions(mtd->size, kernel_size);
-#else
-	/* calculate partition table for UBIFS */
-	recalc_partitions(mtd->size);
-#endif
-
 	/* register the partitions */
-	err = add_mtd_partitions(mtd, rt2880_partitions, ARRAY_SIZE(rt2880_partitions));
+	part_num = parse_mtd_partitions(mtd, part_probes, &mtd_parts, 0);
+	err = -1;
+	if(part_num > 0)
+		err = add_mtd_partitions(mtd, mtd_parts, part_num);
+	else
+		printk("No partitions found on a flash.");
+
 	if (err)
 		goto out_err;
 

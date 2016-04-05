@@ -33,7 +33,7 @@
 #endif
 
 /* NOR, SPI partitions (Ralink/MTK reference + mod) */
-static struct mtd_partition rt2880_partitions[] = {
+static struct mtd_partition __rt2880_partitions[] = {
 	{
 		name:   "Bootloader",		/* mtdblock0 */
 		size:   MTD_BOOT_PART_SIZE,	/* 192K */
