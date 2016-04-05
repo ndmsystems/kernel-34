@@ -1,0 +1,14 @@
+menu "NDM options"
+
+source "ndm/Kconfig.raeth"
+source "ndm/Kconfig.ppe"
+source "ndm/Kconfig.wifi"
+source "ndm/Kconfig.usb"
+source "ndm/Kconfig.crypto"
+source "ndm/rt2860v2_ap/Kconfig"
+source "ndm/rt3592_ap/Kconfig"
+source "ndm/rt5392_ap/Kconfig"
+source "ndm/rt5592_ap/Kconfig"
+source "ndm/mt7628_ap/Kconfig"
+endmenu
+

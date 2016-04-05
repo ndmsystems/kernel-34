@@ -1,0 +1,69 @@
+config RLT_AP_SUPPORT
+	tristate "MediaTek RLT Wi-Fi AP support"
+	select WIRELESS_EXT
+	select WEXT_SPY
+	select WEXT_PRIV
+
+config WDS_SUPPORT
+	bool "WDS"
+	depends on RLT_AP_SUPPORT
+	default n
+
+config MBSS_SUPPORT
+	bool "MBSSID"
+	depends on RLT_AP_SUPPORT
+	default y
+
+config NEW_MBSSID_MODE
+	bool "New MBSSID mode"
+	depends on RLT_AP_SUPPORT
+	depends on MBSS_SUPPORT
+	default n
+
+config ENHANCE_NEW_MBSSID_MODE
+	bool "Enhanced MBSSID mode"
+	depends on NEW_MBSSID_MODE
+	default n
+
+config APCLI_SUPPORT
+	bool "AP-Client support"
+	depends on RLT_AP_SUPPORT
+	default y
+
+config APCLI_CERT_SUPPORT
+	bool "AP-Client TGn cert support"
+	depends on RLT_AP_SUPPORT
+	depends on APCLI_SUPPORT
+	default n
+
+config MAC_REPEATER_SUPPORT
+	bool "MAC repeater support"
+	depends on RLT_AP_SUPPORT
+	depends on APCLI_SUPPORT
+	default n
+
+config DFS_SUPPORT
+	bool "DFS support"
+	depends on RLT_AP_SUPPORT
+	select RALINK_TIMER_DFS
+	default n
+
+config NINTENDO_AP
+	bool "Nintendo AP support"
+	depends on RLT_AP_SUPPORT
+	default n
+
+config DELAYED_TCP_ACK_SUPPORT
+	bool "Delayed TCP ACK support"
+	depends on RLT_AP_SUPPORT
+	default n
+
+config MCAST_RATE_SPECIFIC
+	bool "User specific TX rate of multicast packets"
+	depends on RLT_AP_SUPPORT
+	default n
+
+config EXT_BUILD_CHANNEL_LIST
+	bool "Channel list extension"
+	depends on RLT_AP_SUPPORT
+	default n

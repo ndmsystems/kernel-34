@@ -1,0 +1,6 @@
+menu "MTK USB drivers"
+config MTK_XHCI
+	bool "MediaTek USB3/USB2/USB1.1 xHCI controller support"
+	depends on (RALINK_MT7621)
+	select USB_ARCH_HAS_XHCI
+endmenu
