@@ -353,7 +353,7 @@ config INET_XFRM_TUNNEL
 	default n
 
 config INET_TUNNEL
-	bool
+	tristate
 	default n
 
 config INET_XFRM_MODE_TRANSPORT
