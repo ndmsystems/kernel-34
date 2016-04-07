@@ -242,7 +242,7 @@ next_hook:
 	rcu_read_unlock();
 	return ret;
 }
-
+EXPORT_SYMBOL(nf_hook_slow);
 
 int skb_make_writable(struct sk_buff *skb, unsigned int writable_len)
 {

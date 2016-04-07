@@ -1331,6 +1331,7 @@ out:
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(nf_conntrack_in);
 
 bool nf_ct_invert_tuplepr(struct nf_conntrack_tuple *inverse,
 			  const struct nf_conntrack_tuple *orig)
