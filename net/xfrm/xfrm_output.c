@@ -23,9 +23,11 @@
 #include "../nat/hw_nat/ra_nat.h"
 #endif
 
+#include "xfrm_mtk_symbols.h"
+
 static int xfrm_output2(struct sk_buff *skb);
 
-static int xfrm_skb_check_space(struct sk_buff *skb)
+int xfrm_skb_check_space(struct sk_buff *skb)
 {
 	struct dst_entry *dst = skb_dst(skb);
 	int nhead = dst->header_len + LL_RESERVED_SPACE(dst->dev)
@@ -41,6 +43,7 @@ static int xfrm_skb_check_space(struct sk_buff *skb)
 
 	return pskb_expand_head(skb, nhead, ntail, GFP_ATOMIC);
 }
+EXPORT_SYMBOL(xfrm_skb_check_space);
 
 static int xfrm_output_one(struct sk_buff *skb, int err)
 {
@@ -89,6 +92,16 @@ static int xfrm_output_one(struct sk_buff *skb, int err)
 #endif
 
 		err = x->type->output(x, skb);
+
+#if defined (CONFIG_RALINK_HWCRYPTO) || defined (CONFIG_RALINK_HWCRYPTO_MODULE)
+		if (atomic_read(&esp_mtk_hardware) &&
+			(skb->protocol == htons(ETH_P_IP) ||
+				skb->protocol == htons(ETH_P_IPV6))) {
+			if (err == 1)
+				return err;
+		}
+#endif
+
 		if (err == -EINPROGRESS)
 			goto out_exit;
 
@@ -140,6 +153,11 @@ int xfrm_output_resume(struct sk_buff *skb, int err)
 
 	if (err == -EINPROGRESS)
 		err = 0;
+
+#if defined (CONFIG_RALINK_HWCRYPTO) || defined (CONFIG_RALINK_HWCRYPTO_MODULE)
+	if (atomic_read(&esp_mtk_hardware) && (skb->protocol == htons(ETH_P_IP)))
+		return 0;
+#endif
 
 out:
 	return err;

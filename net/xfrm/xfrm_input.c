@@ -14,6 +14,8 @@
 #include <net/ip.h>
 #include <net/xfrm.h>
 
+#include "xfrm_mtk_symbols.h"
+
 static struct kmem_cache *secpath_cachep __read_mostly;
 
 void __secpath_destroy(struct sec_path *sp)
@@ -81,6 +83,7 @@ int xfrm_parse_spi(struct sk_buff *skb, u8 nexthdr, __be32 *spi, __be32 *seq)
 	*seq = *(__be32*)(skb_transport_header(skb) + offset_seq);
 	return 0;
 }
+EXPORT_SYMBOL(xfrm_parse_spi);
 
 int xfrm_prepare_input(struct xfrm_state *x, struct sk_buff *skb)
 {
@@ -192,7 +195,23 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
 
 		skb_dst_force(skb);
 
+#if defined (CONFIG_RALINK_HWCRYPTO) || defined (CONFIG_RALINK_HWCRYPTO_MODULE)
+		if (atomic_read(&esp_mtk_hardware)) {
+			if (family == AF_INET) {
+				if (x->type->input(x, skb) == 1) {
+					return 0;
+				} else
+					goto drop;
+			} else {
+				nexthdr = x->type->input(x, skb);
+				goto after_nexthdr;
+			}
+		}
+#endif
+
 		nexthdr = x->type->input(x, skb);
+
+after_nexthdr:
 
 		if (nexthdr == -EINPROGRESS)
 			return 0;
