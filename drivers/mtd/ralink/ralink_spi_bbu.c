@@ -33,11 +33,13 @@
 #include <ralink/ralink_gpio.h>
 
 #include "ralink-flash.h"
-#include "ralink-flash-map.h"
+//#include "ralink-flash-map.h"
 #include "ralink_spi_bbu.h"
 
+#include "../mtdcore.h"
 //#define SPI_DEBUG
 //#define TEST_CS1_FLASH
+static const char *part_probes[] __initdata = { "ndmpart", NULL };
 
 #if defined (CONFIG_MTD_SPI_READ_FAST)
 #define RD_MODE_FAST
@@ -1071,20 +1073,11 @@ exit_mtd_write:
 static int __init raspi_init(void)
 {
 	struct chip_info *chip;
-	uint64_t flash_size = IMAGE1_SIZE;
-	uint32_t kernel_size = 0x150000;
-#if defined (CONFIG_RT2880_ROOTFS_IN_FLASH) && defined (CONFIG_ROOTFS_IN_FLASH_NO_PADDING)
-	_ihdr_t hdr;
-	loff_t offs;
-	size_t ret_len = 0;
-#endif
+	struct mtd_partition	*mtd_parts;
+	unsigned np;
 #if defined (SPI_DEBUG)
 	unsigned i;
 #endif
-
-	if (ra_check_flash_type() != BOOT_FROM_SPI)
-		return 0;
-
 	spic_init();
 
 	chip = chip_prob();
@@ -1144,23 +1137,15 @@ static int __init raspi_init(void)
 				flash->mtd.eraseregions[i].erasesize / 1024,
 				flash->mtd.eraseregions[i].numblocks);
 #endif
-
-#if defined (CONFIG_RT2880_FLASH_AUTO)
-	flash_size = flash->mtd.size;
-#endif
-#if defined (CONFIG_RT2880_ROOTFS_IN_FLASH) && defined (CONFIG_ROOTFS_IN_FLASH_NO_PADDING)
-	offs = MTD_KERNEL_PART_OFFSET;
-	memset(&hdr, 0, sizeof(hdr));
-	ramtd_read(NULL, offs, sizeof(hdr), &ret_len, (u_char *)(&hdr));
-	if (ret_len == sizeof(hdr) && hdr.ih_ksz != 0)
-		kernel_size = ntohl(hdr.ih_ksz);
-#endif
-
-	/* calculate partition table */
-	recalc_partitions(flash_size, kernel_size);
+	np = parse_mtd_partitions(&flash->mtd, part_probes, &mtd_parts, 0);
+	if (np > 0) {
+		add_mtd_partitions(&flash->mtd, mtd_parts, np);
+	} else {
+		printk("No partitions found on a flash.");
+	}
 
 	/* register the partitions */
-	return mtd_device_register(&flash->mtd, rt2880_partitions, ARRAY_SIZE(rt2880_partitions));
+	return &flash->mtd;
 }
 
 static void __exit raspi_exit(void)
