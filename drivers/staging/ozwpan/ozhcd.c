@@ -145,7 +145,7 @@ static int oz_hcd_urb_enqueue(struct usb_hcd *hcd, struct urb *urb,
 static int oz_hcd_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status);
 static void oz_hcd_endpoint_disable(struct usb_hcd *hcd,
 				struct usb_host_endpoint *ep);
-static void oz_hcd_endpoint_reset(struct usb_hcd *hcd,
+static int oz_hcd_endpoint_reset(struct usb_hcd *hcd,
 				struct usb_host_endpoint *ep);
 static int oz_hcd_get_frame_number(struct usb_hcd *hcd);
 static int oz_hcd_hub_status_data(struct usb_hcd *hcd, char *buf);
@@ -1837,10 +1837,11 @@ static void oz_hcd_endpoint_disable(struct usb_hcd *hcd,
 /*------------------------------------------------------------------------------
  * Context: unknown
  */
-static void oz_hcd_endpoint_reset(struct usb_hcd *hcd,
+static int oz_hcd_endpoint_reset(struct usb_hcd *hcd,
 				struct usb_host_endpoint *ep)
 {
 	oz_trace("oz_hcd_endpoint_reset\n");
+	return 0;
 }
 /*------------------------------------------------------------------------------
  * Context: unknown
