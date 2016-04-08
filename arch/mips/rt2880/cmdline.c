@@ -84,12 +84,44 @@ char * __init prom_getcmdline(void)
 	return &(arcs_cmdline[0]);
 }
 
+#ifdef CONFIG_IMAGE_CMDLINE_HACK
+extern char __image_cmdline[];
+
+static int __init use_image_cmdline(void)
+{
+	char *p = __image_cmdline;
+	int replace = 0;
+
+	if (*p == '-') {
+		replace = 1;
+		p++;
+	}
+
+	if (*p == '\0')
+		return 0;
+
+	if (replace) {
+		strlcpy(arcs_cmdline, p, sizeof(arcs_cmdline));
+	} else {
+		strlcat(arcs_cmdline, " ", sizeof(arcs_cmdline));
+		strlcat(arcs_cmdline, p, sizeof(arcs_cmdline));
+	}
+
+	return 1;
+}
+#else
+static int inline use_image_cmdline(void) { return 0; }
+#endif
+
 void  __init prom_init_cmdline(void)
 {
 #ifdef CONFIG_UBOOT_CMDLINE
 	int actr=1; /* Always ignore argv[0] */
 #endif
 	char *cp;
+
+	if (use_image_cmdline())
+		return;
 
 	cp = &(arcs_cmdline[0]);
 #ifdef CONFIG_UBOOT_CMDLINE
