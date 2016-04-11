@@ -1,6 +1,13 @@
 menu "MTK USB drivers"
+config RT3XXX_EHCI_OHCI
+    bool "Ralink USB2 EHCI/OHCI controller support"
+    depends on (RALINK_RT3883 || RALINK_RT3352 || RALINK_RT5350 || RALINK_MT7620 || RALINK_MT7628)
+    select USB_ARCH_HAS_OHCI
+    select USB_ARCH_HAS_EHCI
+
 config MTK_XHCI
-	bool "MediaTek USB3/USB2/USB1.1 xHCI controller support"
-	depends on (RALINK_MT7621)
-	select USB_ARCH_HAS_XHCI
+    bool "MediaTek USB3/USB2/USB1.1 xHCI controller support"
+    depends on (RALINK_MT7621)
+    select USB_ARCH_HAS_XHCI
+
 endmenu
