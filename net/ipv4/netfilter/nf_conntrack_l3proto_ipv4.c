@@ -215,6 +215,65 @@ static struct nf_hook_ops ipv4_conntrack_ops[] __read_mostly = {
 static int log_invalid_proto_min = 0;
 static int log_invalid_proto_max = 255;
 
+void death_by_timeout(unsigned long ul_conntrack);
+
+static void flush_entries(uint32_t ipaddr) {
+	size_t counter = 0;
+	unsigned int i = 0;
+	struct nf_conn *ct;
+	struct nf_conntrack_tuple_hash *h;
+	struct hlist_nulls_node *n;
+	struct nf_conntrack_tuple *tuple;
+	__be32 ip = htonl(ipaddr);
+
+	rcu_read_lock();
+	for (i = 0; i < init_net.ct.htable_size; i++) {
+		hlist_nulls_for_each_entry_rcu(h, n, &init_net.ct.hash[i], hnnode) {
+			if (NF_CT_DIRECTION(h) != IP_CT_DIR_ORIGINAL) {
+				continue;
+			}
+
+			ct = nf_ct_tuplehash_to_ctrack(h);
+			if (!atomic_inc_not_zero(&ct->ct_general.use)) {
+				continue;
+			}
+
+			tuple = nf_ct_tuple(ct, IP_CT_DIR_ORIGINAL);
+
+			if (tuple != NULL) {
+				if ((tuple->src.l3num == PF_INET) &&
+					((tuple->src.u3.ip == ip) ||
+						(tuple->dst.u3.ip == ip))) {
+					if (del_timer(&ct->timeout)) {
+						death_by_timeout((unsigned long)ct);
+					}
+					++counter;
+				}
+			}
+
+			nf_ct_put(ct);
+		}
+	}
+	rcu_read_unlock();
+
+	printk(KERN_INFO "IPv4 conntrack: flushed %d entries with address %pI4\n", counter, &ip);
+}
+
+static uint32_t flush_ip_addr = 0;
+
+int flush_ip_addr_proc_handler(struct ctl_table *table, int write,
+		void __user *buffer, size_t *lenp, loff_t *ppos) {
+	int res = proc_dointvec(table, write, buffer, lenp, ppos);
+
+	if (flush_ip_addr != 0) {
+		flush_entries(flush_ip_addr);
+	}
+
+	flush_ip_addr = 0;
+
+	return res;
+}
+
 static ctl_table ip_ct_sysctl_table[] = {
 	{
 		.procname	= "ip_conntrack_max",
@@ -252,6 +311,13 @@ static ctl_table ip_ct_sysctl_table[] = {
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= &log_invalid_proto_min,
 		.extra2		= &log_invalid_proto_max,
+	},
+	{
+		.procname	= "ip_conntrack_flush_addr",
+		.data		= &flush_ip_addr,
+		.maxlen		= sizeof(uint32_t),
+		.mode		= 0644,
+		.proc_handler	= flush_ip_addr_proc_handler,
 	},
 #if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
 	{
