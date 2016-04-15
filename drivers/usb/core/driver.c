@@ -496,6 +496,8 @@ EXPORT_SYMBOL_GPL(usb_driver_release_interface);
 /* returns 0 if no match, 1 if match */
 int usb_match_device(struct usb_device *dev, const struct usb_device_id *id)
 {
+	BUG_ON(dev == NULL || id == NULL);
+
 	if ((id->match_flags & USB_DEVICE_ID_MATCH_VENDOR) &&
 	    id->idVendor != le16_to_cpu(dev->descriptor.idVendor))
 		return 0;
