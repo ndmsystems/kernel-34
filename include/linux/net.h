@@ -19,7 +19,6 @@
 #define _LINUX_NET_H
 
 #include <linux/socket.h>
-#include <linux/jump_label.h>
 #include <asm/socket.h>
 
 #define NPROTO		AF_MAX
@@ -56,6 +55,7 @@ typedef enum {
 #define __SO_ACCEPTCON	(1 << 16)	/* performed a listen		*/
 
 #ifdef __KERNEL__
+#include <linux/jump_label.h>
 #include <linux/stringify.h>
 #include <linux/random.h>
 #include <linux/wait.h>
