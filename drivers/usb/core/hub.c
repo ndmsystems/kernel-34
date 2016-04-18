@@ -1988,13 +1988,19 @@ static int usb_enumerate_device(struct usb_device *udev)
 		if (err < 0)
 			return err;
 
-		if (err == 1)
-			usb_set_device_state(udev, USB_STATE_RECONNECTING);
+		if (err == 1 || udev == NULL) {
+			if (udev)
+				udev->state = USB_STATE_RECONNECTING;
+			return -ENODEV;
+		}
 	}
 
 	err = usb_enumerate_device_otg(udev);
 	if (err < 0)
 		return err;
+
+	if (udev == NULL)
+		return -ENODEV;
 
 	usb_detect_interface_quirks(udev);
 
@@ -2077,7 +2083,7 @@ int usb_new_device(struct usb_device *udev)
 	usb_disable_autosuspend(udev);
 
 	err = usb_enumerate_device(udev);	/* Read descriptors */
-	if (err < 0)
+	if (err < 0 || udev == NULL)
 		goto fail;
 	dev_dbg(&udev->dev, "udev %d, busnum %d, minor = %d\n",
 			udev->devnum, udev->bus->busnum,
@@ -2123,9 +2129,11 @@ int usb_new_device(struct usb_device *udev)
 	return err;
 
 fail:
-	usb_set_device_state(udev, USB_STATE_NOTATTACHED);
-	pm_runtime_disable(&udev->dev);
-	pm_runtime_set_suspended(&udev->dev);
+	if (udev && err != -ENODEV ) {
+		usb_set_device_state(udev, USB_STATE_NOTATTACHED);
+		pm_runtime_disable(&udev->dev);
+		pm_runtime_set_suspended(&udev->dev);
+	}
 	return err;
 }
 
@@ -3684,12 +3692,13 @@ loop:
 		release_devnum(udev);
 		hub_free_dev(udev);
 		usb_put_dev(udev);
-		if ((status == -ENOTCONN) || (status == -ENOTSUPP))
+		if ((status == -ENOTCONN) || (status == -ENOTSUPP) || (status == -ENODEV))
 			break;
 	}
-	if (hub->hdev->parent ||
+	if (status != -ENODEV &&
+			(hub->hdev->parent ||
 			!hcd->driver->port_handed_over ||
-			!(hcd->driver->port_handed_over)(hcd, port1))
+			!(hcd->driver->port_handed_over)(hcd, port1)))
 		dev_err(hub_dev, "unable to enumerate USB device on port %d\n",
 				port1);
  
