@@ -117,7 +117,7 @@ static void config_move(struct mtd_info *master, unsigned int offset)
 	struct erase_info ei;
 	unsigned char *iobuf;
 
-	ret = master->read(master, offset, sizeof magic, &len,
+	ret = mtd_read(master, offset, sizeof magic, &len,
 			   (uint8_t *) &magic);
 	if (ret || len != sizeof magic)
 		goto out;
@@ -135,7 +135,7 @@ static void config_move(struct mtd_info *master, unsigned int offset)
 	}
 
 	// Read old config.
-	ret = master->read(master, offset, master->erasesize,
+	ret = mtd_read(master, offset, master->erasesize,
 			   &len, iobuf);
 	if (ret || len != master->erasesize) {
 		printk(KERN_ERR "read failed at 0x%012llx\n",
@@ -149,7 +149,7 @@ static void config_move(struct mtd_info *master, unsigned int offset)
 	ei.addr = ndm_parts[PART_CONFIG].offset;
 	ei.len  = master->erasesize;
 
-	ret = master->erase(master, &ei);
+	ret = mtd_erase(master, &ei);
 	if (ret || ei.state == MTD_ERASE_FAILED) {
 		printk(KERN_ERR "erase failed at 0x%012llx\n",
 		       (unsigned long long) ei.addr);
@@ -157,7 +157,7 @@ static void config_move(struct mtd_info *master, unsigned int offset)
 	}
 
 	// Write config to new place.
-	ret = master->write(master, ndm_parts[PART_CONFIG].offset,
+	ret = mtd_write(master, ndm_parts[PART_CONFIG].offset,
 			    master->erasesize, &len, iobuf);
 	if (ret || len != master->erasesize) {
 		printk(KERN_ERR "write failed at 0x%012llx\n",
@@ -171,7 +171,7 @@ static void config_move(struct mtd_info *master, unsigned int offset)
 	ei.addr = offset;
 	ei.len  = master->erasesize;
 
-	ret = master->erase(master, &ei);
+	ret = mtd_erase(master, &ei);
 	if (ret || ei.state == MTD_ERASE_FAILED) {
 		printk(KERN_ERR "erase failed at 0x%012llx\n",
 		       (unsigned long long) ei.addr);
