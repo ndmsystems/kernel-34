@@ -5,8 +5,6 @@
 # Rewritten to use lists instead of if-statements.
 #
 
-obj-$(CONFIG_ASUS_NVRAM_API)	+= nvram/
-
 # GPIO must come after pinctrl as gpios may need to mux pins etc
 obj-y				+= pinctrl/
 obj-y				+= gpio/
