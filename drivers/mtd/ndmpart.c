@@ -230,7 +230,7 @@ static inline unsigned part_config_size(struct mtd_info *master)
 
 static int create_mtd_partitions(struct mtd_info *master,
 				 struct mtd_partition **pparts,
-				 unsigned long origin)
+				 struct mtd_part_parser_data *data)
 {
 	bool use_dump, use_storage;
 	int index, dump_index, part_num, storage_index;
