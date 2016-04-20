@@ -225,7 +225,7 @@ static int check_page0(struct mtdoops_context *cxt)
 			&retlen, (u_char *) &hdr[0]);
 	if (retlen != MTDOOPS_HEADER_SIZE ||
 	    (ret < 0 && ret != -EUCLEAN)) {
-		printk(KERN_ERR "mtdoops: read failure at %ld (%td of %d read), err %d\n",
+		printk(KERN_ERR "mtdoops: read failure at %d (%td of %d read), err %d\n",
 		       0, retlen,
 		       MTDOOPS_HEADER_SIZE, ret);
 		return -1;
