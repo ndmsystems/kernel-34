@@ -2428,6 +2428,7 @@ out_err:
 	MSG(INIT, "%s: [%s] failed, err = %d!\n", MTK_NAND_MODULE_TEXT, __FUNCTION__, err);
 
 	nand_release(mtd);
+	kfree(mtd_parts);
 	kfree(host);
 
 	return err;
@@ -2446,6 +2447,7 @@ static int mtk_nand_remove(struct platform_device *pdev)
 	platform_set_drvdata(pdev, NULL);
 
 	nand_release(mtd);
+	kfree(mtd_parts);
 	kfree(host);
 
 	return 0;
