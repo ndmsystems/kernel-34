@@ -514,18 +514,14 @@ static struct mtd_part *allocate_partition(struct mtd_info *master,
 		/* FIXME: Let it be writable if it is on a boundary of
 		 * _minor_ erase size though */
 		slave->mtd.flags &= ~MTD_WRITEABLE;
-#ifndef CONFIG_ROOTFS_IN_FLASH_NO_PADDING
 		printk(KERN_WARNING"mtd: partition \"%s\" doesn't start on an erase block boundary -- force read-only\n",
 			part->name);
-#endif
 	}
 	if ((slave->mtd.flags & MTD_WRITEABLE) &&
 	    mtd_mod_by_eb(slave->mtd.size, &slave->mtd)) {
 		slave->mtd.flags &= ~MTD_WRITEABLE;
-#ifndef CONFIG_ROOTFS_IN_FLASH_NO_PADDING
 		printk(KERN_WARNING"mtd: partition \"%s\" doesn't end on an erase block -- force read-only\n",
 			part->name);
-#endif
 	}
 
 	slave->mtd.ecclayout = master->ecclayout;
