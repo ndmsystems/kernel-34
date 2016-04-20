@@ -19,11 +19,6 @@
 
 #include "ralink-flash.h"
 #include "ralink_nand.h"
-#if defined (CONFIG_MTD_NAND_USE_UBI_PART)
-#include "ralink-nand-map-ubi.h"
-#else
-//#include "ralink-nand-map.h"
-#endif
 
 static const char *part_probes[] __initdata = { "ndmpart", NULL };
 
@@ -2363,18 +2358,6 @@ static int __init ra_nand_init(void)
 {
 	struct ra_nand_chip *ra;
 	int alloc_size, bbt_size, buffers_size;
-	static struct mtd_partition *mtd_parts;
-	int part_num = 0;
-
-#if !defined (CONFIG_MTD_NAND_USE_UBI_PART)
-	uint32_t kernel_size = 0x200000;
-#if defined (CONFIG_RT2880_ROOTFS_IN_FLASH) && defined (CONFIG_ROOTFS_IN_FLASH_NO_PADDING)
-	_ihdr_t hdr;
-	loff_t offs;
-	size_t ret_len = 0;
-	int check;
-#endif
-#endif
 
 	if (ra_check_flash_type() != BOOT_FROM_NAND)
 		return 0;
@@ -2452,29 +2435,8 @@ static int __init ra_nand_init(void)
 	ra->controller = &ra->hwcontrol;
 	mutex_init(ra->controller);
 
-#if !defined (CONFIG_MTD_NAND_USE_UBI_PART)
-#if defined (CONFIG_RT2880_ROOTFS_IN_FLASH) && defined (CONFIG_ROOTFS_IN_FLASH_NO_PADDING)
-	/* try to trigger nand_bbt_set, make the following read operation success */
-	check = NAND_MTD_KERNEL_PART_OFFSET;
-	while (nand_block_checkbad(ra, check)) {
-		check += ranfc_mtd->erasesize;
-	}
-	offs = NAND_MTD_KERNEL_PART_OFFSET;
-	memset(&hdr, 0, sizeof(hdr));
-	ramtd_nand_read(ranfc_mtd, offs, sizeof(hdr), &ret_len, (u_char *)(&hdr));
-	if (ret_len == sizeof(hdr) && hdr.ih_ksz != 0)
-		kernel_size = ntohl(hdr.ih_ksz);
-#endif
-	/* calculate partition table */
-	recalc_partitions(ranfc_mtd->size, kernel_size);
-#else
-	/* calculate partition table for UBIFS */
-	recalc_partitions(ranfc_mtd->size);
-#endif
-
-	part_num = parse_mtd_partitions(mtd, part_probes, &mtd_parts, 0);
 	/* register the partitions */
-	return mtd_device_register(ranfc_mtd, mtd_parts, part_num);
+	return mtd_device_parse_register(ranfc_mtd, part_probes, NULL, NULL, 0);
 }
 
 static void __exit ra_nand_exit(void)
@@ -2484,8 +2446,7 @@ static void __exit ra_nand_exit(void)
 	if (ranfc_mtd) {
 		ra = (struct ra_nand_chip  *)ranfc_mtd->priv;
 		mtd_device_unregister(ranfc_mtd);
-		if (ra)
-			kfree(ra);
+		kfree(ra);
 		ranfc_mtd = NULL;
 	}
 }
