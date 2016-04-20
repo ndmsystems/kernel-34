@@ -25,7 +25,7 @@
 
 #include "ralink-flash.h"
 
-static const char *part_probes[] __initdata = { "ndmpart", NULL };
+static const char *part_probes[] = { "ndmpart", NULL };
 static struct mtd_partition *mtd_parts;
 int part_num = 0;
 
