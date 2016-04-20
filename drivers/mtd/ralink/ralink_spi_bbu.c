@@ -33,7 +33,6 @@
 #include <ralink/ralink_gpio.h>
 
 #include "ralink-flash.h"
-//#include "ralink-flash-map.h"
 #include "ralink_spi_bbu.h"
 
 #include "../mtdcore.h"
@@ -1073,8 +1072,6 @@ exit_mtd_write:
 static int __init raspi_init(void)
 {
 	struct chip_info *chip;
-	struct mtd_partition	*mtd_parts;
-	unsigned np;
 #if defined (SPI_DEBUG)
 	unsigned i;
 #endif
@@ -1137,15 +1134,9 @@ static int __init raspi_init(void)
 				flash->mtd.eraseregions[i].erasesize / 1024,
 				flash->mtd.eraseregions[i].numblocks);
 #endif
-	np = parse_mtd_partitions(&flash->mtd, part_probes, &mtd_parts, 0);
-	if (np > 0) {
-		add_mtd_partitions(&flash->mtd, mtd_parts, np);
-	} else {
-		printk("No partitions found on a flash.");
-	}
 
 	/* register the partitions */
-	return &flash->mtd;
+	return mtd_device_parse_register(&flash->mtd, part_probes, NULL, NULL, 0);
 }
 
 static void __exit raspi_exit(void)

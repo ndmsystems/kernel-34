@@ -1168,9 +1168,10 @@ struct chip_info *chip_prob(void)
 
 static int __init raspi_init(void)
 {
-	struct chip_info	*chip;
-	struct mtd_partition	*mtd_parts;
-	unsigned		i, np;
+	struct chip_info *chip;
+#if defined (SPI_DEBUG)
+	unsigned i;
+#endif
 
 	spic_init();
 
@@ -1232,13 +1233,8 @@ static int __init raspi_init(void)
 				flash->mtd.eraseregions[i].numblocks);
 #endif
 
-	np = parse_mtd_partitions(&flash->mtd, part_probes, &mtd_parts, 0);
-	if (np > 0)
-		add_mtd_partitions(&flash->mtd, mtd_parts, np);
-	else
-		printk("No partitions found on a flash.");
-
-	return &flash->mtd;
+	/* register the partitions */
+	return mtd_device_parse_register(&flash->mtd, part_probes, NULL, NULL, 0);
 }
 
 static void __exit raspi_exit(void)
