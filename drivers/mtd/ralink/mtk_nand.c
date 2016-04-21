@@ -1812,6 +1812,7 @@ static int mtk_nand_write_oob_raw(struct mtd_info *mtd, const uint8_t * buf, int
 	return 0;
 }
 
+#if !defined (CONFIG_MTD_NAND_MTK_JFFS2_WORKAROUND)
 static int mtk_nand_write_oob_hw(struct mtd_info *mtd, struct nand_chip *chip, int page)
 {
 	int i, iter;
@@ -1885,6 +1886,7 @@ static int mtk_nand_write_oob(struct mtd_info *mtd, struct nand_chip *chip, int 
 
 	return 0;
 }
+#endif // CONFIG_MTD_NAND_MTK_JFFS2_WORKAROUND
 
 int mtk_nand_block_markbad_hw(struct mtd_info *mtd, loff_t offset)
 {
@@ -2326,7 +2328,11 @@ static int mtk_nand_probe(struct platform_device *pdev)
 	chip->ecc.read_page = mtk_nand_read_page_hwecc;
 	chip->ecc.write_page = mtk_nand_write_page_hwecc;
 	chip->ecc.read_oob = mtk_nand_read_oob;
+#if defined (CONFIG_MTD_NAND_MTK_JFFS2_WORKAROUND)
+	chip->ecc.write_oob = NULL;
+#else
 	chip->ecc.write_oob = mtk_nand_write_oob;
+#endif
 
 	/* skip bbt scan (scan later) */
 	chip->options = NAND_SKIP_BBTSCAN;

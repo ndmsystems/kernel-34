@@ -31,6 +31,10 @@ choice
 		select MTD_NAND_ECC
 endchoice
 
+config MTD_NAND_MTK_JFFS2_WORKAROUND
+	bool "JFFS2 workaround"
+	depends on MTD_NAND_MTK
+
 config MTD_SPI_FAST_CLOCK
 	bool "Use SPI fast clock, up to 50MHz"
 	default n
