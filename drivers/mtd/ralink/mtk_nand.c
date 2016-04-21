@@ -914,14 +914,24 @@ bool mtk_nand_exec_write_page(struct mtd_info *mtd, u32 u4RowAddr, u32 u4PageSiz
 }
 
 #if defined(SKIP_BAD_BLOCK)
-static int get_start_end_block(struct mtd_info *mtd, int block, int *start_blk, int *end_blk)
+static int get_start_end_block(struct mtd_info *mtd, int block,
+			       int *start_blk, int *end_blk)
 {
 	struct nand_chip *chip = mtd->priv;
-	int i, end_blk_last;
+	int i, end_blk_last, er_shift;
+
+	er_shift = chip->phys_erase_shift;
 
 	for (i = 0; i < part_num; i++) {
-		*start_blk = mtd_parts[i].offset >> chip->phys_erase_shift;
-		end_blk_last = *start_blk + (mtd_parts[i].size >> chip->phys_erase_shift);
+		uint64_t off = mtd_parts[i].offset;
+		uint64_t size = mtd_parts[i].size;
+
+		/* Skip partition with full flash */
+		if (size == MTDPART_SIZ_FULL)
+			continue;
+
+		*start_blk = off >> er_shift;
+		end_blk_last = *start_blk + (size >> er_shift);
 
 		if (end_blk_last > *start_blk)
 			*end_blk = end_blk_last - 1;
@@ -933,8 +943,8 @@ static int get_start_end_block(struct mtd_info *mtd, int block, int *start_blk, 
 #if defined (CONFIG_MTD_NDM_PARTS)
 			/* Use merged partition */
 			if (i == kernel_idx || i == rootfs_idx) {
-				*start_blk = firmware_offset_begin >> chip->phys_erase_shift;
-				*end_blk = *start_blk + (firmware_size >> chip->phys_erase_shift) - 1;
+				*start_blk = firmware_offset_begin >> er_shift;
+				*end_blk = *start_blk + (firmware_size >> er_shift) - 1;
 			}
 #endif
 			return 0;
