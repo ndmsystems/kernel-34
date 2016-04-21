@@ -237,7 +237,6 @@ static int create_mtd_partitions(struct mtd_info *master,
 	size_t len;
 	uint32_t config_offset, offset, flash_size, flash_size_lim;
 	__le32 magic;
-	struct mtd_partition *rparts;
 
 	flash_size = master->size;
 
@@ -369,7 +368,7 @@ static int create_mtd_partitions(struct mtd_info *master,
 	ndm_parts[PART_ROOTFS].size = ndm_parts[PART_CONFIG].offset -
 				      ndm_parts[PART_ROOTFS].offset;
 
-	*pparts = kmemdup(ndm_parts,sizeof(*rparts) * part_num, GFP_KERNEL);
+	*pparts = kmemdup(ndm_parts, sizeof(struct mtd_partition) * part_num, GFP_KERNEL);
 	return part_num;
 }
 
