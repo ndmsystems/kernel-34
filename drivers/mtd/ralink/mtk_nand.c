@@ -33,7 +33,7 @@ int part_num = 0;
 #define UBIFS_ECC_0_PATCH
 #endif
 
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 static uint32_t storage_offset_begin, storage_offset_end;
 static uint32_t firmware_offset_begin, firmware_size;
 static int8_t kernel_idx, rootfs_idx;
@@ -327,12 +327,12 @@ static bool mtk_nand_check_bch_error(struct mtd_info *mtd, u8 * pDataBuf, u32 u4
 					u4ErrByteLoc = u4ErrBitLoc1th / 8;
 					u4BitOffset = u4ErrBitLoc1th % 8;
 					pDataBuf[u4ErrByteLoc] = pDataBuf[u4ErrByteLoc] ^ (1 << u4BitOffset);
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 					if (!is_skip_bad_block(mtd, u4PageAddr))
 #endif
 						mtd->ecc_stats.corrected++;
 				} else {
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 					if (!is_skip_bad_block(mtd, u4PageAddr))
 #endif
 						mtd->ecc_stats.corrected++;
@@ -343,12 +343,12 @@ static bool mtk_nand_check_bch_error(struct mtd_info *mtd, u8 * pDataBuf, u32 u4
 						u4ErrByteLoc = u4ErrBitLoc2nd / 8;
 						u4BitOffset = u4ErrBitLoc2nd % 8;
 						pDataBuf[u4ErrByteLoc] = pDataBuf[u4ErrByteLoc] ^ (1 << u4BitOffset);
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 						if (!is_skip_bad_block(mtd, u4PageAddr))
 #endif
 							mtd->ecc_stats.corrected++;
 					} else {
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 						if (!is_skip_bad_block(mtd, u4PageAddr))
 #endif
 							mtd->ecc_stats.corrected++;
@@ -378,7 +378,7 @@ static bool mtk_nand_check_bch_error(struct mtd_info *mtd, u8 * pDataBuf, u32 u4
 			}
 		}
 		if ((correct_count > 2) && bRet) {
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 			if (!is_skip_bad_block(mtd, u4PageAddr))
 #endif
 				mtd->ecc_stats.corrected++;
@@ -913,7 +913,7 @@ bool mtk_nand_exec_write_page(struct mtd_info *mtd, u32 u4RowAddr, u32 u4PageSiz
 	return true;
 }
 
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 static int get_start_end_block(struct mtd_info *mtd, int block,
 			       int *start_blk, int *end_blk)
 {
@@ -1133,7 +1133,7 @@ int check_block_remap(struct mtd_info *mtd, int block)
 EXPORT_SYMBOL(check_block_remap);
 
 
-#if defined(UBIFS_ECC_0_PATCH)
+#if defined (UBIFS_ECC_0_PATCH)
 static int check_ecc_0(struct mtd_info *mtd, int page)
 {
 	int i;
@@ -1273,7 +1273,7 @@ static int mtk_nand_write_page(struct mtd_info *mtd, struct nand_chip *chip, con
 	u16 page_in_block = page % page_per_block;
 	int mapped_block = block;
 
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 	if (!is_skip_bad_block(mtd, page)) {
 		// bmt code
 	} else {
@@ -1288,7 +1288,7 @@ static int mtk_nand_write_page(struct mtd_info *mtd, struct nand_chip *chip, con
 	}
 #endif
 
-#if defined(UBIFS_ECC_0_PATCH)
+#if defined (UBIFS_ECC_0_PATCH)
 	if (check_ecc_0(mtd, page_in_block + mapped_block * page_per_block)) {
 		fix_ecc_0(mtd, page_in_block + mapped_block * page_per_block);
 	}
@@ -1300,7 +1300,7 @@ do_write:
 		if (!mtk_nand_exec_write_page(mtd, page_in_block + mapped_block * page_per_block, mtd->writesize, (u8 *)buf, chip->oob_poi)) {
 			printk(KERN_WARNING "%s: [%s] write fail at block: 0x%x, page: 0x%x\n",
 				MTK_NAND_MODULE_TEXT, __FUNCTION__, mapped_block, page_in_block);
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 			if (!is_skip_bad_block(mtd, page)) {
 				return -EIO;
 			} else {
@@ -1546,7 +1546,7 @@ static int mtk_nand_read_page(struct mtd_info *mtd, struct nand_chip *chip, u8 *
 	u16 page_in_block = page % page_per_block;
 	int mapped_block = block;
 
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 	if (!is_skip_bad_block(mtd, page)) {
 		if (mtk_nand_exec_read_page(mtd, page_in_block + mapped_block * page_per_block, mtd->writesize, buf, chip->oob_poi))
 			return 0;
@@ -1597,7 +1597,7 @@ static int mtk_nand_erase(struct mtd_info *mtd, int page)
 	int block = page / page_per_block;
 	int mapped_block = block;
 
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 	if (!is_skip_bad_block(mtd, page)) {
 		// bmt code
 	} else {
@@ -1614,7 +1614,7 @@ static int mtk_nand_erase(struct mtd_info *mtd, int page)
 	do {
 		int status = mtk_nand_erase_hw(mtd, page_in_block + page_per_block * mapped_block);
 		if (status & NAND_STATUS_FAIL) {
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 			if (!is_skip_bad_block(mtd, page)) {
 				mtk_nand_block_markbad_hw(mtd, (page_in_block + mapped_block * page_per_block) << chip->page_shift);
 				nand_bbt_set_bad(mtd, page_in_block + mapped_block * page_per_block);
@@ -1841,7 +1841,7 @@ static int mtk_nand_write_oob(struct mtd_info *mtd, struct nand_chip *chip, int 
 	u16 page_in_block = page % page_per_block;
 	int mapped_block = block;
 
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 	if (!is_skip_bad_block(mtd, page)) {
 		// bmt code
 	} else {
@@ -1859,7 +1859,7 @@ static int mtk_nand_write_oob(struct mtd_info *mtd, struct nand_chip *chip, int 
 		if (mtk_nand_write_oob_hw(mtd, chip, page_in_block + mapped_block * page_per_block /* page */)) {
 			printk(KERN_WARNING "%s: [%s] write oob fail at block: 0x%x, page: 0x%x\n",
 				MTK_NAND_MODULE_TEXT, __FUNCTION__, mapped_block, page_in_block);
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 			if (!is_skip_bad_block(mtd, page)) {
 				mtk_nand_block_markbad_hw(mtd, (page_in_block + mapped_block * page_per_block) << chip->page_shift);
 				nand_bbt_set_bad(mtd, page_in_block + mapped_block * page_per_block);
@@ -1910,7 +1910,7 @@ static int mtk_nand_block_markbad(struct mtd_info *mtd, loff_t offset)
 
 	nand_get_device(mtd, FL_WRITING);
 
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 	if (!is_skip_bad_block(mtd, offset >> chip->page_shift)) {
 		// bmt code
 	} else {
@@ -1974,7 +1974,7 @@ static int mtk_nand_read_oob(struct mtd_info *mtd, struct nand_chip *chip, int p
 	u16 page_in_block = page % page_per_block;
 	int mapped_block = block;
 
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 	if (!is_skip_bad_block(mtd, page)) {
 		// bmt code
 	} else {
@@ -2032,7 +2032,7 @@ static int mtk_nand_block_bad(struct mtd_info *mtd, loff_t ofs, int getchip)
 		chip->select_chip(mtd, chipnr);
 	}
 
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 	if (!is_skip_bad_block(mtd, ofs >> chip->page_shift)) {
 		// bmt code
 	} else {
@@ -2048,7 +2048,7 @@ static int mtk_nand_block_bad(struct mtd_info *mtd, loff_t ofs, int getchip)
 #endif
 
 	ret = mtk_nand_block_bad_hw(mtd, mapped_block << chip->phys_erase_shift);
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 	if (!is_skip_bad_block(mtd, ofs >> chip->page_shift)) {
 		// bmt code
 	}
