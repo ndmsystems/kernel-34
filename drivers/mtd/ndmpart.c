@@ -23,11 +23,16 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
-
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 #include <linux/bootmem.h>
 #include <linux/magic.h>
+
+#ifdef CONFIG_MTD_NDM_BOOT_UPDATE
+#include <linux/reboot.h>
+#include <linux/xz.h>
+#include "ndm_boot.h"
+#endif
 
 #ifndef SQUASHFS_MAGIC
 #define SQUASHFS_MAGIC			0x73717368
@@ -103,26 +108,178 @@ struct mtd_partition ndm_parts[PART_MAX] = {
 #endif
 };
 
+#ifdef CONFIG_MTD_NDM_BOOT_UPDATE
+static int ndm_flash_boot(struct mtd_info *master)
+{
+	bool update_need;
+	int res = -1, ret;
+	size_t len;
+	struct xz_buf b;
+	struct xz_dec *s;
+	uint32_t off, size, p_off, p_size, es;
+	unsigned char *m;
+
+	es = master->erasesize;
+	p_off = ndm_parts[PART_U_BOOT].offset;
+	p_size = ndm_parts[PART_U_BOOT].size;
+
+	// Check bootloader size.
+	if (boot_bin_len > p_size) {
+		printk(KERN_ERR "too big bootloader\n");
+		goto out;
+	}
+
+	// Read current bootloader.
+	m = kmalloc(p_size, GFP_KERNEL);
+	if (m == NULL) {
+		printk(KERN_ERR "no memory\n");
+		goto out;
+	}
+
+	ret = mtd_read(master, p_off, p_size, &len, m);
+	if (ret || len != p_size) {
+		printk(KERN_ERR "read failed");
+		goto out_kfree;
+	}
+
+	// Detect and compare version.
+	len = strlen(NDM_BOOT_VERSION);
+	size = p_size;
+	update_need = true;
+
+	for (off = 0; off < size; off++) {
+		if (size - off < len)
+			break;
+		else if (!memcmp(NDM_BOOT_VERSION, m + off, len)) {
+			update_need = false;
+			break;
+		}
+	}
+
+	if (!update_need) {
+		printk(KERN_INFO "Bootloader is up to date\n");
+		res = 0;
+		goto out_kfree;
+	}
+
+	printk(KERN_INFO "Updating bootloader...\n");
+
+	// Decompress bootloader.
+	s = xz_dec_init(XZ_SINGLE, 0);
+	if (s == NULL) {
+		printk(KERN_ERR "xz_dec_init error\n");
+		goto out_kfree;
+	}
+
+	b.in = boot_bin_xz;
+	b.in_pos = 0;
+	b.in_size = boot_bin_xz_len;
+
+	b.out = m;
+	b.out_pos = 0;
+	b.out_size = boot_bin_len;
+
+	ret = xz_dec_run(s, &b);
+	if (ret != XZ_STREAM_END) {
+		printk(KERN_ERR "zx_dec_run error (%d)\n", ret);
+		goto out_xz_dec_end;
+	}
+
+	// Clear partition.
+	for (off = p_off; off < p_off + p_size; off += es) {
+		struct erase_info ei = {
+			.mtd = master,
+			.addr = off,
+			.len = es
+		};
+
+		ret = mtd_erase(master, &ei);
+		if (ret || ei.state == MTD_ERASE_FAILED) {
+			printk(KERN_ERR "erase failed at 0x%012llx\n",
+			       (unsigned long long) ei.addr);
+			goto out_xz_dec_end;
+		}
+	}
+
+	// Write new bootloader.
+	size = ALIGN(b.out_pos, master->writesize);
+
+	ret = mtd_write(master, p_off, size, &len, m);
+	if (ret || len != size) {
+		printk(KERN_ERR "write failed at 0x%012llx\n",
+		       (unsigned long long) p_off);
+		goto out_xz_dec_end;
+	}
+
+	printk("Bootloader update complete\n");
+
+	kernel_restart(NULL);
+
+	res = 0;
+out_xz_dec_end:
+	xz_dec_end(s);
+out_kfree:
+	kfree(m);
+out:
+	return res;
+}
+#endif
+
 #ifdef CONFIG_MTD_NDM_CONFIG_TRANSITION
+static int config_find(struct mtd_info *master, u32 *offset)
+{
+	static const u32 TRANSITION_OFFSETS[] = {
+#ifdef CONFIG_MTD_NDM_CONFIG_TRANSITION_OFFSET
+		CONFIG_MTD_NDM_CONFIG_TRANSITION_OFFSET,
+#endif
+#ifdef CONFIG_MTD_NDM_CONFIG_TRANSITION_OFFSET_2
+		CONFIG_MTD_NDM_CONFIG_TRANSITION_OFFSET_2,
+#endif
+	};
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(TRANSITION_OFFSETS); i++) {
+		const u32 offs = TRANSITION_OFFSETS[i];
+		__le32 magic;
+		size_t len;
+		int ret;
+
+		if (offs == 0)
+			continue;
+
+		ret = mtd_read(master, offs, sizeof magic, &len,
+				   (u8 *) &magic);
+
+		if (ret != 0 || len != sizeof magic) {
+			printk(KERN_ERR "read failed at 0x%012llx\n",
+			       (unsigned long long) offs);
+			return -EIO;
+		}
+
+		if (magic == CONFIG_MAGIC || magic == CONFIG_MAGIC_V1) {
+			*offset = offs;
+			return 0;
+		}
+	}
+
+	return -ENOENT;
+}
+
 /*
  * TODO:
  * - erase full partition (?);
  * - smart detecting size of config.
  */
-static void config_move(struct mtd_info *master, unsigned int offset)
+static void config_move(struct mtd_info *master)
 {
-	__le32 magic;
 	int ret;
+	u32 offset;
 	size_t len;
 	struct erase_info ei;
 	unsigned char *iobuf;
 
-	ret = mtd_read(master, offset, sizeof magic, &len,
-			   (uint8_t *) &magic);
-	if (ret || len != sizeof magic)
-		goto out;
-
-	if (magic != CONFIG_MAGIC && magic != CONFIG_MAGIC_V1)
+	ret = config_find(master, &offset);
+	if (ret != 0)
 		goto out;
 
 	printk(KERN_INFO "Found config in old partition at 0x%012llx, move it\n",
@@ -340,7 +497,7 @@ static int create_mtd_partitions(struct mtd_info *master,
 	/* Config */
 	ndm_parts[PART_CONFIG].offset = config_offset;
 #ifdef CONFIG_MTD_NDM_CONFIG_TRANSITION
-	config_move(master, CONFIG_MTD_NDM_CONFIG_TRANSITION_OFFSET);
+	config_move(master);
 #endif
 
 	/* Backup */
@@ -369,6 +526,11 @@ static int create_mtd_partitions(struct mtd_info *master,
 				      ndm_parts[PART_ROOTFS].offset;
 
 	*pparts = kmemdup(ndm_parts, sizeof(struct mtd_partition) * part_num, GFP_KERNEL);
+
+#ifdef CONFIG_MTD_NDM_BOOT_UPDATE
+	ndm_flash_boot(master);
+#endif
+
 	return part_num;
 }
 
@@ -381,8 +543,7 @@ static struct mtd_part_parser ndm_parser = {
 static int __init ndm_parser_init(void)
 {
 	printk(KERN_INFO "Registering NDM partitions parser\n");
-	register_mtd_parser(&ndm_parser);
-	return 0;
+	return register_mtd_parser(&ndm_parser);
 }
 
 module_init(ndm_parser_init);
