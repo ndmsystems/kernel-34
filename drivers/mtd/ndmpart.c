@@ -358,6 +358,7 @@ static int create_mtd_partitions(struct mtd_info *master,
 	ndm_parts[index].name = "Full";
 	ndm_parts[index].size = MTDPART_SIZ_FULL;
 	ndm_parts[index].offset = 0;
+	ndm_parts[index].mask_flags = MTD_WRITEABLE;
 
 	/* Firmware */
 	ndm_parts[PART_FIRMWARE].offset = ndm_parts[PART_KERNEL].offset;
