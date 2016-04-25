@@ -144,23 +144,6 @@
 
 #include "net-sysfs.h"
 
-#ifdef CONFIG_NET_PPPOE_PTHROUGH
-#include "pthrough/pthrough.h"
-#endif
-
-#if IS_ENABLED(CONFIG_RA_HW_NAT)
-#if !defined(CONFIG_RAETH_BOTH_GMAC)
-#if defined(CONFIG_RTL8367)
-extern int rtl8367_get_traffic_port_wan(struct rtnl_link_stats64 *stats);
-#if defined(CONFIG_RTL8367_USE_INIC_EXT)
-extern int rtl8367_get_traffic_port_inic(struct rtnl_link_stats64 *stats);
-#endif
-#elif defined(CONFIG_RAETH_ESW_CONTROL)
-extern int esw_get_traffic_port_wan(struct rtnl_link_stats64 *stats);
-#endif
-#endif
-#endif
-
 /* Instead of increasing this, you should create a hash table. */
 #define MAX_GRO_SKBS 8
 
@@ -3419,14 +3402,6 @@ another_round:
 			goto out;
 	}
 
-#ifdef CONFIG_NET_PPPOE_PTHROUGH
-	// if packet forwarded return 1
-	if (private_pthrough(skb)) {
-		ret = NET_RX_SUCCESS;
-		goto out;
-	}
-#endif
-
 #ifdef CONFIG_NET_CLS_ACT
 	if (skb->tc_verd & TC_NCLS) {
 		skb->tc_verd = CLR_TC_NCLS(skb->tc_verd);
@@ -4409,22 +4384,6 @@ static void dev_seq_printf_stats(struct seq_file *seq, struct net_device *dev)
 	struct rtnl_link_stats64 temp;
 	const struct rtnl_link_stats64 *stats = dev_get_stats(dev, &temp);
 
-#if IS_ENABLED(CONFIG_RA_HW_NAT)
-#if !defined(CONFIG_RAETH_BOTH_GMAC)
-#if defined(CONFIG_RTL8367)
-	if(strcmp(dev->name, "eth2.2") == 0)
-		rtl8367_get_traffic_port_wan(&temp);
-#if defined(CONFIG_RTL8367_USE_INIC_EXT)
-	else if(strcmp(dev->name, "rai0") == 0)
-		rtl8367_get_traffic_port_inic(&temp);
-#endif
-#elif defined(CONFIG_RAETH_ESW_CONTROL)
-	if(strcmp(dev->name, "eth2.2") == 0)
-		esw_get_traffic_port_wan(&temp);
-#endif
-#endif
-#endif
-
 	seq_printf(seq, "%6s: %7llu %7llu %4llu %4llu %4llu %5llu %10llu %9llu "
 		   "%8llu %7llu %4llu %4llu %4llu %5llu %7llu %10llu\n",
 		   dev->name, stats->rx_bytes, stats->rx_packets,
@@ -4660,18 +4619,9 @@ static int __net_init dev_proc_net_init(struct net *net)
 	if (wext_proc_init(net))
 		goto out_ptype;
 
-#ifdef CONFIG_NET_PPPOE_PTHROUGH
-	if (pthrough_create_proc_entry(net))
-		goto out_pthrough;
-#endif /* CONFIG_NET_PPPOE_PTHROUGH */
-
 	rc = 0;
 out:
 	return rc;
-#ifdef CONFIG_NET_PPPOE_PTHROUGH
-out_pthrough:
-	pthrough_remove_proc_entry(net);
-#endif /* CONFIG_NET_PPPOE_PTHROUGH */
 out_ptype:
 	proc_net_remove(net, "ptype");
 out_softnet:
