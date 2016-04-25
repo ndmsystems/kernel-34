@@ -29,6 +29,10 @@ static const char *part_probes[] = { "ndmpart", NULL };
 static struct mtd_partition *mtd_parts;
 int part_num = 0;
 
+#if defined (CONFIG_JFFS2_FS) || defined (CONFIG_JFFS2_FS_MODULE)
+#define JFFS2_WORKAROUND
+#endif
+
 #if defined (CONFIG_MTD_UBI) || defined (CONFIG_MTD_UBI_MODULE)
 #define UBIFS_ECC_0_PATCH
 #endif
@@ -1812,7 +1816,7 @@ static int mtk_nand_write_oob_raw(struct mtd_info *mtd, const uint8_t * buf, int
 	return 0;
 }
 
-#if !defined (CONFIG_MTD_NAND_MTK_JFFS2_WORKAROUND)
+#if !defined (JFFS2_WORKAROUND)
 static int mtk_nand_write_oob_hw(struct mtd_info *mtd, struct nand_chip *chip, int page)
 {
 	int i, iter;
@@ -2328,7 +2332,7 @@ static int mtk_nand_probe(struct platform_device *pdev)
 	chip->ecc.read_page = mtk_nand_read_page_hwecc;
 	chip->ecc.write_page = mtk_nand_write_page_hwecc;
 	chip->ecc.read_oob = mtk_nand_read_oob;
-#if defined (CONFIG_MTD_NAND_MTK_JFFS2_WORKAROUND)
+#if defined (JFFS2_WORKAROUND)
 	chip->ecc.write_oob = NULL;
 #else
 	chip->ecc.write_oob = mtk_nand_write_oob;
