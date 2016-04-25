@@ -30,15 +30,6 @@
 #include <net/netfilter/nf_log.h>
 #include "../../netfilter/xt_repldata.h"
 
-#if defined(CONFIG_NAT_CONE)
-#if IS_ENABLED(CONFIG_PPP)
-#define NF_NEED_STRTOU32
-#include <linux/netfilter/netfilter_helpers.h>
-extern int cone_ppp_ifindex;
-#endif
-extern int cone_man_ifindex;
-#endif
-
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Netfilter Core Team <coreteam@netfilter.org>");
 MODULE_DESCRIPTION("IPv4 packet filter");
@@ -1482,42 +1473,6 @@ do_add_counters(struct net *net, const void __user *user,
 	loc_cpu_entry = private->entries[curcpu];
 	addend = xt_write_recseq_begin();
 	xt_entry_foreach(iter, loc_cpu_entry, private->size) {
-#if defined(CONFIG_NAT_CONE)
-		struct ipt_entry *e = iter;
-		struct xt_entry_target *f = ipt_get_target(e);
-		if ((strlen(e->ip.outiface) > 0) && (strcmp(f->u.kernel.target->name, "MASQUERADE") == 0 ||
-		                                     strcmp(f->u.kernel.target->name, "SNAT") == 0)) {
-#if defined(CONFIG_RAETH_BOTH_GMAC)
-			/* ralink 2xGMAC - wan */
-			if (strncmp(e->ip.outiface, "eth3", 4) == 0) {
-#elif IS_ENABLED(CONFIG_RAETH)
-			/* ralink vlan - wan */
-			if (strncmp(e->ip.outiface, "eth2.", 5) == 0 && strcmp(e->ip.outiface, "eth2.1") != 0) {
-#else
-			/* hw independed - wan, if not ppp - this wan */
-			if (strncmp(e->ip.outiface, "ppp", 3) != 0) {
-#endif
-				struct net_device *man_dev = dev_get_by_name(net, e->ip.outiface);
-				if (man_dev) {
-					cone_man_ifindex = man_dev->ifindex;
-					dev_put(man_dev);
-				}
-			}
-#if IS_ENABLED(CONFIG_PPP)
-			/* ppp[0..9] - wan */
-			else if (strncmp(e->ip.outiface, "ppp", 3) == 0) {
-				u32 ifnum = 0;
-				if (nf_strtou32(e->ip.outiface+3, &ifnum) > 0 && ifnum < 10) {
-					struct net_device *ppp_dev = dev_get_by_name(net, e->ip.outiface);
-					if (ppp_dev) {
-						cone_ppp_ifindex = ppp_dev->ifindex;
-						dev_put(ppp_dev);
-					}
-				}
-			}
-#endif
-		}
-#endif
 		ADD_COUNTER(iter->counters, paddc[i].bcnt, paddc[i].pcnt);
 		++i;
 	}
