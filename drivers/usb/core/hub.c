@@ -1984,13 +1984,11 @@ static int usb_enumerate_device(struct usb_device *udev)
 	/* Get Microsoft Compatible ID Feature Descriptors, McMCC, 19112013 */
 	if ((usb_get_os_str_descriptor = rcu_dereference(usb_get_os_str_desc_hook))) {
 		err = usb_get_os_str_descriptor(udev);
-
 		if (err < 0)
 			return err;
 
-		if (err == 1 || udev == NULL) {
-			if (udev)
-				udev->state = USB_STATE_RECONNECTING;
+		if (err == 1) {
+			usb_set_device_state(udev, USB_STATE_RECONNECTING);
 			return -ENODEV;
 		}
 	}
@@ -1998,9 +1996,6 @@ static int usb_enumerate_device(struct usb_device *udev)
 	err = usb_enumerate_device_otg(udev);
 	if (err < 0)
 		return err;
-
-	if (udev == NULL)
-		return -ENODEV;
 
 	usb_detect_interface_quirks(udev);
 
@@ -2083,7 +2078,7 @@ int usb_new_device(struct usb_device *udev)
 	usb_disable_autosuspend(udev);
 
 	err = usb_enumerate_device(udev);	/* Read descriptors */
-	if (err < 0 || udev == NULL)
+	if (err < 0)
 		goto fail;
 	dev_dbg(&udev->dev, "udev %d, busnum %d, minor = %d\n",
 			udev->devnum, udev->bus->busnum,
