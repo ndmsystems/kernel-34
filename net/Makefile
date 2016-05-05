@@ -71,5 +71,4 @@ obj-$(CONFIG_BATMAN_ADV)	+= batman-adv/
 obj-$(CONFIG_NFC)		+= nfc/
 obj-$(CONFIG_OPENVSWITCH)	+= openvswitch/
 
-obj-$(CONFIG_RA_NAT_HW)		+= nat/hw_nat/
 

@@ -190,6 +190,7 @@ typedef struct {
 #define FOE_MAGIC_WLAN		    0x7274
 #define FOE_MAGIC_GE		    0x7275
 #define FOE_MAGIC_PPE		    0x7276
+#define FOE_MAGIC_PPE_DWORD	    0x3fff7276U		/* HNAT_V1: FVLD=0, HNAT_V2: FOE_Entry=0x3fff */
 
 /* choose one of them to keep HNAT related information in somewhere. */
 //#define HNAT_USE_HEADROOM
@@ -290,16 +291,30 @@ typedef struct {
 #endif
 
 #define FOE_ALG_SKIP(skb) \
-	if( IS_SPACE_AVAILABLED(skb) && IS_MAGIC_TAG_VALID(skb) ) FOE_ALG(skb)=1
+	if (IS_SPACE_AVAILABLED(skb) && !FOE_ALG(skb) && IS_MAGIC_TAG_VALID(skb)) FOE_ALG(skb)=1
+
+#define FOE_ALG_MARK(skb) 		FOE_ALG_SKIP(skb)
+
+#define FOE_AI_UNHIT(skb) \
+	if (IS_SPACE_AVAILABLED(skb)) FOE_AI(skb)=UN_HIT
+
+// fast clear FoE Info (magic_tag,entry_num)
+#define DO_FAST_CLEAR_FOE(skb) \
+	(*(uint32_t *)(FOE_INFO_START_ADDR(skb)) = 0U)
+
+// full clear FoE Info
+#define DO_FULL_CLEAR_FOE(skb) \
+	(memset(FOE_INFO_START_ADDR(skb), 0, FOE_INFO_LEN))
+
+// fast fill FoE desc to DPORT PPE (magic_tag,entry_num)
+#define DO_FILL_FOE_DPORT_PPE(skb) \
+	(*(uint32_t *)(FOE_INFO_START_ADDR(skb)) = FOE_MAGIC_PPE_DWORD)
 
 #if defined (CONFIG_RALINK_MT7620)
 #define REG_ESW_VLAN_VTCR		0x90
 #define REG_ESW_VLAN_VAWD1		0x94
 #define REG_ESW_VLAN_VAWD2		0x98
 #endif
-
-#define FOE_ALG_MARK(skb)
-#define FOE_AI_UNHIT(skb)
 
 /*
  * EXPORT FUNCTION
