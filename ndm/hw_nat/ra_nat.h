@@ -193,9 +193,9 @@ typedef struct {
 #define FOE_MAGIC_PPE_DWORD	    0x3fff7276U		/* HNAT_V1: FVLD=0, HNAT_V2: FOE_Entry=0x3fff */
 
 /* choose one of them to keep HNAT related information in somewhere. */
-//#define HNAT_USE_HEADROOM
+#define HNAT_USE_HEADROOM
 //#define HNAT_USE_TAILROOM
-#define HNAT_USE_SKB_CB
+//#define HNAT_USE_SKB_CB
 
 #if defined (HNAT_USE_HEADROOM)
 #define IS_SPACE_AVAILABLED(skb)    ((skb_headroom(skb) >= FOE_INFO_LEN) ? 1 : 0)
