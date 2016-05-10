@@ -44,10 +44,11 @@
  * v2.59.2m - Modify "MTU" parameter
  * v2.59.2m2 - Modify "rx_urb_size" parameter
  * v2.59.2m3r - Modify "rx_urb_size" parameter
+ * v2.59.2m4 - Fix "dm_read_shared_word()" deadlock on error path, code cleanup
  */
 
 //#define DEBUG
-#define LNX_DM9620_VER_STR  "V2.59.2m3r"
+#define LNX_DM9620_VER_STR  "V2.59.2m4"
 
 
 #include <linux/module.h>
@@ -86,19 +87,19 @@
 #define DM_SHARED_DATA	0x0d	/* low + high */
 #define DM_EE_PHY_L	0x0d
 #define DM_EE_PHY_H	0x0e
-#define DM_WAKEUP_CTRL  0x0f
+#define DM_WAKEUP_CTRL	0x0f
 #define DM_PHY_ADDR	0x10	/* 6 bytes */
 #define DM_MCAST_ADDR	0x16	/* 8 bytes */
 #define DM_GPR_CTRL	0x1e
 #define DM_GPR_DATA	0x1f
-#define DM_PID      0x2a
+#define DM_PID		0x2a
 #define DM_XPHY_CTRL	0x2e
 #define DM_TX_CRC_CTRL	0x31
 #define DM_RX_CRC_CTRL	0x32
-#define DM_SMIREG       0x91
+#define DM_SMIREG	0x91
 #define USB_CTRL	0xf4
 #define PHY_SPEC_CFG	20
-#define DM_TXRX_M       0x5C
+#define DM_TXRX_M	0x5C
 
 #define DMSC_WEP	0x10
 #define DMSC_ERPRW	0x02
@@ -118,9 +119,8 @@
 #define DM9620_PHY_ID 1      /* Stone add For kernel read phy register */
 
 struct dm96xx_priv {
-  //int	flag_fail_count; // EVER RX-DBG
-	int flg_txdbg; // NOW TX-DBG
-	u8  mode_9620;
+	int	flg_txdbg; // NOW TX-DBG
+	u8	mode_9620;
 	u8	tx_fix_mod;
 };
 
@@ -152,17 +152,17 @@ static int dm_read_reg(struct usbnet *dev, u8 reg, u8 *value)
 {
 	u16 *tmpwPtr;
 	int ret;
-	tmpwPtr= kmalloc (2, GFP_ATOMIC);
-	if (!tmpwPtr)
-	{
+
+	tmpwPtr = kmalloc(2, GFP_ATOMIC);
+	if (!tmpwPtr) {
 		printk(KERN_ERR "+++++++++++ JJ5 dm_read_reg() Error: can not kmalloc!\n"); //usbnet_suspend (intf, message);
-		return 0;
+		return -ENOMEM;
 	}
 
 	ret = dm_read(dev, reg, 2, tmpwPtr);  // usb_submit_urb v.s. usb_control_msg
-	*value= (u8)(*tmpwPtr & 0xff);
+	*value = (u8)(*tmpwPtr & 0xff);
 
-	kfree (tmpwPtr);
+	kfree(tmpwPtr);
 	return ret;
 }
 
@@ -202,7 +202,7 @@ static void dm_write_reg_async(struct usbnet *dev, u8 reg, u8 value)
 static int dm_read_shared_word(struct usbnet *dev, int phy, u8 reg, __le16 *value)
 {
 	int ret, i;
-  u16 *tmpwPtr1;
+	u16 *tmpwPtr1;
 
 	mutex_lock(&dev->phy_mutex);
 
@@ -231,17 +231,17 @@ static int dm_read_shared_word(struct usbnet *dev, int phy, u8 reg, __le16 *valu
 	dm_write_reg(dev, DM_SHARED_CTRL, 0x0);
 //	ret = dm_read(dev, DM_SHARED_DATA, 2, value); 
 	//Stone add
-	tmpwPtr1= kmalloc (2, GFP_ATOMIC);
-	if (!tmpwPtr1)
-	{
+	tmpwPtr1 = kmalloc(2, GFP_ATOMIC);
+	if (!tmpwPtr1) {
 		printk(KERN_ERR "+++++++++++ JJ5 dm_read_reg() Error: can not kmalloc!\n"); //usbnet_suspend (intf, message);
-		return 0; 
+		ret = -ENOMEM;
+		goto out;
 	}
 
 	ret = dm_read(dev, DM_SHARED_DATA, 2, tmpwPtr1);  // usb_submit_urb v.s. usb_control_msg
-	*value= (u16)(*tmpwPtr1 & 0xffff);
+	*value = (u16)(*tmpwPtr1 & 0xffff);
 
-	kfree (tmpwPtr1); 
+	kfree (tmpwPtr1);
 
 //	dm9620_print(dev, "read shared %d 0x%02x returned 0x%04x, %d",
 //	phy, reg, *value, ret);
@@ -297,6 +297,7 @@ static void device_polling(struct usbnet *dev, u8 reg, u8 dmsc_bit,
 {
 	int i,ret;
 	u8 tmp= 0;
+
 	for (i = 0; i < DM_TIMEOUT; i++) {
 		udelay(1);
 		ret = dm_read_reg(dev, reg, &tmp);
@@ -313,7 +314,6 @@ static void device_polling(struct usbnet *dev, u8 reg, u8 dmsc_bit,
 		dm9620_err(dev, "[dm962 time out] on polling bit:0x%x\n",
 				dmsc_bit);
 }
-
 
 static void dm_write_eeprom_word(struct usbnet *dev, u8 offset, u8 *data)
 {
@@ -334,7 +334,6 @@ static int dm_read_eeprom_word(struct usbnet *dev, u8 offset, void *value)
 {
 	return dm_read_shared_word(dev, 0, offset, value);
 }
-
 
 static int dm9620_set_eeprom(struct net_device *net,struct ethtool_eeprom *eeprom, u8 *data)
 {
@@ -400,7 +399,6 @@ static int dm9620_get_eeprom(struct net_device *net,
 static int dm9620_mdio_read(struct net_device *netdev, int phy_id, int loc)
 {
 	struct usbnet *dev = netdev_priv(netdev);
-
 	__le16 res;
 	u8 tmp;
 
@@ -478,7 +476,7 @@ static u32 dm9620_get_link(struct net_device *net)
 #define SERVICETAG_LEN		0x20
 #define SERVICEHOST_LEN		0x30
 #define SERVICEPASS_LEN		0x20
-#define NDMHWID_LEN			0x10
+#define NDMHWID_LEN		0x10
 #define RESERVED_LEN		0x10
 #define CHECKSUM_LEN		0x22
 
@@ -518,6 +516,7 @@ static int dm9620_ioctl(struct net_device *net, struct ifreq *rq, int cmd)
 		case SIOCDEVPRIVATE:
 			dm_write_reg(dev, DM_GPR_DATA, 0);  // GPIO (SMI_D) Low
 			break;
+
 		case SIOCDEVPRIVATE+1:
 			dm_write_reg(dev, DM_GPR_DATA, (1<<3));  // GPIO (SMI_D) High
 			break;
@@ -529,16 +528,15 @@ static int dm9620_ioctl(struct net_device *net, struct ifreq *rq, int cmd)
 
 		case IOCGETSRVINFO:
 			{
-				service_info_t *service_info = kmalloc(sizeof(service_info_t), GFP_TEMPORARY);
+				service_info_t *service_info;
 				long len = 0;
 
+				if (rq->ifr_data == NULL)
+					return -EFAULT;
+
+				service_info = kzalloc(sizeof(service_info_t), GFP_TEMPORARY);
 				if (service_info == NULL)
 					return -ENOMEM;
-				if (rq->ifr_data == NULL) {
-					kfree(service_info);
-					return -EFAULT;
-				}
-				memset(service_info, 0, sizeof(service_info_t));
 
 				len = dm96xx_read_service_region(dev, SERVICETAG_OFF, sizeof(service_info_t), service_info);
 				if (len > 0) {
@@ -558,7 +556,7 @@ static int dm9620_ioctl(struct net_device *net, struct ifreq *rq, int cmd)
 
 		default:
 			// Original
-	return generic_mii_ioctl(&dev->mii, if_mii(rq), cmd, NULL);
+			return generic_mii_ioctl(&dev->mii, if_mii(rq), cmd, NULL);
 	}
 
 	return 0;
@@ -693,11 +691,7 @@ static const struct net_device_ops vm_netdev_ops = {
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_do_ioctl 		= dm9620_ioctl,
 	.ndo_set_mac_address	= dm9620_set_mac_address,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0)
 	.ndo_set_rx_mode	= dm9620_set_multicast,
-#else
-	.ndo_set_multicast_list	= dm9620_set_multicast,
-#endif
 };
 
 /* ETH_HLEN is 14 */
@@ -711,7 +705,6 @@ static int dm9620_bind(struct usbnet *dev, struct usb_interface *intf)
 	u8 temp;
 #ifdef DEBUG
 	int i;
-	u8 tmp;
 #endif
 
 	ret = usbnet_get_endpoints(dev, intf);
@@ -767,7 +760,7 @@ static int dm9620_bind(struct usbnet *dev, struct usb_interface *intf)
 #endif
 
 	/* read SMI mode register */
-	priv = dev->driver_priv = kmalloc(sizeof(struct dm96xx_priv), GFP_ATOMIC);
+	priv = dev->driver_priv = kzalloc(sizeof(struct dm96xx_priv), GFP_KERNEL);
 	if (!priv) {
 		dm9620_err(dev,"Failed to allocate memory for dm96xx_priv");
 		ret = -ENOMEM;
@@ -786,8 +779,6 @@ static int dm9620_bind(struct usbnet *dev, struct usb_interface *intf)
 	dm_write_reg(dev, DM_MCAST_ADDR, 0);     // clear data bus to 0s
 	dm_read_reg(dev, DM_MCAST_ADDR, &temp);  // clear data bus to 0s
 	ret = dm_read_reg(dev, DM_SMIREG, &temp);   // Must clear data bus before we can read the 'MODE9620' bit
-
-	priv->flg_txdbg= 0; //->flag_fail_count= 0;
 	if (ret < 0) {
 		printk(KERN_ERR "[dm96] Error read SMI register\n");
 	} else {
@@ -798,19 +789,19 @@ static int dm9620_bind(struct usbnet *dev, struct usb_interface *intf)
 #endif
 
 	dm_read_reg(dev, DM_TXRX_M, &temp);  // Need to check the Chipset version (register 0x5c is 0x02?)
-	if (temp == 0x02)
-	{
+	if (temp == 0x02) {
 		dm_read_reg(dev, 0x3f, &temp);
 		temp |= 0x80;
 		dm_write_reg(dev, 0x3f, temp);
 	}
 
 	//Stone add for check Product ID == 0x1269
-	tmpwPtr2 = kmalloc(2, GFP_ATOMIC);
-	if (!tmpwPtr2)
-	{
+	tmpwPtr2 = kmalloc(2, GFP_KERNEL);
+	if (!tmpwPtr2) {
 		printk(KERN_ERR "+++++++++++ JJ5 dm_read_reg() Error: can not kmalloc!\n"); //usbnet_suspend (intf, message);
-		return 0;
+		kfree(dev->driver_priv);
+		dev->driver_priv = NULL;
+		return -ENOMEM;
 	}
 	ret = dm_read(dev, DM_PID, 2, tmpwPtr2);
 
@@ -854,7 +845,6 @@ void dm9620_unbind(struct usbnet *dev, struct usb_interface *intf)
 	struct dm96xx_priv* priv= dev->driver_priv;
 	printk("dm9620_unbind():\n");
 
-   //printk("flag_fail_count  %lu\n", (long unsigned int)priv->flag_fail_count);
 	printk("flg_txdbg  %lu\n", (long unsigned int)priv->flg_txdbg);
 #endif
 
@@ -868,7 +858,6 @@ void dm9620_unbind(struct usbnet *dev, struct usb_interface *intf)
 	printk("rx_fifo_errors   %lu\n",dev->net->stats.rx_fifo_errors  );
 	printk("rx_missed_errors %lu\n",dev->net->stats.rx_missed_errors);
 #endif
-
 }
 
 static int dm9620_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
@@ -890,11 +879,6 @@ static int dm9620_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 	   rx_flag in the first pos
 	 */
 
-	if (unlikely(skb->len < DM_RX_OVERHEAD_9601)) {   // 20090623
-		dev_err(&dev->udev->dev, "unexpected tiny rx frame\n");
-		return 0;
-	}
-
 	if (priv->mode_9620) {
 		/* mode 9620 */
 
@@ -902,6 +886,7 @@ static int dm9620_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 			dev_err(&dev->udev->dev, "unexpected tiny rx frame\n");
 			return 0;
 		}
+
 		status = skb->data[1];
 		len = (skb->data[2] | (skb->data[3] << 8)) - 4;
 
@@ -919,20 +904,25 @@ static int dm9620_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 
 	} else { /* mode 9620 (original driver code) */
 
-	status = skb->data[0];
-	len = (skb->data[1] | (skb->data[2] << 8)) - 4;
+		if (unlikely(skb->len < DM_RX_OVERHEAD_9601)) {   // 20090623
+			dev_err(&dev->udev->dev, "unexpected tiny rx frame\n");
+			return 0;
+		}
 
-	if (unlikely(status & 0xbf)) {
-		if (status & 0x01) dev->net->stats.rx_fifo_errors++;
-		if (status & 0x02) dev->net->stats.rx_crc_errors++;
-		if (status & 0x04) dev->net->stats.rx_frame_errors++;
-		if (status & 0x20) dev->net->stats.rx_missed_errors++;
-		if (status & 0x90) dev->net->stats.rx_length_errors++;
-		return 0;
-	}
+		status = skb->data[0];
+		len = (skb->data[1] | (skb->data[2] << 8)) - 4;
 
-	skb_pull(skb, 3);
-	skb_trim(skb, len);
+		if (unlikely(status & 0xbf)) {
+			if (status & 0x01) dev->net->stats.rx_fifo_errors++;
+			if (status & 0x02) dev->net->stats.rx_crc_errors++;
+			if (status & 0x04) dev->net->stats.rx_frame_errors++;
+			if (status & 0x20) dev->net->stats.rx_missed_errors++;
+			if (status & 0x90) dev->net->stats.rx_length_errors++;
+			return 0;
+		}
+
+		skb_pull(skb, 3);
+		skb_trim(skb, len);
 	}
 
 	return 1;
@@ -1080,6 +1070,7 @@ static int dm9620_link_reset(struct usbnet *dev)
 
 	/* hank add*/
 	dm9620_mdio_write(dev->net, dev->mii.phy_id, PHY_SPEC_CFG, 0x800);
+
 	netdev_dbg(dev->net, "link_reset() speed: %u duplex: %d\n",
 		   ethtool_cmd_speed(&ecmd), ecmd.duplex);
 
@@ -1095,7 +1086,7 @@ static const struct driver_info dm9620_info = {
 	.status		= dm9620_status,
 	.link_reset	= dm9620_link_reset,
 	.reset		= dm9620_link_reset,
-	.unbind     = dm9620_unbind,
+	.unbind		= dm9620_unbind,
 };
 
 static const struct driver_info kplusdsl_info = {
@@ -1107,7 +1098,7 @@ static const struct driver_info kplusdsl_info = {
 	.status		= dm9620_status,
 	.link_reset	= dm9620_link_reset,
 	.reset		= dm9620_link_reset,
-	.unbind     = dm9620_unbind,
+	.unbind		= dm9620_unbind,
 };
 
 static const struct usb_device_id products[] = {
