@@ -283,9 +283,14 @@ static int ubr_detach(struct net_device *master_dev, int ifindex)
 {
 	struct net_device *dev1;
 	struct ubr_private *ubr0 = netdev_priv(master_dev);
+#ifdef CONFIG_NET_NS
+	struct net *net = master_dev->nd_net;
+#else
+	struct net *net = &init_net;
+#endif
 	int err = -ENODEV;
 
-	dev1 = __dev_get_by_index(&init_net, ifindex);
+	dev1 = __dev_get_by_index(net, ifindex);
 	if (!dev1)
 		goto out;
 
@@ -293,9 +298,7 @@ static int ubr_detach(struct net_device *master_dev, int ifindex)
 		goto out;
 	ubr0->slave_dev = NULL;
 
-	rtnl_lock();
 	netdev_rx_handler_unregister(dev1);
-	rtnl_unlock();
 
 	if (master_dev->flags & IFF_PROMISC)
 		dev_set_promiscuity(dev1, -1);
@@ -447,12 +450,6 @@ static void __exit ubridge_exit(void)
 	printk(KERN_INFO "ubridge: driver unloaded\n");
 }
 
-/*
-module_param_call(newif, ubr_newif, ubr_noget, NULL, S_IWUSR);
-module_param_call(attachif, ubr_attachif, ubr_noget, NULL, S_IWUSR);
-module_param_call(detachif, ubr_detachif, ubr_noget, NULL, S_IWUSR);
-module_param_call(delif, ubr_delif, ubr_noget, NULL, S_IWUSR);
-*/
 module_init(ubridge_init);
 module_exit(ubridge_exit);
 MODULE_DESCRIPTION(DRV_DESCRIPTION);
