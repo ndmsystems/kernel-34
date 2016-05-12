@@ -144,11 +144,11 @@ static const struct net_device_ops ubr_netdev_ops =
 
 };
 
+/* RTNL locked */
 static int ubr_deregister(struct net_device *dev)
 {
 	struct ubr_private *ubr = netdev_priv(dev);
 
-	rtnl_lock();
 	dev_close(dev);
 
 	if (ubr) {
@@ -159,7 +159,7 @@ static int ubr_deregister(struct net_device *dev)
 	}
 
 	unregister_netdevice(dev);
-	rtnl_unlock();
+
 	return 0;
 }
 
@@ -168,6 +168,7 @@ static int ubr_free_master(struct net *net, const char *name)
 	struct net_device *dev;
 	int ret = 0;
 
+	rtnl_lock();
 	dev = __dev_get_by_name(net, name);
 	if (dev == NULL)
 		ret =  -ENXIO; 	/* Could not find device */
@@ -176,6 +177,7 @@ static int ubr_free_master(struct net *net, const char *name)
 		ret = -EBUSY;
 	else
 		ret = ubr_deregister(dev);
+	rtnl_unlock();
 
 	return ret;
 }
