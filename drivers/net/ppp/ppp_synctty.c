@@ -246,6 +246,7 @@ ppp_sync_open(struct tty_struct *tty)
 
 	tty->disc_data = ap;
 	tty->receive_room = 65536;
+	tty->low_latency = 1;
 	return 0;
 
  out_free:
