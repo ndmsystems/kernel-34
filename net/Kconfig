@@ -26,6 +26,9 @@ if NET
 config FAST_NAT
 	tristate "Fast NAT support"
 
+config NTCE_MODULE
+	tristate "NTCE module support"
+
 config WANT_COMPAT_NETLINK_MESSAGES
 	bool
 	help

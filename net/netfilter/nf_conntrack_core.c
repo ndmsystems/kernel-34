@@ -85,6 +85,11 @@ extern void (*prebind_from_fastnat)(struct sk_buff * skb,
 extern int (*fast_nat_bind_hook_ingress)(struct sk_buff * skb);
 #endif
 
+#if defined(CONFIG_NTCE_MODULE)
+extern unsigned int (*ntce_pass_pkt_func)(struct sk_buff *skb);
+extern void (*ntce_enq_pkt_hook_func)(struct sk_buff *skb);
+#endif /* defined(CONFIG_NTCE_MODULE) */
+
 int (*nfnetlink_parse_nat_setup_hook)(struct nf_conn *ct,
 				      enum nf_nat_manip_type manip,
 				      const struct nlattr *attr) __read_mostly;
@@ -1163,6 +1168,12 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 		struct nf_conntrack_l4proto *l4proto);
 #endif
 
+#if defined(CONFIG_NTCE_MODULE)
+	unsigned int (*ntce_pass_pkt)(struct sk_buff * skb) = NULL;
+	void (*ntce_enq_pkt_hook)(struct sk_buff *skb) = NULL;
+	unsigned int ntce_pass = 1;
+#endif // #if defined(CONFIG_NTCE_MODULE)
+
 	if (skb->nfct) {
 		/* Previously seen (loopback or untracked)?  Ignore. */
 		tmpl = (struct nf_conn *)skb->nfct;
@@ -1284,13 +1295,27 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 						orig_port = udph->source;
 					}
 
+#if defined(CONFIG_NTCE_MODULE)
+					if ((ntce_pass_pkt = rcu_dereference(ntce_pass_pkt_func)) &&
+					    (ntce_enq_pkt_hook = rcu_dereference(ntce_enq_pkt_hook_func))) {
+
+						if (ntce_pass = ntce_pass_pkt(skb)) {
+							ntce_enq_pkt_hook(skb);
+						}
+					}
+#endif // #if defined(CONFIG_NTCE_MODULE)
+
 					ret = fast_nat_bind_hook(ct, ctinfo, skb, l3proto, l4proto);
 
 					iph = (struct iphdr *)skb->data;
 					new_src = iph->saddr;
 
 					/* Get rid of junky binds, do swnat only when src IP changed */
-					if (orig_src != new_src) { 
+					if (orig_src != new_src
+#if defined(CONFIG_NTCE_MODULE)
+					    && !ntce_pass
+#endif // #if defined(CONFIG_NTCE_MODULE)
+                       ) {
 						/* Set mark for further binds */
 						SWNAT_FNAT_SET_MARK(skb);
 						rcu_read_lock();
