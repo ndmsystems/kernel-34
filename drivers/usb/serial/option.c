@@ -1860,6 +1860,7 @@ static const struct usb_device_id option_ids[] = {
 	{ USB_DEVICE(INOVIA_VENDOR_ID, INOVIA_TEW120) },
 	{ USB_DEVICE(VIATELECOM_VENDOR_ID, VIATELECOM_PRODUCT_CDS7) },
 	{ USB_DEVICE(0x22de, 0x6801) },						/* CDMA WeTelecom WM-D200/D300 */
+	{ USB_DEVICE(0x19d2, 0x0317) }, /*MF827 Altel Transnistria*/
 	{ } /* Terminating entry */
 };
 MODULE_DEVICE_TABLE(usb, option_ids);
