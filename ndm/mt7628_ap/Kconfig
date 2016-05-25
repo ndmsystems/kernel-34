@@ -1,7 +1,7 @@
 menu "MTK Wi-Fi driver for MT7628"
 
 config MT7628_AP
-    tristate "MT7628 SoC 802.11n AP support"
+	tristate "MT7628 SoC 802.11n AP support"
 
 config MT_AP_SUPPORT
 	bool
@@ -25,8 +25,13 @@ config MT_MAC
 
 config UAPSD
 	bool "Unscheduled automatic power save delivery"
-	default n
+	default y
 	depends on MT7628_AP
+
+config SMART_CARRIER_SENSE_SUPPORT
+	bool "Smart Carrier Sense"
+	depends on MT7628_AP
+	default y
 
 config WSC_INCLUDED
 	bool "WSC"
