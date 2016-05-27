@@ -106,6 +106,9 @@ EXPORT_SYMBOL(fast_nat_bind_hook_func);
 
 int ipv4_fastnat_conntrack = 1;
 EXPORT_SYMBOL(ipv4_fastnat_conntrack);
+
+int (*fast_nat_bind_hook_ingress)(struct sk_buff * skb) = NULL;
+EXPORT_SYMBOL(fast_nat_bind_hook_ingress);
 #endif /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
 
 int (*ra_sw_nat_hook_rx) (struct sk_buff * skb) = NULL;

@@ -25,7 +25,7 @@
 #include <linux/netfilter/nf_conntrack_common.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/rcupdate.h>
-//#include <linux/ntc_shaper_hooks.h>
+#include <linux/ntc_shaper_hooks.h>
 
 #define NF_IP_PRE_ROUTING       0
 #define NF_IP_POST_ROUTING      4
@@ -46,7 +46,7 @@ manip_pkt(u_int16_t proto,
 	const struct nf_conntrack_tuple *target,
 	enum nf_nat_manip_type maniptype);
 
-//extern int (*fast_nat_bind_hook_ingress)(struct sk_buff * skb);
+extern int (*fast_nat_bind_hook_ingress)(struct sk_buff * skb);
 
 /*
  * check NAT session initialized and ready
@@ -131,8 +131,8 @@ int fast_nat_bind_hook_egress(struct sk_buff * skb) {
 
 static int fast_nat_path(struct sk_buff *skb)
 {
-//	ntc_shaper_hook_fn * shaper_egress = NULL;
-//	int retval = 0;
+	ntc_shaper_hook_fn * shaper_egress = NULL;
+	int retval = 0;
 
 	if (skb_dst(skb) == NULL) {
 		struct iphdr *iph = ip_hdr(skb);
@@ -147,7 +147,7 @@ static int fast_nat_path(struct sk_buff *skb)
 		skb->dev = skb_dst(skb)->dev;
 	}
 
-/*	shaper_egress = ntc_shaper_egress_hook_get();
+	shaper_egress = ntc_shaper_egress_hook_get();
 
 	if ((NULL != shaper_egress) && (NULL != skb)) {
 		unsigned int ntc_retval = shaper_egress(skb, 0, 0, NULL, fast_nat_bind_hook_egress, NULL, NULL);
@@ -172,8 +172,6 @@ static int fast_nat_path(struct sk_buff *skb)
 	ntc_shaper_egress_hook_put();
 
 	return retval;
-	*/
-	return fast_nat_bind_hook_egress(skb);
 }
 
 static int
@@ -238,7 +236,7 @@ fast_nat_do_bindings(struct nf_conn *ct,
 
 static int __init fast_nat_init(void)
 {
-//	rcu_assign_pointer(fast_nat_bind_hook_ingress, fast_nat_path);
+	rcu_assign_pointer(fast_nat_bind_hook_ingress, fast_nat_path);
 	rcu_assign_pointer(fast_nat_hit_hook_func, fast_nat_path);
 	synchronize_rcu();
 	rcu_assign_pointer(fast_nat_bind_hook_func, fast_nat_do_bindings);
@@ -251,7 +249,7 @@ static void __exit fast_nat_fini(void)
 	rcu_assign_pointer(fast_nat_bind_hook_func, NULL);
 	synchronize_rcu();
 	rcu_assign_pointer(fast_nat_hit_hook_func, NULL);
-//	rcu_assign_pointer(fast_nat_bind_hook_ingress, NULL);
+	rcu_assign_pointer(fast_nat_bind_hook_ingress, NULL);
 	printk(KERN_INFO "Fast NAT unloaded\n");
 }
 
