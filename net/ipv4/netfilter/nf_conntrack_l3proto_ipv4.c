@@ -238,9 +238,25 @@ static void flush_entries(uint32_t ipaddr) {
 				continue;
 			}
 
+			/* Check against original src/dst */
 			tuple = nf_ct_tuple(ct, IP_CT_DIR_ORIGINAL);
 
-			if (tuple != NULL) {
+			if (likely(tuple != NULL)) {
+				if ((tuple->src.l3num == PF_INET) &&
+					((tuple->src.u3.ip == ip) ||
+						(tuple->dst.u3.ip == ip))) {
+					if (del_timer(&ct->timeout)) {
+						death_by_timeout((unsigned long)ct);
+					}
+					++counter;
+					continue;
+				}
+			}
+
+			/* Check against NAT'ed addresses */
+			tuple = nf_ct_tuple(ct, IP_CT_DIR_REPLY);
+
+			if (likely(tuple != NULL)) {
 				if ((tuple->src.l3num == PF_INET) &&
 					((tuple->src.u3.ip == ip) ||
 						(tuple->dst.u3.ip == ip))) {
