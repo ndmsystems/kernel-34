@@ -38,6 +38,11 @@ config PPP_ONLY_IP
 	default y
 	depends on PPP
 
+config PPP_VJCOMP
+	tristate "PPP Van Jacobsen header compression"
+	depends on PPP
+	select SLHC
+
 config PPP_BSDCOMP
 	tristate "PPP BSD-Compress compression"
 	depends on PPP
