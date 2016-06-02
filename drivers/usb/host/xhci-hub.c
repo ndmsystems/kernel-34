@@ -548,6 +548,9 @@ void xhci_del_comp_mod_timer(struct xhci_hcd *xhci, u32 status, u16 wIndex)
 /* Implementation USB3-to-USB2 switch, McMCC, 13102014 */
 void (*usb3_to_usb2_set_hook)(struct xhci_hcd *xhci, unsigned short port) = NULL;
 EXPORT_SYMBOL(usb3_to_usb2_set_hook);
+
+int (*force_usb2_hook)(void) = NULL;
+EXPORT_SYMBOL(force_usb2_hook);
 /* End */
 
 int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
@@ -563,10 +566,7 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 	struct xhci_bus_state *bus_state;
 	u16 link_state = 0;
 	u16 wake_mask = 0;
-	void (*usb3_to_usb2_set)(struct xhci_hcd *xhci, unsigned short port);
-
-	if ((usb3_to_usb2_set = rcu_dereference(usb3_to_usb2_set_hook)))
-		usb3_to_usb2_set(xhci, wIndex);
+	int (*force_usb2)(void);
 
 	max_ports = xhci_get_ports(hcd, &port_array);
 	bus_state = &xhci->bus_state[hcd_index(hcd)];
@@ -842,6 +842,10 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 			 * However, khubd will ignore the roothub events until
 			 * the roothub is registered.
 			 */
+
+			if (force_usb2 = rcu_dereference(force_usb2_hook))
+				usb3_disable = force_usb2();
+
 			if (usb3_disable && hcd->speed == HCD_USB3)
 				xhci_writel(xhci, temp & ~PORT_POWER, port_array[wIndex]);
 			else
