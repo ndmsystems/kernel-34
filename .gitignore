@@ -40,6 +40,7 @@ modules.builtin
 /TAGS
 /linux
 /vmlinux
+/vmlinux.bin.img
 /vmlinuz
 /System.map
 /Module.markers
@@ -84,3 +85,7 @@ GTAGS
 *.orig
 *~
 \#*#
+
+# ndm files
+drivers/mtd/ndm_boot.h
+include/linux/phr.h
