@@ -25,9 +25,9 @@
 #include <net/netfilter/ipv4/nf_conntrack_ipv4.h>
 #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>
 
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 extern int ipv4_fastnat_conntrack;
-#endif /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+#endif
 
 enum udp_conntrack {
 	UDP_CT_UNREPLIED,
@@ -137,10 +137,10 @@ static int udp_error(struct net *net, struct nf_conn *tmpl, struct sk_buff *skb,
 		return -NF_ACCEPT;
 	}
 
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 	if (ipv4_fastnat_conntrack)
 		return NF_ACCEPT;
-#endif /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+#endif
 
 	/* Packet with no checksum */
 	if (!hdr->check)
@@ -298,7 +298,7 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_udp6 __read_mostly =
 	.packet			= udp_packet,
 	.get_timeouts		= udp_get_timeouts,
 	.new			= udp_new,
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 	.error			= NULL,
 #else
 	.error			= udp_error,

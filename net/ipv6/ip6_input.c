@@ -47,7 +47,7 @@
 
 #if IS_ENABLED(CONFIG_RA_HW_NAT)
 #if defined(CONFIG_RA_HW_NAT_IPV6)
-#include "../nat/hw_nat/ra_nat.h"
+#include <../ndm/hw_nat/ra_nat.h>
 #endif
 #endif
 

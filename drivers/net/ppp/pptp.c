@@ -44,14 +44,14 @@
 
 #include <net/fast_vpn.h>
 
-#if defined(CONFIG_RA_HW_NAT) || defined(CONFIG_RA_HW_NAT_MODULE)
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
 #include <../ndm/hw_nat/ra_nat.h>
 #endif
 
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 extern void (*prebind_from_pptptx)(struct sk_buff * skb,
 	struct iphdr * iph_int, struct sock *sock, u32 saddr, u32 daddr);
-#endif // #if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#endif
 
 #define PPTP_DRIVER_VERSION "0.8.5"
 
@@ -201,10 +201,10 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 	__u8 * iph_int;
 	__u32 seq_recv;
 
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 	void (*swnat_prebind)(struct sk_buff * skb,
 		struct iphdr * iph_int, struct sock *sock, u32 saddr, u32 daddr);
-#endif // #if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#endif
 
 	struct rtable *rt;
 	struct net_device *tdev;
@@ -319,11 +319,11 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 	ip_select_ident(skb, NULL);
 	ip_send_check(iph);
 
-#if (defined(CONFIG_RA_HW_NAT) || defined(CONFIG_RA_HW_NAT_MODULE)) && !defined (CONFIG_RA_HW_NAT_PPTP_L2TP)
+#if IS_ENABLED(CONFIG_RA_HW_NAT) && !defined (CONFIG_RA_HW_NAT_PPTP_L2TP)
 	FOE_ALG_SKIP(skb);
 #endif
 
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 	rcu_read_lock();
 	if (SWNAT_PPP_CHECK_MARK(skb)) {
 		/* We already have PPP encap, do skip it */
@@ -339,7 +339,7 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 		SWNAT_PPP_SET_MARK(skb);
 	}
 	rcu_read_unlock();
-#endif // #if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#endif
 
 	ip_local_out(skb);
 	return 1;

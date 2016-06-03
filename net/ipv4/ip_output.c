@@ -81,8 +81,7 @@
 #include <linux/tcp.h>
 
 #if IS_ENABLED(CONFIG_RA_HW_NAT)
-#include "../../net/nat/hw_nat/ra_nat.h"
-#include "../../net/nat/hw_nat/frame_engine.h"
+#include <../ndm/hw_nat/ra_nat.h>
 #endif
 
 #if defined(CONFIG_NETFILTER_FP_SMB)

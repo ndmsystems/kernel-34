@@ -25,10 +25,10 @@
 
 #include "nf_internals.h"
 
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 extern int (*fast_nat_hit_hook_func)(struct sk_buff *skb);
 extern int ipv4_fastnat_conntrack;
-#endif /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+#endif
 
 #if defined(CONFIG_NETFILTER_FP_SMB)
 #include <net/netfilter/nf_fp_smb.h>
@@ -156,10 +156,10 @@ unsigned int nf_iterate(struct list_head *head,
 repeat:
 		verdict = elem->hook(hook, skb, indev, outdev, okfn);
 
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 		if (verdict == NF_FAST_NAT)
 			return NF_FAST_NAT;
-#endif /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+#endif
 
 		if (verdict != NF_ACCEPT) {
 #ifdef CONFIG_NETFILTER_DEBUG
@@ -191,9 +191,9 @@ int nf_hook_slow(u_int8_t pf, unsigned int hook, struct sk_buff *skb,
 	unsigned int verdict;
 	int ret = 0;
 
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 	int (*fast_nat_hit_hook) (struct sk_buff *skb);
-#endif /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+#endif
 
 	/* We may already have this, but read-locks nest anyway */
 	rcu_read_lock();
@@ -229,7 +229,7 @@ next_hook:
 			kfree_skb(skb);
 		}
 	}
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 	else if (verdict == NF_FAST_NAT) {
 		if (NULL != (fast_nat_hit_hook = rcu_dereference(fast_nat_hit_hook_func)))
 			ret = fast_nat_hit_hook(skb);

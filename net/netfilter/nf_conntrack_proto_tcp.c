@@ -29,9 +29,9 @@
 #include <net/netfilter/ipv4/nf_conntrack_ipv4.h>
 #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>
 
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 extern int ipv4_fastnat_conntrack;
-#endif /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+#endif
 
 /* Do not check the TCP window for incoming packets  */
 static int nf_ct_tcp_no_window_check __read_mostly = 1;
@@ -533,7 +533,7 @@ static bool tcp_in_window(const struct nf_conn *ct,
 	__u32 seq, ack, sack, end, win, swin;
 	s32 receiver_offset;
 	bool res;
-#if defined (CONFIG_RA_NAT_NONE) || !(defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE))
+#if defined (CONFIG_RA_NAT_NONE) || !IS_ENABLED(CONFIG_FAST_NAT)
 	struct net *net = nf_ct_net(ct);
 #endif
 
@@ -667,7 +667,7 @@ static bool tcp_in_window(const struct nf_conn *ct,
 		 before(sack, receiver->td_end + 1),
 		 after(sack, receiver->td_end - MAXACKWINDOW(sender) - 1));
 
-#if defined (CONFIG_RA_NAT_NONE) || !(defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE))
+#if defined (CONFIG_RA_NAT_NONE) || !IS_ENABLED(CONFIG_FAST_NAT)
 	if (before(seq, sender->td_maxend + 1) &&
 	    after(end, sender->td_end - receiver->td_maxwin - 1) &&
 	    before(sack, receiver->td_end + 1) &&
@@ -803,10 +803,10 @@ static int tcp_error(struct net *net, struct nf_conn *tmpl,
 		return -NF_ACCEPT;
 	}
 
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 	if (ipv4_fastnat_conntrack)
 		return NF_ACCEPT;
-#endif /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+#endif
 
 	/* Checksum invalid? Ignore.
 	 * We skip checking packets on the outgoing path
@@ -1602,7 +1602,7 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp4 __read_mostly =
 	.packet 		= tcp_packet,
 	.get_timeouts		= tcp_get_timeouts,
 	.new 			= tcp_new,
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 	.error			= NULL,
 #else
 	.error			= tcp_error,

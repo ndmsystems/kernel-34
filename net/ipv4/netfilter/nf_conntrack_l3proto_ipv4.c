@@ -34,12 +34,12 @@ int (*nf_nat_seq_adjust_hook)(struct sk_buff *skb,
 EXPORT_SYMBOL_GPL(nf_nat_seq_adjust_hook);
 
 #if IS_ENABLED(CONFIG_RA_HW_NAT)
-#include "../../nat/hw_nat/ra_nat.h"
+#include <../ndm/hw_nat/ra_nat.h>
 #endif
 
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 extern int ipv4_fastnat_conntrack;
-#endif /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+#endif
 
 static bool ipv4_pkt_to_tuple(const struct sk_buff *skb, unsigned int nhoff,
 			      struct nf_conntrack_tuple *tuple)
@@ -335,7 +335,7 @@ static ctl_table ip_ct_sysctl_table[] = {
 		.mode		= 0644,
 		.proc_handler	= flush_ip_addr_proc_handler,
 	},
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 	{
 		.procname	= "ip_conntrack_fastnat",
 		.data		= &ipv4_fastnat_conntrack,
@@ -343,7 +343,7 @@ static ctl_table ip_ct_sysctl_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
 	},
-#endif /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+#endif
 	{ }
 };
 #endif /* CONFIG_SYSCTL && CONFIG_NF_CONNTRACK_PROC_COMPAT */

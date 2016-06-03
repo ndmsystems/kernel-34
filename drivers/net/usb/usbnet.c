@@ -47,11 +47,8 @@
 #include <linux/kernel.h>
 #include <linux/pm_runtime.h>
 
-#if IS_ENABLED(CONFIG_RA_HW_NAT) && defined(CONFIG_RA_HW_NAT_PCI)
-#include "../../../net/nat/hw_nat/ra_nat.h"
-extern int (*ra_sw_nat_hook_rx)(struct sk_buff *skb);
-extern int (*ra_sw_nat_hook_tx)(struct sk_buff *skb, int gmac_no);
-extern int (*ra_sw_nat_hook_rs)(struct net_device *dev, int hold);
+#if IS_ENABLED(CONFIG_RA_HW_NAT) && defined(CONFIG_RA_HW_NAT_NIC_USB)
+#include <../ndm/hw_nat/ra_nat.h>
 #endif
 
 #define DRIVER_VERSION		"22-Aug-2005"
@@ -351,7 +348,7 @@ void usbnet_skb_return (struct usbnet *dev, struct sk_buff *skb)
 		return;
 #endif
 
-#if IS_ENABLED(CONFIG_RA_HW_NAT) && defined(CONFIG_RA_HW_NAT_PCI)
+#if IS_ENABLED(CONFIG_RA_HW_NAT) && defined(CONFIG_RA_HW_NAT_NIC_USB)
 	 /* ra_sw_nat_hook_rx return 1 --> continue
 	  * ra_sw_nat_hook_rx return 0 --> FWD & without netif_rx
 	  */
@@ -1317,7 +1314,7 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
 	if (skb)
 		skb_tx_timestamp(skb);
 
-#if IS_ENABLED(CONFIG_RA_HW_NAT) && defined(CONFIG_RA_HW_NAT_PCI)
+#if IS_ENABLED(CONFIG_RA_HW_NAT) && defined(CONFIG_RA_HW_NAT_NIC_USB)
 	if ((ra_sw_nat_hook_tx != NULL) && !(info->flags & FLAG_MULTI_PACKET)) {
 		ra_sw_nat_hook_tx(skb, 0);
 	}
@@ -1549,10 +1546,10 @@ void usbnet_disconnect (struct usb_interface *intf)
 		   dev->driver_info->description);
 
 	net = dev->net;
-#if IS_ENABLED(CONFIG_RA_HW_NAT) && defined(CONFIG_RA_HW_NAT_PCI)
-	if (ra_sw_nat_hook_rs != NULL) {
+#if IS_ENABLED(CONFIG_RA_HW_NAT) && defined(CONFIG_RA_HW_NAT_NIC_USB)
+	if (ppe_dev_unregister_hook != NULL) {
 		/* clear dstif table in hw_nat module */
-		ra_sw_nat_hook_rs(net, 0);
+		ppe_dev_unregister_hook(net);
 	}
 #endif
 	unregister_netdev (net);
@@ -1766,10 +1763,10 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	if (dev->driver_info->flags & FLAG_LINK_INTR)
 		usbnet_link_change(dev, 0, 0);
 
-#if IS_ENABLED(CONFIG_RA_HW_NAT) && defined(CONFIG_RA_HW_NAT_PCI)
-	if (ra_sw_nat_hook_rs != NULL) {
+#if IS_ENABLED(CONFIG_RA_HW_NAT) && defined(CONFIG_RA_HW_NAT_NIC_USB)
+	if (ppe_dev_register_hook != NULL) {
 		/* fill dstif table in hw_nat module */
-		ra_sw_nat_hook_rs(net, 1);
+		ppe_dev_register_hook(net);
 	}
 #endif
 

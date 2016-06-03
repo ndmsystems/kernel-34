@@ -31,7 +31,7 @@
 #include <net/netfilter/nf_log.h>
 
 #if IS_ENABLED(CONFIG_RA_HW_NAT)
-#include "../../nat/hw_nat/ra_nat.h"
+#include <../ndm/hw_nat/ra_nat.h>
 #endif
 
 static bool ipv6_pkt_to_tuple(const struct sk_buff *skb, unsigned int nhoff,

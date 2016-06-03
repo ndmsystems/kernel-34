@@ -58,7 +58,7 @@
 #include <net/netns/generic.h>
 
 #if IS_ENABLED(CONFIG_RA_HW_NAT)
-#include "../../../net/nat/hw_nat/ra_nat.h"
+#include <../ndm/hw_nat/ra_nat.h>
 #endif
 
 #define PPP_VERSION	"2.4.2"
@@ -1978,7 +1978,7 @@ ppp_decompress_frame(struct ppp *ppp, struct sk_buff *skb)
 		}
 
 #if IS_ENABLED(CONFIG_RA_HW_NAT)
-#if !defined(HNAT_USE_TAILROOM)
+#if defined(HNAT_USE_HEADROOM)
 		memcpy(FOE_INFO_START_ADDR(ns), FOE_INFO_START_ADDR(skb), FOE_INFO_LEN); // copy FoE Info
 #endif
 #endif

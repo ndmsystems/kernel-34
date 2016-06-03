@@ -147,7 +147,7 @@
 #include <linux/netlink.h>
 
 #if IS_ENABLED(CONFIG_RA_HW_NAT)
-#include "../nat/hw_nat/ra_nat.h"
+#include <../ndm/hw_nat/ra_nat.h>
 #endif
 
 #if defined(CONFIG_NETFILTER_FP_SMB)

@@ -48,15 +48,14 @@
 #include <net/netfilter/nf_nat_core.h>
 
 #if IS_ENABLED(CONFIG_RA_HW_NAT)
-#include "../nat/hw_nat/ra_nat.h"
-extern int (*ra_sw_nat_hook_tx)(struct sk_buff *skb, int gmac_no);
+#include <../ndm/hw_nat/ra_nat.h>
 #endif
 
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 #include <net/ip.h>
 #include <net/tcp.h>
 #include <net/fast_vpn.h>
-#endif /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+#endif
 
 #include <linux/ntc_shaper_hooks.h>
 
@@ -66,7 +65,7 @@ extern int (*ra_sw_nat_hook_tx)(struct sk_buff *skb, int gmac_no);
 
 #define NF_CONNTRACK_VERSION	"0.5.0"
 
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 /* Enable or Disable FastNAT */
 extern int ipv4_fastnat_conntrack;
 
@@ -84,7 +83,7 @@ extern void (*prebind_from_fastnat)(struct sk_buff * skb,
 	enum ip_conntrack_info ct_info);
 
 extern int (*fast_nat_bind_hook_ingress)(struct sk_buff * skb);
-#endif /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+#endif
 
 int (*nfnetlink_parse_nat_setup_hook)(struct nf_conn *ct,
 				      enum nf_nat_manip_type manip,
@@ -1132,11 +1131,11 @@ resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
 	return ct;
 }
 
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 #define NF_IP_PRE_ROUTING_			0
 #define NF_IP_LOCAL_OUT_			3
 #define NF_IP_POST_ROUTING_			4
-#endif /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+#endif
 
 unsigned int
 nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
@@ -1152,7 +1151,7 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 	u_int8_t protonum;
 	int set_reply = 0;
 	int ret;
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 	void (*swnat_prebind)(struct sk_buff * skb,
 		u32 orig_saddr, u16 orig_sport,
 		struct nf_conn * ct,
@@ -1162,7 +1161,7 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 		struct sk_buff *skb,
 		struct nf_conntrack_l3proto *l3proto,
 		struct nf_conntrack_l4proto *l4proto);
-#endif // #if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#endif
 
 	if (skb->nfct) {
 		/* Previously seen (loopback or untracked)?  Ignore. */
@@ -1242,18 +1241,15 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 
 	help = nfct_help(ct);
 	if (help && help->helper) {
-#if  defined(CONFIG_RA_HW_NAT) || defined(CONFIG_RA_HW_NAT_MODULE) || IS_ENABLED(CONFIG_RA_HW_NAT)
-            if (IS_SPACE_AVAILABLED(skb) &&
-                     (FOE_MAGIC_TAG(skb) == FOE_MAGIC_GE)) {
-                    FOE_ALG(skb)=1;
-            }
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+		FOE_ALG_MARK(skb);
 #endif
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 		ct->fast_ext = 1;
 #endif
 	}
 
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 	rcu_read_lock();
 	if (pf == PF_INET &&
 		!ct->fast_ext &&
@@ -1344,7 +1340,7 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 
 
 	if (set_reply && !test_and_set_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 		if( hooknum == NF_IP_LOCAL_OUT_ )
 			ct->fast_ext = 1;
 #endif

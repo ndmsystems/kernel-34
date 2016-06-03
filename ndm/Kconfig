@@ -1,7 +1,8 @@
 menu "NDM options"
 
-source "ndm/Kconfig.raeth"
+menu "Ralink/MTK HW NAT"
 source "ndm/Kconfig.ppe"
+endmenu
 source "ndm/Kconfig.wifi"
 source "ndm/Kconfig.usb"
 source "ndm/Kconfig.crypto"

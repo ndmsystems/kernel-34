@@ -128,8 +128,7 @@ struct nf_conn {
 	u_int32_t secmark;
 #endif
 
-#if defined(CONFIG_NETFILTER_XT_MATCH_LAYER7) || \
-    defined(CONFIG_NETFILTER_XT_MATCH_LAYER7_MODULE)
+#if IS_ENABLED(CONFIG_NETFILTER_XT_MATCH_LAYER7)
 	struct {
 		/*
 		 * e.g. "http". NULL before decision. "unknown" after decision
@@ -144,10 +143,10 @@ struct nf_conn {
 	} layer7;
 #endif
 
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 	/* fast nat ext */
 	u_int32_t fast_ext;
-#endif /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+#endif
 
 	/* Extensions */
 	struct nf_ct_ext *ext;

@@ -91,8 +91,7 @@ EXPORT_SYMBOL(l2tp_input);
 int (*pptp_input)(struct sk_buff *skb) = NULL;
 EXPORT_SYMBOL(pptp_input);
 
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
-
+#if IS_ENABLED(CONFIG_FAST_NAT)
 int (*fast_nat_hit_hook_func)(struct sk_buff *skb) = NULL;
 EXPORT_SYMBOL(fast_nat_hit_hook_func);
 
@@ -109,10 +108,22 @@ EXPORT_SYMBOL(ipv4_fastnat_conntrack);
 
 int (*fast_nat_bind_hook_ingress)(struct sk_buff * skb) = NULL;
 EXPORT_SYMBOL(fast_nat_bind_hook_ingress);
-#endif /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+#endif
 
-int (*ra_sw_nat_hook_rx) (struct sk_buff * skb) = NULL;
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+int (*ra_sw_nat_hook_rx)(struct sk_buff *skb) = NULL;
 EXPORT_SYMBOL(ra_sw_nat_hook_rx);
 
-int (*ra_sw_nat_hook_tx) (struct sk_buff * skb, int gmac_no) = NULL;
+int (*ra_sw_nat_hook_tx)(struct sk_buff *skb, int gmac_no) = NULL;
 EXPORT_SYMBOL(ra_sw_nat_hook_tx);
+
+void (*ppe_dev_register_hook)(struct net_device *dev) = NULL;
+EXPORT_SYMBOL(ppe_dev_register_hook);
+
+void (*ppe_dev_unregister_hook)(struct net_device *dev) = NULL;
+EXPORT_SYMBOL(ppe_dev_unregister_hook);
+
+void (*ppe_enable_hook)(int do_ppe_enable) = NULL;
+EXPORT_SYMBOL(ppe_enable_hook);
+#endif
+

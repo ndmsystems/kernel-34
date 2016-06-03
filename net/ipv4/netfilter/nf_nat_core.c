@@ -334,7 +334,7 @@ nf_nat_setup_info(struct nf_conn *ct,
 EXPORT_SYMBOL(nf_nat_setup_info);
 
 /* Returns true if succeeded. */
-#if !(defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE))
+#if !IS_ENABLED(CONFIG_FAST_NAT)
 static
 #endif
 bool
@@ -370,7 +370,7 @@ manip_pkt(u_int16_t proto,
 	}
 	return true;
 }
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 EXPORT_SYMBOL(manip_pkt);
 #endif
 

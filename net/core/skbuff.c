@@ -72,7 +72,7 @@
 #include <linux/highmem.h>
 
 #if IS_ENABLED(CONFIG_RA_HW_NAT)
-#include "../net/nat/hw_nat/ra_nat.h"
+#include <../ndm/hw_nat/ra_nat.h>
 #endif
 
 static struct kmem_cache *skbuff_head_cache __read_mostly;

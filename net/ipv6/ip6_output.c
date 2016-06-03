@@ -60,8 +60,7 @@ int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *));
 
 #if IS_ENABLED(CONFIG_RA_HW_NAT)
 #if defined(CONFIG_RA_HW_NAT_IPV6)
-#include "../../net/nat/hw_nat/ra_nat.h"
-#include "../../net/nat/hw_nat/frame_engine.h"
+#include <../ndm/hw_nat/ra_nat.h>
 #endif
 #endif
 

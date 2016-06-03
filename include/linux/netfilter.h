@@ -32,21 +32,21 @@
 #if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
 #define NF_IMQ_QUEUE 6
 
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 #define NF_FAST_NAT 7
 #define NF_MAX_VERDICT NF_FAST_NAT
-#else /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+#else
 #define NF_MAX_VERDICT NF_IMQ_QUEUE
-#endif /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+#endif
 
 #else
 
-#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+#if IS_ENABLED(CONFIG_FAST_NAT)
 #define NF_FAST_NAT 6
 #define NF_MAX_VERDICT NF_FAST_NAT
-#else /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+#else
 #define NF_MAX_VERDICT NF_STOP
-#endif /* defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
+#endif
 
 #endif
 
