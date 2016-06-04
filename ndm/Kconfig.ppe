@@ -296,7 +296,3 @@ config  RA_HW_NAT_NIC_USB
 	bool "PCIe Ethernet NIC/USBNET Acceleration"
 	depends on RA_HW_NAT && (USB_USBNET || PCI)
 
-config  RA_HW_NAT_DEBUG
-	depends on RA_HW_NAT
-	default n
-	bool "Include additional debug messages"
