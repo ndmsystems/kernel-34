@@ -812,12 +812,6 @@ static int __ip_append_data(struct sock *sk,
 	int csummode = CHECKSUM_NONE;
 	struct rtable *rt = (struct rtable *)cork->dst;
 
-	/* bug fix for udp_sendmsg, McMCC, 07112009 */
-	if (unlikely(rt == NULL))
-		return -EFAULT;
-	if (unlikely(inet == NULL))
-		return -EFAULT;
-
 	skb = skb_peek_tail(queue);
 
 	exthdrlen = !skb ? rt->dst.header_len : 0;
@@ -1115,6 +1109,10 @@ int ip_append_data(struct sock *sk, struct flowi4 *fl4,
 
 	if (flags&MSG_PROBE)
 		return 0;
+
+	/* bug fix for udp_sendmsg, McMCC, 07112009 */
+	if (unlikely(inet == NULL))
+		return -EFAULT;
 
 	if (skb_queue_empty(&sk->sk_write_queue)) {
 		err = ip_setup_cork(sk, &inet->cork.base, ipc, rtp);
