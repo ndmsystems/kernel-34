@@ -29,10 +29,11 @@
 #define NF_QUEUE 3
 #define NF_REPEAT 4
 #define NF_STOP 5
+
 #if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
 #define NF_IMQ_QUEUE 6
 
-#if IS_ENABLED(CONFIG_FAST_NAT)
+#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
 #define NF_FAST_NAT 7
 #define NF_MAX_VERDICT NF_FAST_NAT
 #else
@@ -41,7 +42,7 @@
 
 #else
 
-#if IS_ENABLED(CONFIG_FAST_NAT)
+#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
 #define NF_FAST_NAT 6
 #define NF_MAX_VERDICT NF_FAST_NAT
 #else
