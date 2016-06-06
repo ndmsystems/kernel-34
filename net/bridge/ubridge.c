@@ -77,13 +77,14 @@ static int ubr_stop(struct net_device *master_dev)
 	return 0;
 }
 
-static int ubr_xmit(struct sk_buff *skb, struct net_device *master_dev)
+static netdev_tx_t ubr_xmit(struct sk_buff *skb,
+			    struct net_device *master_dev)
 {
 	struct ubr_private *master_info = netdev_priv(master_dev);
 	struct net_device *slave_dev = master_info->slave_dev;
 
 	if (!slave_dev)
-		return -ENOTCONN;
+		return NETDEV_TX_OK;
 
 	master_info->stats.tx_packets++;
 	master_info->stats.tx_bytes += skb->len;
@@ -91,7 +92,7 @@ static int ubr_xmit(struct sk_buff *skb, struct net_device *master_dev)
 	skb->dev = slave_dev;
 	dev_queue_xmit(skb);
 
-	return 0;
+	return NETDEV_TX_OK;
 }
 
 static struct rtnl_link_stats64 *ubr_get_stats64(struct net_device *dev,
