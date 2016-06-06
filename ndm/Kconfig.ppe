@@ -7,6 +7,11 @@ config  HNAT_V2
 	default y if (RALINK_MT7620 || RALINK_MT7621 || ARCH_MT7623)
 	depends on RA_HW_NAT
 
+config  HNAT_ENHANCED
+	bool
+	default y
+	depends on RA_HW_NAT
+
 config  RA_HW_NAT_LAN_VLANID
 	int "VLAN ID of LAN Ports"
 	depends on RA_HW_NAT
