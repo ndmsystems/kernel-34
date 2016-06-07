@@ -148,9 +148,9 @@ struct neigh_table nd_tbl = {
 		.proxy_qlen		= 64,
 	},
 	.gc_interval =	  30 * HZ,
-	.gc_thresh1 =	 128,
-	.gc_thresh2 =	 512,
-	.gc_thresh3 =	1024,
+	.gc_thresh1 =	 256,
+	.gc_thresh2 =	1024,
+	.gc_thresh3 =	2048,
 };
 
 /* ND options */
