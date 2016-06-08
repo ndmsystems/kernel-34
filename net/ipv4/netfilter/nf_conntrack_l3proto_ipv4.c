@@ -217,13 +217,13 @@ static int log_invalid_proto_max = 255;
 
 void death_by_timeout(unsigned long ul_conntrack);
 
-static void flush_entries(uint32_t ipaddr) {
+static void flush_entries_lan(uint32_t ipaddr) {
 	size_t counter = 0;
 	unsigned int i = 0;
 	struct nf_conn *ct;
 	struct nf_conntrack_tuple_hash *h;
 	struct hlist_nulls_node *n;
-	struct nf_conntrack_tuple *tuple;
+	struct nf_conntrack_tuple *tuple_orig, *tuple_repl;
 	__be32 ip = htonl(ipaddr);
 
 	rcu_read_lock();
@@ -239,31 +239,20 @@ static void flush_entries(uint32_t ipaddr) {
 			}
 
 			/* Check against original src/dst */
-			tuple = nf_ct_tuple(ct, IP_CT_DIR_ORIGINAL);
+			tuple_orig = nf_ct_tuple(ct, IP_CT_DIR_ORIGINAL);
+			tuple_repl = nf_ct_tuple(ct, IP_CT_DIR_REPLY);
 
-			if (likely(tuple != NULL)) {
-				if ((tuple->src.l3num == PF_INET) &&
-					((tuple->src.u3.ip == ip) ||
-						(tuple->dst.u3.ip == ip))) {
+			if (likely((tuple_orig != NULL) && (tuple_repl != NULL))) {
+				if ((tuple_orig->src.l3num == PF_INET) &&
+					/* Connection from LAN -> WAN */
+					((tuple_orig->src.u3.ip == ip) ||
+						/* Connection from WAN -> LAN through forwarded port */
+						(tuple_repl->src.u3.ip == ip))) {
 					if (del_timer(&ct->timeout)) {
 						death_by_timeout((unsigned long)ct);
 					}
 					++counter;
 					continue;
-				}
-			}
-
-			/* Check against NAT'ed addresses */
-			tuple = nf_ct_tuple(ct, IP_CT_DIR_REPLY);
-
-			if (likely(tuple != NULL)) {
-				if ((tuple->src.l3num == PF_INET) &&
-					((tuple->src.u3.ip == ip) ||
-						(tuple->dst.u3.ip == ip))) {
-					if (del_timer(&ct->timeout)) {
-						death_by_timeout((unsigned long)ct);
-					}
-					++counter;
 				}
 			}
 
@@ -275,17 +264,81 @@ static void flush_entries(uint32_t ipaddr) {
 	printk(KERN_INFO "IPv4 conntrack: flushed %d entries with address %pI4\n", counter, &ip);
 }
 
-static uint32_t flush_ip_addr = 0;
+static void flush_entries_wan(uint32_t ipaddr) {
+	size_t counter = 0;
+	unsigned int i = 0;
+	struct nf_conn *ct;
+	struct nf_conntrack_tuple_hash *h;
+	struct hlist_nulls_node *n;
+	struct nf_conntrack_tuple *tuple_orig, *tuple_repl;
+	__be32 ip = htonl(ipaddr);
 
-int flush_ip_addr_proc_handler(struct ctl_table *table, int write,
+	rcu_read_lock();
+	for (i = 0; i < init_net.ct.htable_size; i++) {
+		hlist_nulls_for_each_entry_rcu(h, n, &init_net.ct.hash[i], hnnode) {
+			if (NF_CT_DIRECTION(h) != IP_CT_DIR_ORIGINAL) {
+				continue;
+			}
+
+			ct = nf_ct_tuplehash_to_ctrack(h);
+			if (!atomic_inc_not_zero(&ct->ct_general.use)) {
+				continue;
+			}
+
+			/* Check against original src/dst */
+			tuple_orig = nf_ct_tuple(ct, IP_CT_DIR_ORIGINAL);
+			tuple_repl = nf_ct_tuple(ct, IP_CT_DIR_REPLY);
+
+			if (likely((tuple_orig != NULL) && (tuple_repl != NULL))) {
+				if ((tuple_orig->src.l3num == PF_INET) &&
+					((tuple_orig->dst.protonum == IPPROTO_UDP) ||
+						(tuple_orig->dst.protonum == IPPROTO_TCP) ||
+						(tuple_orig->dst.protonum == IPPROTO_ICMP)) &&
+					/* Connection from WAN -> LAN through forwarded port, excluding router local dests */
+					(((tuple_orig->dst.u3.ip == ip) && (tuple_orig->dst.u3.ip != tuple_repl->src.u3.ip)) ||
+						/* Connection from LAN -> WAN, excluding router local sources */
+						((tuple_repl->dst.u3.ip == ip) && (tuple_repl->dst.u3.ip != tuple_orig->src.u3.ip)))) {
+					if (del_timer(&ct->timeout)) {
+						death_by_timeout((unsigned long)ct);
+					}
+					++counter;
+					continue;
+				}
+			}
+
+			nf_ct_put(ct);
+		}
+	}
+	rcu_read_unlock();
+
+	printk(KERN_INFO "IPv4 conntrack: flushed %d entries with address %pI4\n", counter, &ip);
+}
+
+static uint32_t flush_ip_addr_lan = 0;
+static uint32_t flush_ip_addr_wan = 0;
+
+int flush_ip_addr_lan_proc_handler(struct ctl_table *table, int write,
 		void __user *buffer, size_t *lenp, loff_t *ppos) {
 	int res = proc_dointvec(table, write, buffer, lenp, ppos);
 
-	if (flush_ip_addr != 0) {
-		flush_entries(flush_ip_addr);
+	if (flush_ip_addr_lan != 0) {
+		flush_entries_lan(flush_ip_addr_lan);
 	}
 
-	flush_ip_addr = 0;
+	flush_ip_addr_lan = 0;
+
+	return res;
+}
+
+int flush_ip_addr_wan_proc_handler(struct ctl_table *table, int write,
+		void __user *buffer, size_t *lenp, loff_t *ppos) {
+	int res = proc_dointvec(table, write, buffer, lenp, ppos);
+
+	if (flush_ip_addr_wan != 0) {
+		flush_entries_wan(flush_ip_addr_wan);
+	}
+
+	flush_ip_addr_wan = 0;
 
 	return res;
 }
@@ -329,11 +382,18 @@ static ctl_table ip_ct_sysctl_table[] = {
 		.extra2		= &log_invalid_proto_max,
 	},
 	{
-		.procname	= "ip_conntrack_flush_addr",
-		.data		= &flush_ip_addr,
+		.procname	= "ip_conntrack_flush_addr_lan",
+		.data		= &flush_ip_addr_lan,
 		.maxlen		= sizeof(uint32_t),
 		.mode		= 0644,
-		.proc_handler	= flush_ip_addr_proc_handler,
+		.proc_handler	= flush_ip_addr_lan_proc_handler,
+	},
+	{
+		.procname	= "ip_conntrack_flush_addr_wan",
+		.data		= &flush_ip_addr_wan,
+		.maxlen		= sizeof(uint32_t),
+		.mode		= 0644,
+		.proc_handler	= flush_ip_addr_wan_proc_handler,
 	},
 #if IS_ENABLED(CONFIG_FAST_NAT)
 	{
