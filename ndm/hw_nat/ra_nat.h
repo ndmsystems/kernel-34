@@ -58,9 +58,9 @@ typedef struct {
 #define GMAC_ID_MAGIC_EXTIF		0
 
 /* choose one of them to keep HNAT related information in somewhere. */
-#define HNAT_USE_HEADROOM
+//#define HNAT_USE_HEADROOM
 //#define HNAT_USE_TAILROOM
-//#define HNAT_USE_SKB_CB
+#define HNAT_USE_SKB_CB
 
 #if defined (HNAT_USE_HEADROOM)
 
@@ -75,7 +75,7 @@ typedef struct {
 #elif defined (HNAT_USE_SKB_CB)
 
 //change the position of skb_CB if necessary
-#define CB_OFFSET			32
+#define CB_OFFSET			40
 #define IS_SPACE_AVAILABLED(skb)	1
 #define FOE_INFO_START_ADDR(skb)	(skb->cb + CB_OFFSET)
 
