@@ -64,7 +64,6 @@ static rx_handler_result_t ubr_handle_frame(struct sk_buff **pskb)
 	return RX_HANDLER_CONSUMED;
 }
 
-
 static int ubr_open(struct net_device *master_dev)
 {
 	netif_start_queue(master_dev);
@@ -83,16 +82,16 @@ static netdev_tx_t ubr_xmit(struct sk_buff *skb,
 	struct ubr_private *master_info = netdev_priv(master_dev);
 	struct net_device *slave_dev = master_info->slave_dev;
 
-	if (!slave_dev)
-		return NETDEV_TX_OK;
+	if (!slave_dev) {
+		dev_kfree_skb(skb);
+		return -ENOTCONN;
+	}
 
 	master_info->stats.tx_packets++;
 	master_info->stats.tx_bytes += skb->len;
 
 	skb->dev = slave_dev;
-	dev_queue_xmit(skb);
-
-	return NETDEV_TX_OK;
+	return dev_queue_xmit(skb);
 }
 
 static struct rtnl_link_stats64 *ubr_get_stats64(struct net_device *dev,
