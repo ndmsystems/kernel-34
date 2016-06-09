@@ -1168,12 +1168,6 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 		struct nf_conntrack_l4proto *l4proto);
 #endif
 
-#if defined(CONFIG_NTCE_MODULE)
-	unsigned int (*ntce_pass_pkt)(struct sk_buff * skb) = NULL;
-	void (*ntce_enq_pkt_hook)(struct sk_buff *skb) = NULL;
-	unsigned int ntce_pass = 1;
-#endif // #if defined(CONFIG_NTCE_MODULE)
-
 	if (skb->nfct) {
 		/* Previously seen (loopback or untracked)?  Ignore. */
 		tmpl = (struct nf_conn *)skb->nfct;
@@ -1271,6 +1265,11 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 		(protonum == IPPROTO_TCP || protonum == IPPROTO_UDP)) {
 
 			struct nf_conntrack_tuple *t1, *t2;
+#if defined(CONFIG_NTCE_MODULE)
+			unsigned int (*ntce_pass_pkt)(struct sk_buff * skb) = NULL;
+			void (*ntce_enq_pkt_hook)(struct sk_buff *skb) = NULL;
+			unsigned int ntce_skip_swnat = 1;
+#endif // #if defined(CONFIG_NTCE_MODULE)
 
 			t1 = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
 			t2 = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
@@ -1297,11 +1296,13 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 
 #if defined(CONFIG_NTCE_MODULE)
 					if ((ntce_pass_pkt = rcu_dereference(ntce_pass_pkt_func)) &&
-					    (ntce_enq_pkt_hook = rcu_dereference(ntce_enq_pkt_hook_func))) {
+						(ntce_enq_pkt_hook = rcu_dereference(ntce_enq_pkt_hook_func))) {
 
-						if (ntce_pass = ntce_pass_pkt(skb)) {
+						if (ntce_skip_swnat = ntce_pass_pkt(skb)) {
 							ntce_enq_pkt_hook(skb);
 						}
+					} else {
+						ntce_skip_swnat = 0;
 					}
 #endif // #if defined(CONFIG_NTCE_MODULE)
 
@@ -1313,9 +1314,9 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 					/* Get rid of junky binds, do swnat only when src IP changed */
 					if (orig_src != new_src
 #if defined(CONFIG_NTCE_MODULE)
-					    && !ntce_pass
+						&& !ntce_skip_swnat
 #endif // #if defined(CONFIG_NTCE_MODULE)
-                       ) {
+						) {
 						/* Set mark for further binds */
 						SWNAT_FNAT_SET_MARK(skb);
 						rcu_read_lock();
