@@ -902,6 +902,7 @@ static void neigh_timer_handler(unsigned long arg)
 				   neigh->confirmed + neigh->parms->reachable_time)) {
 			NEIGH_PRINTK2("neigh %p is still alive.\n", neigh);
 			next = neigh->confirmed + neigh->parms->reachable_time;
+			notify = 1;
 		} else if (time_before_eq(now,
 					  neigh->used + neigh->parms->delay_probe_time)) {
 			NEIGH_PRINTK2("neigh %p is delayed.\n", neigh);
@@ -909,6 +910,7 @@ static void neigh_timer_handler(unsigned long arg)
 			neigh->updated = jiffies;
 			neigh_suspect(neigh);
 			next = now + neigh->parms->delay_probe_time;
+			notify = 1;
 		} else {
 			NEIGH_PRINTK2("neigh %p is suspected.\n", neigh);
 			neigh->nud_state = NUD_STALE;
@@ -931,6 +933,7 @@ static void neigh_timer_handler(unsigned long arg)
 			neigh->updated = jiffies;
 			atomic_set(&neigh->probes, 0);
 			next = now + neigh->parms->retrans_time;
+			notify = 1;
 		}
 	} else {
 		/* NUD_PROBE|NUD_INCOMPLETE */
