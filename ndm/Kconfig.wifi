@@ -1,5 +1,3 @@
-menu "MTK module (MT7602E && MT7612E)"
-
 menuconfig WIFI_DRIVER
 	bool "Wi-Fi driver support"
 
@@ -8,10 +6,37 @@ if WIFI_DRIVER
 choice
 	prompt "Choose first Wi-Fi interface"
 
+	config FIRST_IF_NONE
+	bool "None"
+
 	config FIRST_IF_RT2860
-	bool "RT2860 (MT7602E)"
+	bool "MT7620 with rt2860v2 driver (2.7.X.X)"
+	depends on RALINK_MT7620
 	select RTMP_MAC
-	select RALINK_RT2860
+
+	config FIRST_IF_MT7620
+	bool "MT7620 with rlt_wifi driver (3.0.X.X)"
+	depends on RALINK_MT7620
+	select RTMP_MAC
+	select RALINK_RT6352
+
+	config FIRST_IF_MT7628
+	bool "MT7628/MT7688"
+	depends on RALINK_MT7628
+	select MT_MAC
+
+	config FIRST_IF_MT7602E
+	bool "MT7602E"
+	depends on RALINK_MT7621
+	select RLT_MAC
+	select RALINK_MT7612E
+
+	config FIRST_IF_MT7603E
+	bool "MT7603E"
+	depends on RALINK_MT7621
+	select MT_MAC
+	select WIFI_MT_MAC
+	select CHIP_MT7603E
 endchoice
 
 choice
@@ -31,10 +56,24 @@ endchoice
 choice
 	prompt "Choose second Wi-Fi interface"
 
+	config SECOND_IF_NONE
+	bool "None"
+
+	config SECOND_IF_RT5592
+	bool "RT5592"
+	select RTMP_MAC
+	select RALINK_RT5592
+
 	config SECOND_IF_MT7612E
 	bool "MT7612E"
 	select RLT_MAC
 	select RALINK_MT7612E
+
+	config SECOND_IF_MT7615E
+	bool "MT7615E"
+	select MT_MAC
+	select WIFI_MT_MAC
+	select CHIP_MT7615E
 endchoice
 
 choice
@@ -55,21 +94,27 @@ config RT_FIRST_CARD
 	int
 	depends on ! FIRST_IF_NONE
 	default 2860 if FIRST_IF_RT2860
+	default 7620 if FIRST_IF_MT7620
+	default 7628 if FIRST_IF_MT7628
+	default 7602 if FIRST_IF_MT7602E
+	default 7603 if FIRST_IF_MT7603E
 
 config RT_SECOND_CARD
 	int
 	depends on ! SECOND_IF_NONE
+	default 5592 if SECOND_IF_RT5592
 	default 7612 if SECOND_IF_MT7612E
+	default 7615 if SECOND_IF_MT7615E
 
 config RT_FIRST_IF_RF_OFFSET
 	hex
 	depends on ! FIRST_IF_NONE
-	default 0x40000
+	default 0x0
 
 config RT_SECOND_IF_RF_OFFSET
 	hex
 	depends on ! SECOND_IF_NONE
-	default 0x48000
+	default 0x8000
 
 config RT_FIRST_CARD_EEPROM
 	string
@@ -85,51 +130,69 @@ config RT_SECOND_CARD_EEPROM
 	default "efuse" if SECOND_IF_EEPROM_EFUSE
 	default "flash" if SECOND_IF_EEPROM_FLASH
 
-config MULTI_INF_SUPPORT
-	bool
-	default y if !FIRST_IF_NONE && !SECOND_IF_NONE
-
-config PCI_SUPPORT
+config RTMP_MAC
 	bool
 
-choice
-	prompt "Configuration method selection"
-	default CONFIG_METHOD_NEW
+config RLT_MAC
+	bool
 
-	config CONFIG_METHOD_NEW
-	bool "New"
-	select WIFI_BASIC_FUNC
-endchoice
+config MT_MAC
+	bool
 
-if CONFIG_METHOD_NEW
-	menu "Wi-Fi generic feature options"
-		source "ndm/mt76x2/Kconfig"
-	endmenu
+if (RALINK_MT7620)
+menu "Ralink MT7620 RBUS Wireless driver (rt2860v2)"
+source "ndm/rt2860v2_ap/Kconfig"
+endmenu
+endif
 
-	menu "Wi-Fi operation modes"
-		choice
-			prompt "Main mode"
-			default WIFI_MODE_AP
+if (RALINK_MT7628)
+menu "MediaTek MT7628/MT7688 RBUS Wireless driver"
+source "ndm/mt7628_ap/Kconfig"
+source "ndm/mt7628/Kconfig"
+endmenu
+endif
 
-			config WIFI_MODE_AP
-			bool "AP"
-		endchoice
+menu "MediaTek MT7620/MT7602E/MT7612E RBUS/PCIe Wireless driver"
+source "ndm/mt76x2_ap/Kconfig"
+source "ndm/mt76x2/Kconfig"
+endmenu
 
-		if WIFI_MODE_AP
-		source "ndm/mt76x2_ap/Kconfig"
-		endif
-	endmenu
+#menu "MediaTek MT7603E PCIe Wireless driver"
+#source "ndm/mt7603_ap/Kconfig"
+#source "ndm/mt7603/Kconfig"
+#endmenu
 
-	config RALINK_RT28XX
-		bool
-		default n
-		select RTMP_PCI_SUPPORT
+menu "Ralink RT5592E PCIe Wireless driver"
+source "ndm/rt5592_ap/Kconfig"
+endmenu
 
-	config RALINK_MT7612E
-		bool
-		default n
-		select RTMP_PCI_SUPPORT
-endif # CONFIG_METHOD_NEW
+menu "Common Wi-Fi settings"
+config ATE_SUPPORT
+	bool "ATE/QA Support"
+	default n
+
+config WIFI_DEBUG_SUPPORT
+	bool "Debug Mode Support"
+	default n
+
+config WIFI_MEMORY_OPTIMIZATION
+	bool "Memory Optimization (< 32MB RAM)"
+	default n
+
+config WIFI_SKB_RECYCLE
+	bool "SKB Recycle (Linux)"
+	default n
+
+config WIFI_WORK_QUEUE
+	bool "Use BH Workqueue (instead of Tasklets)"
+	default n
+
+#config WIFI_PKT_FWD
+#	bool "WiFi packet forwarding"
+#	default n
+
+#source "drivers/net/wireless/wifi_forward/wifi_fwd/Kconfig"
+endmenu
 
 endif # WIFI_DRIVER
 
@@ -137,5 +200,3 @@ config RTDEV
 	bool
 	default y if WIFI_DRIVER && !SECOND_IF_NONE || RTDEV_MII
 	default y if RTDEV_PLC
-endmenu
-

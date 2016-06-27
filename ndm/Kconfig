@@ -1,15 +1,12 @@
-menu "NDM options"
+menu "NDM Systems options"
 
+if !(RALINK_RT5350 || RALINK_MT7628)
 menu "Ralink/MTK HW NAT"
 source "ndm/Kconfig.ppe"
 endmenu
+endif
 source "ndm/Kconfig.wifi"
 source "ndm/Kconfig.usb"
 source "ndm/Kconfig.crypto"
-source "ndm/rt2860v2_ap/Kconfig"
-source "ndm/rt3592_ap/Kconfig"
-source "ndm/rt5392_ap/Kconfig"
-source "ndm/rt5592_ap/Kconfig"
-source "ndm/mt7628_ap/Kconfig"
 endmenu
 
