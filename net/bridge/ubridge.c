@@ -290,7 +290,7 @@ static int ubr_detach(struct net_device *master_dev, int ifindex)
 #else
 	struct net *net = &init_net;
 #endif
-	int err = -ENODEV;
+	int err = -EINVAL;
 
 	dev1 = __dev_get_by_index(net, ifindex);
 	if (!dev1)
