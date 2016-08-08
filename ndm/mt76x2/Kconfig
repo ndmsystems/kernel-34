@@ -73,7 +73,7 @@ config TXBF_SUPPORT
 
 config DFS_SUPPORT
 	bool "DFS Support"
-	select RALINK_TIMER_DFS
+#	select RALINK_TIMER_DFS
 	default n
 
 config CARRIER_DETECTION_SUPPORT
