@@ -1,10 +1,7 @@
 #define DRV_NAME		"ubridge"
-#define DRV_VERSION		"1.0"
+#define DRV_VERSION		"1.1"
 #define DRV_DESCRIPTION	"Tiny bridge driver"
-#define DRV_COPYRIGHT	"(C) 2012 NDM Systems Inc. <ap@ndmsystems.com>"
-
-#define UBRIDGE_MINOR	201
-
+#define DRV_COPYRIGHT	"(C) 2012-2016 NDM Systems Inc. <ap@ndmsystems.com>"
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -23,6 +20,13 @@
 #include <../net/8021q/vlan.h>
 #include "br_private.h"
 
+#define MAC_FORCED		0
+
+#define vlan_group_for_each_dev(grp, i, dev) \
+	for ((i) = 0; i < VLAN_N_VID; i++) \
+		if (((dev) = vlan_group_get_device((grp), \
+							    (i) % VLAN_N_VID)))
+
 static LIST_HEAD(ubr_list);
 
 struct ubr_private {
@@ -30,9 +34,11 @@ struct ubr_private {
 	struct br_cpu_netstats	stats;
 	struct list_head		list;
 	struct net_device		*dev;
+	unsigned long			flags;
 };
 
 static int ubr_dev_ioctl(struct net_device *, struct ifreq *, int);
+static int ubr_set_mac_addr_force(struct net_device *dev, void *p);
 
 static inline struct ubr_private *ubr_priv_get_rcu(const struct net_device *dev)
 {
@@ -132,7 +138,6 @@ void ubr_change_rx_flags(struct net_device *dev,
 	}
 }
 
-
 static const struct net_device_ops ubr_netdev_ops =
 {
 	.ndo_open = ubr_open,
@@ -141,7 +146,7 @@ static const struct net_device_ops ubr_netdev_ops =
 	.ndo_get_stats64 = ubr_get_stats64,
 	.ndo_do_ioctl = ubr_dev_ioctl,
 	.ndo_change_rx_flags = ubr_change_rx_flags,
-
+	.ndo_set_mac_address = ubr_set_mac_addr_force,
 };
 
 /* RTNL locked */
@@ -178,6 +183,64 @@ static int ubr_free_master(struct net *net, const char *name)
 	else
 		ret = ubr_deregister(dev);
 	rtnl_unlock();
+
+	return ret;
+}
+
+static int ubr_set_mac_addr(struct net_device *master_dev, struct sockaddr *addr)
+{
+	struct sockaddr old_addr;
+	struct vlan_info *vlan_info;
+
+	memcpy(old_addr.sa_data, master_dev->dev_addr, ETH_ALEN);
+	memcpy(master_dev->dev_addr, addr->sa_data, ETH_ALEN);
+
+	/* Update all VLAN sub-devices' MAC address */
+	vlan_info = rtnl_dereference(master_dev->vlan_info);
+	if (vlan_info) {
+		struct vlan_group *grp = &vlan_info->grp;
+		struct net_device *vlan_dev;
+		int i, err;
+
+		vlan_group_for_each_dev(grp, i, vlan_dev) {
+			struct sockaddr vaddr;
+
+			/* Do not modify manually changed vlan MAC */
+			if (compare_ether_addr(old_addr.sa_data, vlan_dev->dev_addr))
+				continue;
+
+			memcpy(vaddr.sa_data, addr->sa_data, ETH_ALEN);
+			vaddr.sa_family = vlan_dev->type;
+
+			err = dev_set_mac_address(vlan_dev, &vaddr);
+			if (err)
+				netdev_dbg(vlan_dev, "can't set MAC for device %s (error %d)\n",
+						vlan_dev->name, err);
+		}
+	}
+
+	call_netdevice_notifiers(NETDEV_CHANGEADDR, master_dev);
+
+	return 0;
+}
+
+static int ubr_set_mac_addr_force(struct net_device *dev, void *p)
+{
+	struct ubr_private *ubr0 = netdev_priv(dev);
+	int ret = ubr_set_mac_addr(dev, p);
+
+	if (!ret) {
+		set_bit(MAC_FORCED, &ubr0->flags);
+
+		if (ubr0->slave_dev) {
+
+			if (compare_ether_addr(dev->dev_addr, ubr0->slave_dev->dev_addr))
+				dev_set_promiscuity(ubr0->slave_dev, 1);
+			else
+				dev_set_promiscuity(ubr0->slave_dev, -1);
+
+		}
+	}
 
 	return ret;
 }
@@ -222,22 +285,17 @@ out:
 	return err;
 }
 
-#define vlan_group_for_each_dev(grp, i, dev) \
-	for ((i) = 0; i < VLAN_N_VID; i++) \
-		if (((dev) = vlan_group_get_device((grp), \
-							    (i) % VLAN_N_VID)))
-
 static int ubr_atto_master(struct net_device *master_dev, int ifindex)
 {
-	struct net_device *dev1, *vlan_dev;
+	struct net_device *dev1;
 	struct ubr_private *ubr0 = netdev_priv(master_dev);
-	struct vlan_info *vlan_info;
+	unsigned mac_differ;
 #ifdef CONFIG_NET_NS
 	struct net *net = master_dev->nd_net;
 #else
 	struct net *net = &init_net;
 #endif
-	int i, err = -ENODEV;
+	int err = -ENODEV;
 
 	if (ubr0->slave_dev != NULL)
 		return -EBUSY;
@@ -246,32 +304,24 @@ static int ubr_atto_master(struct net_device *master_dev, int ifindex)
 	if (!dev1)
 		goto out;
 
-	memcpy(master_dev->dev_addr, dev1->dev_addr, ETH_ALEN);
-	call_netdevice_notifiers(NETDEV_CHANGEADDR, master_dev);
+	if (!test_bit(MAC_FORCED, &ubr0->flags)) {
+		struct sockaddr addr;
+		memcpy(addr.sa_data, dev1->dev_addr, ETH_ALEN);
+
+		if (ubr_set_mac_addr(master_dev, &addr))
+			printk(KERN_ERR "ubr_atto_master error setting MAC\n");
+	}
+
+	mac_differ = compare_ether_addr(master_dev->dev_addr, dev1->dev_addr);
 
 	ubr0->slave_dev = dev1;
-
-	// Update all VLAN sub-devices' MAC address
-	vlan_info = rtnl_dereference(master_dev->vlan_info);
-	if (vlan_info) {
-		struct vlan_group *grp = &vlan_info->grp;
-		vlan_group_for_each_dev(grp, i, vlan_dev) {
-			struct sockaddr addr;
-			memcpy(addr.sa_data, dev1->dev_addr, ETH_ALEN);
-			addr.sa_family = vlan_dev->type;
-			err = dev_set_mac_address(vlan_dev, &addr);
-			if (err)
-				netdev_dbg(vlan_dev, "can't set MAC for device %s (error %d)\n",
-						vlan_dev->name, err);
-		}
-	}
 
 	err = netdev_rx_handler_register(dev1, ubr_handle_frame, ubr0);
 	if (err) {
 		goto out;
 	}
 
-	if (master_dev->flags & IFF_PROMISC)
+	if (master_dev->flags & IFF_PROMISC || mac_differ)
 		dev_set_promiscuity(dev1, 1);
 
 	netif_carrier_on(master_dev);
@@ -433,7 +483,7 @@ static int __init ubridge_init(void)
 	ubrioctl_set(ubr_ioctl_deviceless_stub);
 	printk(KERN_INFO "ubridge: %s, %s\n", DRV_DESCRIPTION, DRV_VERSION);
 	if (register_netdevice_notifier(&ubr_device_notifier))
-		printk(KERN_ERR "%s: Error regitering notifier\n", __func__);
+		printk(KERN_ERR "%s: Error registering notifier\n", __func__);
 	return 0;
 }
 
