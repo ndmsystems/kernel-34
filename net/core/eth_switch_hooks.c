@@ -12,3 +12,6 @@ ETH_SWITCH_DEFINE_HOOK(iface)
 ETH_SWITCH_DEFINE_HOOK(map_mc_mac)
 ETH_SWITCH_DEFINE_HOOK(unmap_mc_mac)
 ETH_SWITCH_DEFINE_HOOK(set_wan_port)
+
+ETH_SWITCH_DEFINE_HOOK(mt7530_reg_write_bh)
+ETH_SWITCH_DEFINE_HOOK(rtl83xx_reg_write_bh)

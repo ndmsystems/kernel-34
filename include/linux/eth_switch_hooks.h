@@ -18,6 +18,12 @@ typedef int eth_switch_unmap_mc_mac_fn(const struct net_device *const dev,
 
 typedef int eth_switch_set_wan_port_fn(const unsigned char port);
 
+typedef int eth_switch_mt7530_reg_write_bh_fn(const u32 addr,
+					      const u32 data);
+
+typedef int eth_switch_rtl83xx_reg_write_bh_fn(const u32 addr,
+					       const u32 data);
+
 extern rwlock_t eth_switch_lock;
 
 #define ETH_SWITCH_DECLARE_HOOK(name)					\
@@ -49,6 +55,9 @@ ETH_SWITCH_DECLARE_HOOK(iface)
 ETH_SWITCH_DECLARE_HOOK(map_mc_mac)
 ETH_SWITCH_DECLARE_HOOK(unmap_mc_mac)
 ETH_SWITCH_DECLARE_HOOK(set_wan_port)
+
+ETH_SWITCH_DECLARE_HOOK(mt7530_reg_write_bh);
+ETH_SWITCH_DECLARE_HOOK(rtl83xx_reg_write_bh);
 
 #endif /* __INCLUDE_LINUX_ETH_SWITCH_HOOKS_H */
 
