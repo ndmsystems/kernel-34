@@ -144,6 +144,8 @@
 
 #include "net-sysfs.h"
 
+extern int (*ipv6_pthrough)(struct sk_buff *skb);
+
 /* Instead of increasing this, you should create a hash table. */
 #define MAX_GRO_SKBS 8
 
@@ -3369,6 +3371,7 @@ static int __netif_receive_skb(struct sk_buff *skb)
 	struct net_device *orig_dev;
 	struct net_device *null_or_dev;
 	bool deliver_exact = false;
+	int (*ipv6hook)(struct sk_buff *skb);
 	int ret = NET_RX_DROP;
 	__be16 type;
 
@@ -3400,6 +3403,11 @@ another_round:
 		skb = vlan_untag(skb);
 		if (unlikely(!skb))
 			goto out;
+	}
+
+	if ((ipv6hook = rcu_dereference(ipv6_pthrough)) && ipv6hook(skb)) {
+		ret = NET_RX_SUCCESS;
+		goto out;
 	}
 
 #ifdef CONFIG_NET_CLS_ACT
