@@ -641,6 +641,9 @@ static void dm9620_set_multicast(struct net_device *net)
 	} else if (!netdev_mc_empty(net)) {
 		struct netdev_hw_addr *ha;
 
+		/* Big fat warning: pass all multicast, but this is temporarily solution! */
+		rx_ctl |= 0x08;
+
 		netdev_for_each_mc_addr(ha, net) {
 			u32 crc = crc32_le(~0, ha->addr, ETH_ALEN) & 0x3f;
 			hashes[crc >> 3] |= 1 << (crc & 0x7);
