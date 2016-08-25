@@ -3,6 +3,12 @@
 #define DRV_DESCRIPTION	"Tiny bridge driver"
 #define DRV_COPYRIGHT	"(C) 2012-2016 NDM Systems Inc. <ap@ndmsystems.com>"
 
+/*
+ * UBR_UC_SYNC - allow sync unicast list for slave device.
+ * Note: usbnet devices usually not implements unicast list.
+ */
+//#define UBR_UC_SYNC
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -118,35 +124,45 @@ static struct rtnl_link_stats64 *ubr_get_stats64(struct net_device *dev,
 	return stats;
 }
 
-void ubr_change_rx_flags(struct net_device *dev,
-						int flags)
+static void ubr_change_rx_flags(struct net_device *dev, int change)
 {
-	int err = 0;
+	struct ubr_private *master_info = netdev_priv(dev);
+	struct net_device *slave_dev = master_info->slave_dev;
 
-	if (flags & IFF_PROMISC) {
-		struct ubr_private *master_info = netdev_priv(dev);
-		struct net_device *slave_dev = master_info->slave_dev;
+	if (!slave_dev)
+		return;
 
-		netdev_dbg(dev, "%s promiscuous mode for ubridge\n",
-				dev->flags & IFF_PROMISC? "Set": "Clear");
+	if (change & IFF_ALLMULTI)
+		dev_set_allmulti(slave_dev, dev->flags & IFF_ALLMULTI ? 1 : -1);
 
-		if (slave_dev)
-			err = dev_set_promiscuity(slave_dev, dev->flags & IFF_PROMISC? 1: -1);
+	if (change & IFF_PROMISC)
+		dev_set_promiscuity(slave_dev, dev->flags & IFF_PROMISC ? 1 : -1);
+}
 
-		if (err < 0)
-			printk(KERN_ERR "Error changing promiscuity\n");
-	}
+static void ubr_set_rx_mode(struct net_device *dev)
+{
+	struct ubr_private *master_info = netdev_priv(dev);
+	struct net_device *slave_dev = master_info->slave_dev;
+
+	if (!slave_dev)
+		return;
+
+#ifdef UBR_UC_SYNC
+	dev_uc_sync(slave_dev, dev);
+#endif
+	dev_mc_sync(slave_dev, dev);
 }
 
 static const struct net_device_ops ubr_netdev_ops =
 {
-	.ndo_open = ubr_open,
-	.ndo_stop = ubr_stop,
-	.ndo_start_xmit = ubr_xmit,
-	.ndo_get_stats64 = ubr_get_stats64,
-	.ndo_do_ioctl = ubr_dev_ioctl,
-	.ndo_change_rx_flags = ubr_change_rx_flags,
-	.ndo_set_mac_address = ubr_set_mac_addr_force,
+	.ndo_open		 = ubr_open,
+	.ndo_stop		 = ubr_stop,
+	.ndo_start_xmit		 = ubr_xmit,
+	.ndo_get_stats64	 = ubr_get_stats64,
+	.ndo_do_ioctl		 = ubr_dev_ioctl,
+	.ndo_change_rx_flags	 = ubr_change_rx_flags,
+	.ndo_set_rx_mode	 = ubr_set_rx_mode,
+	.ndo_set_mac_address	 = ubr_set_mac_addr_force,
 };
 
 /* RTNL locked */
