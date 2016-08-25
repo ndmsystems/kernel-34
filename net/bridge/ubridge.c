@@ -37,7 +37,7 @@ static LIST_HEAD(ubr_list);
 
 struct ubr_private {
 	struct net_device		*slave_dev;
-	struct br_cpu_netstats	stats;
+	struct br_cpu_netstats __percpu *stats;
 	struct list_head		list;
 	struct net_device		*dev;
 	unsigned long			flags;
@@ -55,6 +55,7 @@ static rx_handler_result_t ubr_handle_frame(struct sk_buff **pskb)
 {
 	struct sk_buff *skb = *pskb;
 	struct ubr_private *ubr = ubr_priv_get_rcu(skb->dev);
+	struct br_cpu_netstats *ustats;
 
 	if (ubr == NULL)
 		return RX_HANDLER_PASS;
@@ -63,44 +64,65 @@ static rx_handler_result_t ubr_handle_frame(struct sk_buff **pskb)
 	printk(KERN_INFO "%s: packet %s -> %s\n", __func__, ubr->slave_dev->name, ubr->dev->name);
 #endif
 
+	ustats = this_cpu_ptr(ubr->stats);
+
+	u64_stats_update_begin(&ustats->syncp);
+	ustats->rx_packets++;
+	ustats->rx_bytes += skb->len;
+	u64_stats_update_end(&ustats->syncp);
+
 	skb->dev = ubr->dev;
 	skb->pkt_type = PACKET_HOST;
-	ubr->dev->last_rx = jiffies;
 
-	ubr->stats.rx_packets++;
-	ubr->stats.rx_bytes += skb->len;
 	dst_release(skb_dst(skb));
 	skb_dst_set(skb, NULL);
 
 	netif_receive_skb(skb);
+
 	return RX_HANDLER_CONSUMED;
 }
 
-static int ubr_open(struct net_device *master_dev)
+static int ubr_init(struct net_device *dev)
 {
-	netif_start_queue(master_dev);
+	struct ubr_private *ubr = netdev_priv(dev);
+
+	ubr->stats = alloc_percpu(struct br_cpu_netstats);
+	if (!ubr->stats)
+		return -ENOMEM;
+
 	return 0;
 }
 
-static int ubr_stop(struct net_device *master_dev)
+static int ubr_open(struct net_device *dev)
 {
-	netif_stop_queue(master_dev);
+	netif_start_queue(dev);
+	return 0;
+}
+
+static int ubr_stop(struct net_device *dev)
+{
+	netif_stop_queue(dev);
 	return 0;
 }
 
 static netdev_tx_t ubr_xmit(struct sk_buff *skb,
-			    struct net_device *master_dev)
+			    struct net_device *dev)
 {
-	struct ubr_private *master_info = netdev_priv(master_dev);
-	struct net_device *slave_dev = master_info->slave_dev;
+	struct ubr_private *ubr = netdev_priv(dev);
+	struct net_device *slave_dev = ubr->slave_dev;
+	struct br_cpu_netstats *ustats;
 
 	if (!slave_dev) {
 		dev_kfree_skb(skb);
 		return -ENOTCONN;
 	}
 
-	master_info->stats.tx_packets++;
-	master_info->stats.tx_bytes += skb->len;
+	ustats = this_cpu_ptr(ubr->stats);
+
+	u64_stats_update_begin(&ustats->syncp);
+	ustats->tx_packets++;
+	ustats->tx_bytes += skb->len;
+	u64_stats_update_end(&ustats->syncp);
 
 	skb->dev = slave_dev;
 	return dev_queue_xmit(skb);
@@ -110,16 +132,31 @@ static struct rtnl_link_stats64 *ubr_get_stats64(struct net_device *dev,
 						struct rtnl_link_stats64 *stats)
 {
 	struct ubr_private *ubr = netdev_priv(dev);
-	struct br_cpu_netstats *sum = &ubr->stats;
+	struct br_cpu_netstats tmp, sum = { 0 };
+	unsigned int cpu;
 
-	memset(stats, 0, sizeof (*stats));
-	if (unlikely(sum == NULL))
-		return NULL;
+	for_each_possible_cpu(cpu) {
+		unsigned int start;
+		const struct br_cpu_netstats *ustats = per_cpu_ptr(ubr->stats, cpu);
 
-	stats->tx_bytes   = sum->tx_bytes;
-	stats->tx_packets = sum->tx_packets;
-	stats->rx_bytes   = sum->rx_bytes;
-	stats->rx_packets = sum->rx_packets;
+		do {
+			start = u64_stats_fetch_begin_bh(&ustats->syncp);
+			tmp.tx_bytes   = ustats->tx_bytes;
+			tmp.tx_packets = ustats->tx_packets;
+			tmp.rx_bytes   = ustats->rx_bytes;
+			tmp.rx_packets = ustats->rx_packets;
+		} while (u64_stats_fetch_retry_bh(&ustats->syncp, start));
+
+		sum.tx_bytes   += tmp.tx_bytes;
+		sum.tx_packets += tmp.tx_packets;
+		sum.rx_bytes   += tmp.rx_bytes;
+		sum.rx_packets += tmp.rx_packets;
+	}
+
+	stats->tx_bytes   = sum.tx_bytes;
+	stats->tx_packets = sum.tx_packets;
+	stats->rx_bytes   = sum.rx_bytes;
+	stats->rx_packets = sum.rx_packets;
 
 	return stats;
 }
@@ -155,6 +192,7 @@ static void ubr_set_rx_mode(struct net_device *dev)
 
 static const struct net_device_ops ubr_netdev_ops =
 {
+	.ndo_init		 = ubr_init,
 	.ndo_open		 = ubr_open,
 	.ndo_stop		 = ubr_stop,
 	.ndo_start_xmit		 = ubr_xmit,
@@ -164,6 +202,14 @@ static const struct net_device_ops ubr_netdev_ops =
 	.ndo_set_rx_mode	 = ubr_set_rx_mode,
 	.ndo_set_mac_address	 = ubr_set_mac_addr_force,
 };
+
+static void ubr_dev_free(struct net_device *dev)
+{
+	struct ubr_private *ubr = netdev_priv(dev);
+
+	free_percpu(ubr->stats);
+	free_netdev(dev);
+}
 
 /* RTNL locked */
 static int ubr_deregister(struct net_device *dev)
@@ -281,13 +327,12 @@ static int ubr_alloc_master(const char *name)
 						| NETIF_F_HIGHDMA
 						| NETIF_F_LLTX;
 	dev->flags		= IFF_BROADCAST | IFF_MULTICAST;
-	dev->netdev_ops = &ubr_netdev_ops;
-	dev->destructor		= free_netdev;
+	dev->netdev_ops		= &ubr_netdev_ops;
+	dev->destructor		= ubr_dev_free;
 
 	err = register_netdev(dev);
 	if (err) {
 		free_netdev(dev);
-		dev = ERR_PTR(err);
 		goto out;
 	}
 
@@ -432,10 +477,9 @@ int ubr_ioctl_deviceless_stub(struct net *net, unsigned int cmd, void __user *ua
 
 			if (copy_from_user(&args, uarg, sizeof(args)))
 				return -EFAULT;
-			buf_ = kmalloc(SHOW_BUF_MAX_LEN, GFP_KERNEL);
+			buf_ = kzalloc(SHOW_BUF_MAX_LEN, GFP_KERNEL);
 			if (buf_ == NULL)
 				return -ENOMEM;
-			memset(buf_, 0, SHOW_BUF_MAX_LEN);
 			res = ubr_show(buf_, args.len);
 			if (copy_to_user(args.buf, buf_, res) ||
 					copy_to_user(uarg, &res, sizeof(long))) {
