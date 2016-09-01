@@ -630,6 +630,9 @@ static void dm9620_set_multicast(struct net_device *net)
 	u8 *hashes = (u8 *) & dev->data;
 	u8 rx_ctl = 0x31;
 
+	/* RUNT: pass RX packets < 64 bytes */
+	rx_ctl |= 0x04;
+
 	memset(hashes, 0x00, DM_MCAST_SIZE);
 	hashes[DM_MCAST_SIZE - 1] |= 0x80;	/* broadcast address */
 
@@ -900,6 +903,11 @@ static int dm9620_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 			return 0;
 		}
 
+		if (unlikely(len < ETH_HLEN)) {
+			dev->net->stats.rx_length_errors++;
+			return 0;
+		}
+
 		skb_pull(skb, 4);
 		skb_trim(skb, len);
 
@@ -919,6 +927,11 @@ static int dm9620_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 			if (status & 0x04) dev->net->stats.rx_frame_errors++;
 			if (status & 0x20) dev->net->stats.rx_missed_errors++;
 			if (status & 0x90) dev->net->stats.rx_length_errors++;
+			return 0;
+		}
+
+		if (unlikely(len < ETH_HLEN)) {
+			dev->net->stats.rx_length_errors++;
 			return 0;
 		}
 
