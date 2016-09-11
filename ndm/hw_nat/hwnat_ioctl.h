@@ -22,11 +22,28 @@
 #define HW_NAT_INVALID_ENTRY		(0x07)
 #define HW_NAT_DEBUG			(0x08)
 
+#if defined (CONFIG_HNAT_V2)
 #define HW_NAT_GET_AC_CNT		(0x09)
 #define HW_NAT_MCAST_INS		(0x20)
 #define HW_NAT_MCAST_DEL		(0x21)
 #define HW_NAT_MCAST_DUMP		(0x22)
 #define HW_NAT_DROP_ENTRY		(0x36)
+#else
+/* hnat qos */
+#define HW_NAT_DSCP_REMARK		(0x09)
+#define HW_NAT_VPRI_REMARK		(0x0a)
+#define HW_NAT_FOE_WEIGHT		(0x0b)
+#define HW_NAT_ACL_WEIGHT		(0x0c)
+#define HW_NAT_DSCP_WEIGHT		(0x0d)
+#define HW_NAT_VPRI_WEIGHT		(0x0e)
+#define HW_NAT_DSCP_UP			(0x0f)
+#define HW_NAT_UP_IDSCP			(0x10)
+#define HW_NAT_UP_ODSCP			(0x11)
+#define HW_NAT_UP_VPRI			(0x12)
+#define HW_NAT_UP_AC			(0x13)
+#define HW_NAT_SCH_MODE			(0x14)
+#define HW_NAT_SCH_WEIGHT		(0x15)
+#endif
 
 #define HW_NAT_BIND_THRESHOLD		(0x16)
 #define HW_NAT_MAX_ENTRY_LMT		(0x17)
@@ -108,6 +125,25 @@ struct hwnat_args {
 	struct hwnat_tuple entries[0];
 };
 
+#if !defined (CONFIG_HNAT_V2)
+/* hnat qos */
+struct hwnat_qos_args {
+	unsigned int enable:1;
+	unsigned int up:3;
+	unsigned int weight:3;	/*UP resolution */
+	unsigned int dscp:6;
+	unsigned int dscp_set:3;
+	unsigned int vpri:3;
+	unsigned int ac:2;
+	unsigned int mode:2;
+	unsigned int weight0:4;	/*WRR 4 queue weight */
+	unsigned int weight1:4;
+	unsigned int weight2:4;
+	unsigned int weight3:4;
+	enum hwnat_status result;
+};
+#endif
+
 /* hnat config */
 struct hwnat_config_args {
 	unsigned int bind_threshold:16;
@@ -131,6 +167,7 @@ struct hwnat_config_args {
 	enum hwnat_status result;
 };
 
+#if defined (CONFIG_HNAT_V2)
 struct hwnat_ac_args {
 	unsigned int ag_index;
 	unsigned int ag_pkt_cnt;
@@ -147,6 +184,7 @@ struct hwnat_mcast_args {
 	unsigned int mc_qos_qid:4;
 	unsigned char dst_mac[6];
 };
+#endif
 
 #ifdef __KERNEL__
 /*

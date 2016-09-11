@@ -9,7 +9,7 @@ config RALINK_GPIO
 config RALINK_GPIOMODE_EPHY
 	bool "Configure EPHY as GPIO mode"
 	depends on RALINK_GPIO
-	depends on (RALINK_MT7620 || RALINK_MT7628)
+	depends on (RALINK_MT7620 || RALINK_MT7628 || RALINK_RT6XXX_MP)
 	default n
 config RALINK_GPIOMODE_PCI
 	bool "Configure PCI as GPIO mode"

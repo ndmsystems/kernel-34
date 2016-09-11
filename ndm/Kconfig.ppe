@@ -1,6 +1,6 @@
 config  RA_HW_NAT
 	tristate "Ralink/MTK HW NAT (** Work At Module Mode ONLY **)"
-	depends on (RALINK_MT7620 || RALINK_MT7621 || ARCH_MT7623)
+	depends on (RALINK_RT6XXX_MP || RALINK_MT7620 || RALINK_MT7621 || ARCH_MT7623)
 
 config  HNAT_V2
 	bool
@@ -71,10 +71,10 @@ choice
 	depends on RA_HW_NAT
 	config  RA_HW_NAT_HASH2
 		bool "Hash2-Complex"
-	depends on RA_HW_NAT
+	depends on RA_HW_NAT && HNAT_V2
 	config  RA_HW_NAT_HASH3
 		bool "Hash3-Complex"
-	depends on RA_HW_NAT
+	depends on RA_HW_NAT && HNAT_V2
 	config  RA_HW_NAT_HASH_DBG
 		bool "Hash-Debug"
 	depends on RA_HW_NAT && ARCH_MT7623
@@ -92,6 +92,41 @@ choice
 	config  RA_HW_NAT_HASH_DBG_SPORT
 		bool "source port[15:0]"
 endchoice
+
+config  RA_HW_NAT_PRE_ACL_SIZE
+	int "Pre ACL Table Size"
+	depends on RA_HW_NAT && !HNAT_V2
+	default 383
+	help
+	  Pre ACL + Pre/Post MTR + Pre/Post AC Must less than 512
+
+config  RA_HW_NAT_PRE_MTR_SIZE
+	int "Pre Meter Table Size"
+	depends on RA_HW_NAT && !HNAT_V2
+	default 32
+	help
+	  Pre ACL + Pre/Post MTR + Pre/Post AC Must less than 512
+
+config  RA_HW_NAT_PRE_AC_SIZE
+	int "Pre AC Table Size"
+	depends on RA_HW_NAT && !HNAT_V2
+	default 32
+	help
+	  Pre ACL + Pre/Post MTR + Pre/Post AC Must less than 512
+
+config  RA_HW_NAT_POST_MTR_SIZE
+	int "Post Meter Table Size"
+	depends on RA_HW_NAT && !HNAT_V2
+	default 32
+	help
+	  Pre ACL + Pre/Post MTR + Pre/Post AC Must less than 512
+
+config  RA_HW_NAT_POST_AC_SIZE
+	int "Post AC Table Size"
+	depends on RA_HW_NAT && !HNAT_V2
+	default 32
+	help
+	  Pre ACL + Pre/Post MTR + Pre/Post AC Must less than 512
 
 config  RA_HW_NAT_TCP_KA
 	int "TCP KeepAlive Interval(Unit:1Sec)"
@@ -111,7 +146,7 @@ config  RA_HW_NAT_UDP_KA
 
 config  RA_HW_NAT_NTU_KA
 	int "Non-TCP/UDP KeepAlive Interval(Unit:1Sec)"
-	depends on RA_HW_NAT_TBL_1K
+	depends on RA_HW_NAT_TBL_1K && HNAT_V2
 	default 5
 	help
 	  HW will duplicate one packet from tcp bind flow to CPU
@@ -135,7 +170,7 @@ config  RA_HW_NAT_UDP_KA
 
 config  RA_HW_NAT_NTU_KA
 	int "Non-TCP/UDP KeepAlive Interval(Unit:2Sec)"
-	depends on RA_HW_NAT_TBL_2K
+	depends on RA_HW_NAT_TBL_2K && HNAT_V2
 	default 3
 	help
 	  HW will duplicate one packet from tcp bind flow to CPU
@@ -159,7 +194,7 @@ config  RA_HW_NAT_UDP_KA
 
 config  RA_HW_NAT_NTU_KA
 	int "Non-TCP/UDP KeepAlive Interval(Unit:4Sec)"
-	depends on RA_HW_NAT_TBL_4K
+	depends on RA_HW_NAT_TBL_4K && HNAT_V2
 	default 1
 	help
 	  HW will duplicate one packet from tcp bind flow to CPU
@@ -183,7 +218,7 @@ config  RA_HW_NAT_UDP_KA
 
 config  RA_HW_NAT_NTU_KA
 	int "Non-TCP/UDP KeepAlive Interval(Unit:8Sec)"
-	depends on RA_HW_NAT_TBL_8K
+	depends on RA_HW_NAT_TBL_8K && HNAT_V2
 	default 1
 	help
 	  HW will duplicate one packet from tcp bind flow to CPU
@@ -207,11 +242,18 @@ config  RA_HW_NAT_UDP_KA
 
 config  RA_HW_NAT_NTU_KA
 	int "Non-TCP/UDP KeepAlive Interval(Unit:16Sec)"
-	depends on RA_HW_NAT_TBL_16K
+	depends on RA_HW_NAT_TBL_16K && HNAT_V2
 	default 1
 	help
 	  HW will duplicate one packet from tcp bind flow to CPU
 	  in order to refresh Linux conntrack table.
+
+config  RA_HW_NAT_ACL_DLTA
+	int "Life time of ACL link to FOE entry(Unit:1Sec)"
+	depends on RA_HW_NAT && !HNAT_V2
+	default 3
+	help
+	  Set ageout time for ACL link to FoE entry 
 
 config  RA_HW_NAT_UNB_DLTA
 	int "Life time of Unbind entry (Unit:1Sec)"
@@ -252,10 +294,16 @@ config  RA_HW_NAT_FIN_DLTA
 
 config  RA_HW_NAT_NTU_DLTA
 	int "Life time of Non-TCP/UDP entry (Unit:1Sec)"
-	depends on RA_HW_NAT
+	depends on RA_HW_NAT && HNAT_V2
 	default 5
 	help
 	  Set ageout time for Non-TCP/UDP entry
+
+config  RA_HW_NAT_ACL2UP_HELPER
+	bool "ACL -> UP helper"
+	depends on RA_HW_NAT && !HNAT_V2
+	help
+	  Use ACL rule to get user priority
 
 config  RA_HW_NAT_PREBIND
 	bool "Pre-bind support"
@@ -273,7 +321,7 @@ config  RA_HW_NAT_PBND_RD_LMT
 
 config  RA_HW_NAT_IPV6
 	bool "IPv6 Acceleration"
-	depends on RA_HW_NAT && IPV6
+	depends on RA_HW_NAT && HNAT_V2 && IPV6
 	default n
 	help
 	  IPv6 routing accelerated by HNAT
@@ -287,7 +335,7 @@ config  RA_HW_NAT_QDMA
 
 config  RA_HW_NAT_MCAST
 	bool "Multicast Acceleration"
-	depends on RA_HW_NAT
+	depends on RA_HW_NAT && HNAT_V2
 	default n
 	help
 	  Multicast flow accelerated by HNAT

@@ -51,7 +51,7 @@ config  RT3593_AP_NETIF_BLOCK
 config  RT3593_AP_DFS
 	bool "DFS"
 	depends on RT3593_AP
-	select RALINK_TIMER_DFS
+#	select RALINK_TIMER_DFS
 
 config  RT3593_AP_CARRIER
 	bool "Carrier Detect"

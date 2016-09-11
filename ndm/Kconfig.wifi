@@ -25,6 +25,12 @@ choice
 	depends on RALINK_MT7628
 	select MT_MAC
 
+	config FIRST_IF_RT5392
+	bool "RT5392"
+	depends on RALINK_RT6XXX_MP
+	select RTMP_MAC
+	select RALINK_RT5392
+
 	config FIRST_IF_MT7602E
 	bool "MT7602E"
 	depends on RALINK_MT7621
@@ -58,6 +64,11 @@ choice
 
 	config SECOND_IF_NONE
 	bool "None"
+
+	config SECOND_IF_RT3593
+	bool "RT3593 PCIe"
+	select RTMP_MAC
+	select RALINK_RT3593
 
 	config SECOND_IF_RT5592
 	bool "RT5592"
@@ -96,12 +107,14 @@ config RT_FIRST_CARD
 	default 2860 if FIRST_IF_RT2860
 	default 7620 if FIRST_IF_MT7620
 	default 7628 if FIRST_IF_MT7628
+	default 5392 if FIRST_IF_RT5392
 	default 7602 if FIRST_IF_MT7602E
 	default 7603 if FIRST_IF_MT7603E
 
 config RT_SECOND_CARD
 	int
 	depends on ! SECOND_IF_NONE
+	default 3593 if SECOND_IF_RT3593
 	default 5592 if SECOND_IF_RT5592
 	default 7612 if SECOND_IF_MT7612E
 	default 7615 if SECOND_IF_MT7615E
@@ -161,6 +174,14 @@ endmenu
 #source "ndm/mt7603_ap/Kconfig"
 #source "ndm/mt7603/Kconfig"
 #endmenu
+
+menu "Ralink RT5392E PCIe Wireless driver"
+source "ndm/rt5392_ap/Kconfig"
+endmenu
+
+menu "Ralink RT3593E PCIe Wireless driver"
+source "ndm/rt3593_ap/Kconfig"
+endmenu
 
 menu "Ralink RT5592E PCIe Wireless driver"
 source "ndm/rt5592_ap/Kconfig"

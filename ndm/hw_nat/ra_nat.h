@@ -17,21 +17,36 @@
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 
-#if !defined (CONFIG_HNAT_V2)
-#error "HNAT_V1 SoC is not supported!"
-#endif
-
 typedef struct {
 	uint16_t MAGIC_TAG;
-	uint32_t FOE_Entry:14;
 #if defined (CONFIG_RALINK_MT7620)
+	uint32_t FOE_Entry:14;
 	uint32_t CRSN:5;
 	uint32_t SPORT:3;
 	uint32_t ALG:10;
-#else
+#elif defined (CONFIG_RALINK_MT7621)
+	uint32_t FOE_Entry:14;
 	uint32_t CRSN:5;
 	uint32_t SPORT:4;
 	uint32_t ALG:9;
+#else
+#ifdef __BIG_ENDIAN
+	uint32_t RESV2:4;
+	uint32_t AIS:1;
+	uint32_t SP:3;
+	uint32_t AI:8;
+	uint32_t ALG:1;
+	uint32_t FVLD:1;
+	uint32_t FOE_Entry:14;
+#else
+	uint32_t FOE_Entry:14;
+	uint32_t FVLD:1;
+	uint32_t ALG:1;
+	uint32_t AI:8;
+	uint32_t SP:3;
+	uint32_t AIS:1;
+	uint32_t RESV2:4;
+#endif
 #endif
 }  __attribute__ ((packed)) PdmaRxDescInfo4;
 
@@ -52,7 +67,11 @@ typedef struct {
 #define FOE_MAGIC_WLAN			FOE_MAGIC_EXTIF
 #define FOE_MAGIC_GE			0x7275
 #define FOE_MAGIC_PPE			0x7276
+#ifdef __BIG_ENDIAN
+#define FOE_MAGIC_PPE_DWORD		0x7672ff3fUL	/* HNAT_V1: FVLD=0, HNAT_V2: FOE_Entry=0x3fff */
+#else
 #define FOE_MAGIC_PPE_DWORD		0x3fff7276UL	/* HNAT_V1: FVLD=0, HNAT_V2: FOE_Entry=0x3fff */
+#endif
 
 /* gmac_no for EXTIF offload (ra_sw_nat_hook_tx) */
 #define GMAC_ID_MAGIC_EXTIF		0
@@ -84,9 +103,15 @@ typedef struct {
 #define FOE_MAGIC_TAG(skb)		((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->MAGIC_TAG
 #define FOE_ENTRY_NUM(skb)		((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->FOE_Entry
 #define FOE_ALG(skb)			((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->ALG
+#if defined (CONFIG_HNAT_V2)
 #define FOE_ENTRY_VALID(skb)		(((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->FOE_Entry != 0x3fff)
 #define FOE_AI(skb)			((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->CRSN
 #define FOE_SP(skb)			((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->SPORT
+#else
+#define FOE_ENTRY_VALID(skb)		((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->FVLD
+#define FOE_AI(skb)			((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->AI
+#define FOE_SP(skb)			((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->SP
+#endif
 
 #ifndef UN_HIT
 #define UN_HIT 0x0D
