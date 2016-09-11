@@ -156,24 +156,25 @@ static int bbu_spic_busy_wait(void)
 
 void spic_init(void)
 {
-	u32 clk_sys, clk_div, reg;
+	u32 clk_sys, clk_div, clk_out, reg;
 
+	/*
+	 * MT7621 sys_clk 220 MHz
+	 * MT7628 sys_clk 193, 191 MHz
+	 * RT685x/RT6336x sys_clk 233, 175, 166, 140, 125 MHz
+	 */
 	clk_sys = get_surfboard_sysclk() / 1000000;
-#if defined (CONFIG_RALINK_MT7621)
-	/* MT7621 sys_clk 220 MHz */
 #if defined (CONFIG_MTD_SPI_FAST_CLOCK)
-	clk_div = 5;	/* hclk/5 -> 44.0 MHz */
+	clk_out = 50;
 #else
-	clk_div = 7;	/* hclk/7 -> 31.4 MHz */
+	clk_out = 33;
 #endif
-#elif defined (CONFIG_RALINK_MT7628)
-	/* MT7628 sys_clk 193/191 MHz */
-#if defined (CONFIG_MTD_SPI_FAST_CLOCK)
-	clk_div = 4;	/* hclk/4 -> 48.3 MHz */
-#else
-	clk_div = 6;	/* hclk/6 -> 32.2 MHz */
-#endif
-#endif
+	clk_div = clk_sys / clk_out;
+	if ((clk_sys % clk_out) != 0)
+		clk_div += 1;
+	if (clk_div < 3)
+		clk_div = 3;
+
 	reg = ra_inl(SPI_REG_MASTER);
 	reg &= ~(0x7);
 	reg &= ~(0x0fff << 16);
@@ -187,7 +188,7 @@ void spic_init(void)
 	ra_or(SPI_REG_MASTER, (1 << 29));
 #endif
 
-	printk("MediaTek SPI flash driver, SPI clock: %dMHz\n", clk_sys / clk_div);
+	printk(KERN_INFO "MediaTek BBU SPI flash driver, SPI clock: %uMHz\n", clk_sys / clk_div);
 }
 
 struct chip_info {

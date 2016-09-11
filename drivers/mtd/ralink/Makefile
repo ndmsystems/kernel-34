@@ -3,6 +3,9 @@ obj-$(CONFIG_MTD_NAND_RALINK)	+= rt_nand.o
 obj-$(CONFIG_MTD_NAND_MTK)	+= rt_nand.o
 obj-$(CONFIG_MTD_SPI_RALINK)	+= rt_spi.o
 
+ifeq ($(CONFIG_RALINK_RT6XXX_MP),y)
+rt_spi-objs = ralink_spi_bbu.o
+else
 ifeq ($(CONFIG_RALINK_MT7621),y)
 rt_spi-objs = ralink_spi_bbu.o
 else
@@ -12,6 +15,7 @@ else
 rt_spi-objs = ralink_spi.o
 endif
 endif
+endif
 
 ifeq ($(CONFIG_RALINK_RT3052),y)
 rt_nand-objs = ralink_nand.o gdma.o
@@ -19,6 +23,11 @@ endif
 
 ifeq ($(CONFIG_RALINK_RT3883),y)
 rt_nand-objs = ralink_nand.o gdma.o
+endif
+
+ifeq ($(CONFIG_RALINK_RT6XXX_MP),y)
+# todo
+rt_nand-objs = rt6xxx_nand.o gdma.o
 endif
 
 ifeq ($(CONFIG_RALINK_MT7620),y)

@@ -26,8 +26,6 @@
 
 int ra_check_flash_type(void)
 {
-	uint8_t Id[10];
-	int syscfg=0;
 #if defined (CONFIG_MTD_NOR_RALINK)
 	int boot_from = BOOT_FROM_NOR;
 #elif defined (CONFIG_MTD_NAND_RALINK)
@@ -35,10 +33,13 @@ int ra_check_flash_type(void)
 #else
 	int boot_from = BOOT_FROM_SPI;
 #endif
+#if !defined (CONFIG_RALINK_RT6XXX_MP)
+	uint8_t Id[8];
+	uint32_t syscfg = 0;
+
 	memset(Id, 0, sizeof(Id));
 	strncpy(Id, (char *)RALINK_SYSCTL_BASE, 6);
-	syscfg = (*((int *)(RALINK_SYSCTL_BASE + 0x10)));
-
+	syscfg = *((volatile u32 *)(RALINK_SYSCTL_BASE + 0x10));
 #if defined (CONFIG_RALINK_RT3052)
 	if ((strcmp(Id,"RT3052")==0) || (strcmp(Id, "RT3350")==0)) {
 		boot_from = (syscfg >> 16) & 0x3;
@@ -130,6 +131,15 @@ int ra_check_flash_type(void)
 	{
 		printk("%s: %s is not supported\n",__FUNCTION__, Id);
 	}
+#else /* CONFIG_RALINK_RT6XXX_MP */
+	uint32_t hwconf_reg = *((volatile u32 *)(RALINK_SYSCTL_BASE + 0x88));
+	uint32_t ssr_reg = *((volatile u32 *)(RALINK_SYSCTL_BASE + 0x90));
+
+	if ((ssr_reg & (1u << 20)) || !(hwconf_reg & 0x1))
+		boot_from = BOOT_FROM_SPI;
+	else
+		boot_from = BOOT_FROM_NAND;
+#endif
 
 	return boot_from;
 }
