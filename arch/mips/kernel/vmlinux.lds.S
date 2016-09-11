@@ -50,7 +50,9 @@ SECTIONS
 	/* read-only */
 	_text = .;	/* Text and read-only data */
 	.text : {
+#ifndef CONFIG_MIPS_TC3262
 		. = . + 0x8000;
+#endif
 		TEXT_TEXT
 		SCHED_TEXT
 		LOCK_TEXT
@@ -60,7 +62,17 @@ SECTIONS
 		*(.fixup)
 		*(.gnu.warning)
 	} :text = 0
+
+#ifdef CONFIG_TC3262_IMEM
+	. = ALIGN(32768);
+	__imem = . ;
+	.imem_text : { *(.imem_text) }
+	_imem_end = .;
+	_etext = (__imem + 32768) > . ? (__imem + 32768) : .;
+	. = _etext;
+#else
 	_etext = .;	/* End of text section */
+#endif
 
 	EXCEPTION_TABLE(16)
 

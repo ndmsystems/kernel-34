@@ -18,6 +18,13 @@
 #include <asm/r4kcache.h>
 #include <asm/hazards.h>
 
+#ifdef CONFIG_MIPS_TC3262
+#include <asm/tc3162/tc3162.h>
+
+#define MIPS34K_Index_Store_Data_I	0x0c
+extern int __imem;
+#endif
+
 /*
  * These definitions are correct for the 24K/34K/74K SPRAM sample
  * implementation. The 4KS interpreted the tags differently...
@@ -34,6 +41,7 @@
 #define read_c0_errctl(x) read_c0_ecc(x)
 #define write_c0_errctl(x) write_c0_ecc(x)
 
+#if !defined (CONFIG_MIPS_TC3262) || defined (CONFIG_TC3262_IMEM)
 /*
  * Different semantics to the set_c0_* function built by __BUILD_SET_C0
  */
@@ -82,6 +90,7 @@ static __cpuinit unsigned int ispram_load_tag(unsigned int offset)
 	return data;
 }
 
+#if !defined (CONFIG_MIPS_TC3262)
 static __cpuinit void dspram_store_tag(unsigned int offset, unsigned int data)
 {
 	unsigned int errctl;
@@ -114,6 +123,7 @@ static __cpuinit unsigned int dspram_load_tag(unsigned int offset)
 
 	return data;
 }
+#endif
 
 static __cpuinit void probe_spram(char *type,
 	    unsigned int base,
@@ -196,6 +206,63 @@ static __cpuinit void probe_spram(char *type,
 		offset += 2 * SPRAM_TAG_STRIDE;
 	}
 }
+#endif
+
+#ifdef CONFIG_MIPS_TC3262
+#ifdef CONFIG_TC3262_IMEM
+static __cpuinit void ispram_store_data(unsigned int offset, unsigned int datalo, unsigned int datahi)
+{
+	unsigned int errctl;
+
+	/* enable SPRAM tag access */
+	errctl = bis_c0_errctl(ERRCTL_SPRAM);
+	ehb();
+
+#ifdef __BIG_ENDIAN
+	write_c0_idatalo(datahi);
+	ehb();
+
+	write_c0_idatahi(datalo);
+	ehb();
+#else
+	write_c0_idatalo(datalo);
+	ehb();
+
+	write_c0_idatahi(datahi);
+	ehb();
+#endif
+
+	cache_op(MIPS34K_Index_Store_Data_I, CKSEG0|offset);
+	ehb();
+
+	write_c0_errctl(errctl);
+	ehb();
+}
+
+static __cpuinit void ispram_fill(void)
+{
+	unsigned int pa, size, tag0, tag1;
+	unsigned int offset;
+	unsigned int datalo, datahi;
+
+	tag0 = ispram_load_tag(0);
+	tag1 = ispram_load_tag(0+SPRAM_TAG_STRIDE);
+
+	pa = tag0 & SPRAM_TAG0_PA_MASK;
+	size = tag1 & SPRAM_TAG1_SIZE_MASK;
+
+	if (size == 0)
+		return;
+
+	for (offset = 0; offset < size; offset += 8) {
+		datalo = *(unsigned int *) ((unsigned int)PHYS_TO_K0(pa + offset));
+		datahi = *(unsigned int *) ((unsigned int)PHYS_TO_K0(pa + offset + 4));
+		ispram_store_data(offset, datalo, datahi);
+	}
+}
+#endif
+#endif
+
 void __cpuinit spram_config(void)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
@@ -208,6 +275,15 @@ void __cpuinit spram_config(void)
 	case CPU_1004K:
 		config0 = read_c0_config();
 		/* FIXME: addresses are Malta specific */
+#ifdef CONFIG_MIPS_TC3262
+#ifdef CONFIG_TC3262_IMEM
+		if (config0 & (1<<24)) {
+			probe_spram("ISPRAM", CPHYSADDR(&__imem),
+				    &ispram_load_tag, &ispram_store_tag);
+			ispram_fill();
+		}
+#endif
+#else
 		if (config0 & (1<<24)) {
 			probe_spram("ISPRAM", 0x1c000000,
 				    &ispram_load_tag, &ispram_store_tag);
@@ -215,5 +291,6 @@ void __cpuinit spram_config(void)
 		if (config0 & (1<<23))
 			probe_spram("DSPRAM", 0x1c100000,
 				    &dspram_load_tag, &dspram_store_tag);
+#endif
 	}
 }

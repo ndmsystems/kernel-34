@@ -704,6 +704,7 @@ static void r4k_flush_icache_range(unsigned long start, unsigned long end)
 
 #ifdef CONFIG_DMA_NONCOHERENT
 
+__IMEM
 static void r4k_dma_cache_wback_inv(unsigned long addr, unsigned long size)
 {
 	/* Catch bad driver code */
@@ -737,6 +738,7 @@ static void r4k_dma_cache_wback_inv(unsigned long addr, unsigned long size)
 	__sync();
 }
 
+__IMEM
 static void r4k_dma_cache_inv(unsigned long addr, unsigned long size)
 {
 	/* Catch bad driver code */

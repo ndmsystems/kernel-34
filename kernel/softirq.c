@@ -244,6 +244,7 @@ static inline bool lockdep_softirq_start(void) { return false; }
 static inline void lockdep_softirq_end(bool in_hardirq) { }
 #endif
 
+__IMEM
 asmlinkage void __do_softirq(void)
 {
 	unsigned long end = jiffies + MAX_SOFTIRQ_TIME;
@@ -309,6 +310,7 @@ restart:
 	WARN_ON_ONCE(in_interrupt());
 }
 
+__IMEM
 asmlinkage void do_softirq(void)
 {
 	__u32 pending;
@@ -330,6 +332,7 @@ asmlinkage void do_softirq(void)
 /*
  * Enter an interrupt context.
  */
+__IMEM
 void irq_enter(void)
 {
 	int cpu = smp_processor_id();
@@ -374,6 +377,7 @@ static inline void invoke_softirq(void)
 /*
  * Exit an interrupt context. Process softirqs if needed and possible:
  */
+__IMEM
 void irq_exit(void)
 {
 #ifndef __ARCH_IRQ_EXIT_IRQS_DISABLED
@@ -416,6 +420,7 @@ inline void raise_softirq_irqoff(unsigned int nr)
 		wakeup_softirqd();
 }
 
+__IMEM
 void raise_softirq(unsigned int nr)
 {
 	unsigned long flags;

@@ -37,6 +37,12 @@
 #define ULLONG_MAX	(~0ULL)
 #define SIZE_MAX	(~(size_t)0)
 
+#ifdef CONFIG_TC3262_IMEM
+#define __IMEM  __attribute__  ((__section__(".imem_text")))
+#else
+#define __IMEM
+#endif
+
 #define STACK_MAGIC	0xdeadbeef
 
 #define ALIGN(x, a)		__ALIGN_KERNEL((x), (a))

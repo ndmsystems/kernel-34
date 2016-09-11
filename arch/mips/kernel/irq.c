@@ -138,6 +138,7 @@ static inline void check_stack_overflow(void) {}
  * SMP cross-CPU interrupts have their own specific
  * handlers).
  */
+__IMEM
 void __irq_entry do_IRQ(unsigned int irq)
 {
 	irq_enter();
@@ -152,7 +153,7 @@ void __irq_entry do_IRQ(unsigned int irq)
  * To avoid inefficient and in some cases pathological re-checking of
  * IRQ affinity, we have this variant that skips the affinity check.
  */
-
+__IMEM
 void __irq_entry do_IRQ_no_affinity(unsigned int irq)
 {
 	irq_enter();
