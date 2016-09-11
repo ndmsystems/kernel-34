@@ -1,0 +1,25 @@
+
+if RALINK_RT6XXX_MP
+
+config PCIE_PORT1
+	bool "Second PCIe port support"
+	default y
+
+endif
+
+#--------------------------
+
+if MIPS_TC3262
+
+config TC3262_IMEM
+	bool "Enable SPRAM IMEM"
+	default y
+
+#config TC3162_SFL
+#	bool "Include Trendchip soft-float library"
+#	default n
+
+endif
+
+#--------------------------
+

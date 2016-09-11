@@ -84,6 +84,19 @@
 #define GIC_IPI_CALL_VPE0		(60)
 #define GIC_IPI_RESCHED_VPE0		(56)
 
+#elif defined (CONFIG_RALINK_RT6XXX_MP)
+
+#define SURFBOARDINT_GPIO		11	/* GPIO */
+#define SURFBOARDINT_DMA		15	/* DMA */
+#define SURFBOARDINT_I2S 		35	/* I2S */
+#define SURFBOARDINT_ESW		16	/* ESW */
+#define SURFBOARDINT_UHST		18	/* USB Host */
+#define SURFBOARDINT_PCM		12	/* PCM */
+#define SURFBOARDINT_FE			22	/* Frame Engine */
+#define SURFBOARDINT_PCIE0		25	/* PCIe0 */
+#define SURFBOARDINT_PCIE1		24	/* PCIe1 */
+#define SURFBOARDINT_CRYPTO		29	/* CryptoEngine */
+
 #else
 
 #define MIPS_INTC_CHAIN_HW0		(MIPS_CPU_IRQ_BASE + 2)		/* Chain IP2 */
@@ -152,7 +165,10 @@
  * Surfboard registers are memory mapped on 32-bit aligned boundaries and
  * only word access are allowed.
  */
-#if defined (CONFIG_RALINK_MT7621) || defined (CONFIG_RALINK_MT7628)
+#if defined (CONFIG_RALINK_RT6XXX_MP)
+extern void tc_enable_irq(unsigned int irq);
+extern void tc_disable_irq(unsigned int irq);
+#elif defined (CONFIG_RALINK_MT7621) || defined (CONFIG_RALINK_MT7628)
 #define RALINK_IRQ0STAT		(RALINK_INTCL_BASE + 0x9C) //IRQ_STAT
 #define RALINK_IRQ1STAT		(RALINK_INTCL_BASE + 0xA0) //FIQ_STAT
 #define RALINK_INTTYPE		(RALINK_INTCL_BASE + 0x6C) //FIQ_SEL
