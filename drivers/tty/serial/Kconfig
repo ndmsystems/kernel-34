@@ -1360,4 +1360,9 @@ config SERIAL_EFM32_UART_CONSOLE
 	depends on SERIAL_EFM32_UART=y
 	select SERIAL_CORE_CONSOLE
 
+config SERIAL_TC3162
+	bool "TC3162/TC3262 serial port support"
+	depends on MIPS_TC3262
+	select SERIAL_CORE
+
 endmenu
