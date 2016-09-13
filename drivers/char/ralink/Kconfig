@@ -119,25 +119,25 @@ config RALINK_SPI
 	default n
 
 config RALINK_SPI_CS0_HIGH_ACTIVE
-	depends on RALINK_SPI
+	depends on RALINK_SPI || MTD_SPI_RALINK
 	bool "SPI CS0 (Chip Select) is high active"
 	default n
 
 config RALINK_SPI_CS1_HIGH_ACTIVE
-	depends on RALINK_SPI
-	depends on RALINK_RT3883 || RALINK_RT3352 || RALINK_RT5350 || RALINK_MT7620 || RALINK_MT7621 || RALINK_MT7628
+	depends on RALINK_SPI || MTD_SPI_RALINK
+	depends on !RALINK_RT3052
 	bool "SPI CS1 (Chip Select) is high active"
 	default n
 
 config RALINK_VITESSE_SWITCH_CONNECT_SPI_CS1
-	depends on RALINK_SPI
-	depends on RALINK_RT3883 || RALINK_RT3352 || RALINK_RT5350 || RALINK_MT7620 || RALINK_MT7621 || RALINK_MT7628
+	depends on RALINK_SPI || MTD_SPI_RALINK
+	depends on !RALINK_RT3052
 	bool "Vitess Switch CS Pin Connects to SPI CS1"
 	default n
 
 config RALINK_SLIC_CONNECT_SPI_CS1
-	depends on RALINK_SPI
-	depends on RALINK_RT3883 || RALINK_RT3352 || RALINK_RT5350 || RALINK_MT7620 || RALINK_MT7621 || RALINK_MT7628
+	depends on RALINK_SPI || MTD_SPI_RALINK
+	depends on !RALINK_RT3052
 	bool "SLIC CS Pin Connects to SPI CS1"
 	default n
 
