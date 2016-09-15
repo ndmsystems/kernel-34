@@ -132,7 +132,7 @@ int ra_check_flash_type(void)
 		printk("%s: %s is not supported\n",__FUNCTION__, Id);
 	}
 #else /* CONFIG_RALINK_RT6XXX_MP */
-	uint32_t hwconf_reg = *((volatile u32 *)(RALINK_SYSCTL_BASE + 0x88));
+	uint32_t hwconf_reg = *((volatile u32 *)(RALINK_SYSCTL_BASE + 0x8c));
 	uint32_t ssr_reg = *((volatile u32 *)(RALINK_SYSCTL_BASE + 0x90));
 
 	if ((ssr_reg & (1u << 20)) || !(hwconf_reg & 0x1))

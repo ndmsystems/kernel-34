@@ -26,8 +26,8 @@ rt_nand-objs = ralink_nand.o gdma.o
 endif
 
 ifeq ($(CONFIG_RALINK_RT6XXX_MP),y)
-# todo
-rt_nand-objs = rt6xxx_nand.o gdma.o
+EXTRA_CFLAGS += -DRALINK_NAND_BMT
+rt_nand-objs = rt6xxx_nand.o rt6xxx_bmt.o
 endif
 
 ifeq ($(CONFIG_RALINK_MT7620),y)
