@@ -22,7 +22,7 @@
 #define HW_NAT_INVALID_ENTRY		(0x07)
 #define HW_NAT_DEBUG			(0x08)
 
-#if defined (CONFIG_HNAT_V2)
+#if defined(CONFIG_HNAT_V2)
 #define HW_NAT_GET_AC_CNT		(0x09)
 #define HW_NAT_MCAST_INS		(0x20)
 #define HW_NAT_MCAST_DEL		(0x21)
@@ -125,7 +125,7 @@ struct hwnat_args {
 	struct hwnat_tuple entries[0];
 };
 
-#if !defined (CONFIG_HNAT_V2)
+#if !defined(CONFIG_HNAT_V2)
 /* hnat qos */
 struct hwnat_qos_args {
 	unsigned int enable:1;
@@ -167,7 +167,7 @@ struct hwnat_config_args {
 	enum hwnat_status result;
 };
 
-#if defined (CONFIG_HNAT_V2)
+#if defined(CONFIG_HNAT_V2)
 struct hwnat_ac_args {
 	unsigned int ag_index;
 	unsigned int ag_pkt_cnt;
@@ -198,6 +198,21 @@ int PpeSetMaxEntryLimit(uint32_t full, uint32_t half, uint32_t qurt);
 int PpeSetKaInterval(uint8_t tcp_ka, uint8_t udp_ka);
 int PpeSetUnbindLifeTime(uint8_t lifetime);
 int PpeSetBindLifetime(uint16_t tcp_fin, uint16_t udp_life, uint16_t fin_life);
+#if !defined(CONFIG_HNAT_V2)
+int PpeSetDscpRemarkEbl(unsigned int enable);
+int PpeSetVpriRemarkEbl(unsigned int enable);
+int PpeSetWeightFOE(unsigned int weight);
+int PpeSetWeightACL(unsigned int weight);
+int PpeSetWeightDSCP(unsigned int weight);
+int PpeSetWeightVPRI(unsigned int weight);
+int PpeSetDSCP_UP(unsigned int DSCP_SET, unsigned char UP);
+int PpeSetUP_IDSCP(unsigned int UP, unsigned int IDSCP);
+int PpeSetUP_ODSCP(unsigned int UP, unsigned int ODSCP);
+int PpeSetUP_VPRI(unsigned int UP, unsigned int VPRI);
+int PpeSetUP_AC(unsigned int UP, unsigned int AC);
+int PpeSetSchMode(unsigned int policy);
+int PpeSetSchWeight(unsigned char W0, unsigned char W1, unsigned char W2, unsigned char W3);
 #endif
+#endif /* __KERNEL__ */
 
 #endif

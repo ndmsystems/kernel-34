@@ -19,12 +19,12 @@
 
 typedef struct {
 	uint16_t MAGIC_TAG;
-#if defined (CONFIG_RALINK_MT7620)
+#if defined(CONFIG_RALINK_MT7620)
 	uint32_t FOE_Entry:14;
 	uint32_t CRSN:5;
 	uint32_t SPORT:3;
 	uint32_t ALG:10;
-#elif defined (CONFIG_RALINK_MT7621)
+#elif defined(CONFIG_RALINK_MT7621) || defined(CONFIG_ARCH_MT7623)
 	uint32_t FOE_Entry:14;
 	uint32_t CRSN:5;
 	uint32_t SPORT:4;
@@ -81,17 +81,17 @@ typedef struct {
 //#define HNAT_USE_TAILROOM
 #define HNAT_USE_SKB_CB
 
-#if defined (HNAT_USE_HEADROOM)
+#if defined(HNAT_USE_HEADROOM)
 
 #define IS_SPACE_AVAILABLED(skb)	((skb_headroom(skb) >= FOE_INFO_LEN) ? 1 : 0)
 #define FOE_INFO_START_ADDR(skb)	(skb->head)
 
-#elif defined (HNAT_USE_TAILROOM)
+#elif defined(HNAT_USE_TAILROOM)
 
 #define IS_SPACE_AVAILABLED(skb)	((skb_tailroom(skb) >= FOE_INFO_LEN) ? 1 : 0)
 #define FOE_INFO_START_ADDR(skb)	(skb->end - FOE_INFO_LEN)
 
-#elif defined (HNAT_USE_SKB_CB)
+#elif defined(HNAT_USE_SKB_CB)
 
 //change the position of skb_CB if necessary
 #define CB_OFFSET			40
@@ -103,18 +103,20 @@ typedef struct {
 #define FOE_MAGIC_TAG(skb)		((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->MAGIC_TAG
 #define FOE_ENTRY_NUM(skb)		((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->FOE_Entry
 #define FOE_ALG(skb)			((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->ALG
-#if defined (CONFIG_HNAT_V2)
+#if defined(CONFIG_HNAT_V2)
 #define FOE_ENTRY_VALID(skb)		(((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->FOE_Entry != 0x3fff)
 #define FOE_AI(skb)			((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->CRSN
 #define FOE_SP(skb)			((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->SPORT
+#ifndef UN_HIT
+#define UN_HIT 0x0D
+#endif
 #else
 #define FOE_ENTRY_VALID(skb)		((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->FVLD
 #define FOE_AI(skb)			((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->AI
 #define FOE_SP(skb)			((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->SP
-#endif
-
 #ifndef UN_HIT
-#define UN_HIT 0x0D
+#define UN_HIT 0x93
+#endif
 #endif
 
 #define IS_MAGIC_TAG_VALID(skb) \
