@@ -134,7 +134,6 @@ struct ppp {
 	int		n_channels;	/* how many channels are attached 54 */
 	spinlock_t	rlock;		/* lock for receive side 58 */
 	spinlock_t	wlock;		/* lock for transmit side 5c */
-	spinlock_t	slock;		/* lock for statistics */
 	int		mru;		/* max receive unit 60 */
 	unsigned int	flags;		/* control bits 64 */
 	unsigned int	xstate;		/* transmit state bits 68 */
@@ -168,7 +167,6 @@ struct ppp {
 #endif /* CONFIG_PPP_FILTER */
 	struct net	*ppp_net;	/* the net we belong to */
 	struct ppp_link_stats stats64;	/* 64 bit network stats */
-	bool stats_off;
 };
 
 /*
@@ -266,12 +264,8 @@ struct ppp_net {
 #define seq_after(a, b)		((s32)((a) - (b)) > 0)
 
 /* Prototypes. */
-int ppp_chan_stats_switch_get(struct ppp_channel *chan);
-void ppp_stat_add(struct ppp_channel *chan, struct sk_buff *skb);
 void ppp_stat_add_tx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes);
 void ppp_stat_add_rx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes);
-int ppp_stats_switch_get(struct net_device *dev);
-void ppp_stats_switch_set(struct net_device *dev, int on);
 void ppp_stats_update(struct net_device *dev,
 		      u32 rx_bytes, u32 rx_packets,
 		      u32 tx_bytes, u32 tx_packets);
@@ -403,8 +397,6 @@ static const int npindex_to_ethertype[NUM_NP] = {
 				     ppp_recv_lock(ppp); } while (0)
 #define ppp_unlock(ppp)		do { ppp_recv_unlock(ppp); \
 				     ppp_xmit_unlock(ppp); } while (0)
-#define ppp_stats_lock(ppp)	spin_lock_bh(&(ppp)->slock)
-#define ppp_stats_unlock(ppp)	spin_unlock_bh(&(ppp)->slock)
 /*
  * /dev/ppp device routines.
  * The /dev/ppp device is used by pppd to control the ppp unit.
@@ -981,22 +973,8 @@ static int __init ppp_init(void)
 	/* not a big deal if we fail here :-) */
 	device_create(ppp_class, NULL, MKDEV(PPP_MAJOR, 0), NULL, "ppp");
 
-	BUG_ON(ppp_chan_stats_switch_get_hook != NULL);
-	rcu_assign_pointer(ppp_chan_stats_switch_get_hook, ppp_chan_stats_switch_get);
-
-	BUG_ON(ppp_stat_add_tx_hook != NULL);
 	rcu_assign_pointer(ppp_stat_add_tx_hook, ppp_stat_add_tx);
-
-	BUG_ON(ppp_stat_add_rx_hook != NULL);
 	rcu_assign_pointer(ppp_stat_add_rx_hook, ppp_stat_add_rx);
-
-	BUG_ON(ppp_stats_switch_get_hook != NULL);
-	rcu_assign_pointer(ppp_stats_switch_get_hook, ppp_stats_switch_get);
-
-	BUG_ON(ppp_stats_switch_set_hook != NULL);
-	rcu_assign_pointer(ppp_stats_switch_set_hook, ppp_stats_switch_set);
-
-	BUG_ON(ppp_stats_update_hook != NULL);
 	rcu_assign_pointer(ppp_stats_update_hook, ppp_stats_update);
 
 	return 0;
@@ -2374,22 +2352,6 @@ char *ppp_dev_name(struct ppp_channel *chan)
 	return name;
 }
 
-int ppp_chan_stats_switch_get(struct ppp_channel *chan)
-{
-	struct channel *pch = chan->ppp;
-	int res = -1;
-
-	if (pch) {
-		read_lock_bh(&pch->upl);
-		if (pch->ppp)
-			res = !pch->ppp->stats_off;
-		read_unlock_bh(&pch->upl);
-	}
-
-	return res;
-}
-
-
 /*
  * Disconnect a channel from the generic layer.
  * This must be called in process context.
@@ -2739,29 +2701,6 @@ ppp_get_stats(struct ppp *ppp, struct ppp_stats *st)
 #endif
 }
 
-void ppp_stat_add(struct ppp_channel *chan, struct sk_buff *skb)
-{
-	struct channel *pch = chan->ppp;
-	struct ppp *ppp;
-	
-	if (pch == NULL)
-		return;
-
-	ppp = pch->ppp;
-	if (ppp == NULL)
-		return;
-
-	skb->dev = pch->ppp->dev;
-
-	ppp_stats_lock(ppp);
-	ppp->stats64.rx_bytes += skb->len;
-	ppp->stats64.rx_packets++;
-	ppp_stats_unlock(ppp);
-
-	skb->dev->last_rx = jiffies;
-}
-EXPORT_SYMBOL(ppp_stat_add);
-
 void ppp_stat_add_tx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes)
 {
 	struct channel *pch = chan->ppp;
@@ -2774,10 +2713,10 @@ void ppp_stat_add_tx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes)
 	if (ppp == NULL)
 		return;
 
-	ppp_stats_lock(ppp);
+	ppp_xmit_lock(ppp);
 	ppp->stats64.tx_bytes += add_bytes;
 	ppp->stats64.tx_packets += add_pkt;
-	ppp_stats_unlock(ppp);
+	ppp_xmit_unlock(ppp);
 }
 
 void ppp_stat_add_rx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes)
@@ -2792,50 +2731,10 @@ void ppp_stat_add_rx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes)
 	if (ppp == NULL)
 		return;
 
-	ppp_stats_lock(ppp);
+	ppp_recv_lock(ppp);
 	ppp->stats64.rx_bytes += add_bytes;
 	ppp->stats64.rx_packets += add_pkt;
-	ppp_stats_unlock(ppp);
-}
-
-void ppp_stats_reset(struct net_device *dev)
-{
-	struct ppp *ppp;
-
-	if (dev == NULL)
-		return;
-
-	ppp = netdev_priv(dev);
-
-	ppp_stats_lock(ppp);
-	ppp->stats64.tx_bytes = 0;
-	ppp->stats64.tx_packets = 0;
-	ppp->stats64.rx_bytes = 0;
-	ppp->stats64.rx_packets = 0;
-	ppp_stats_unlock(ppp);
-}
-EXPORT_SYMBOL(ppp_stats_reset);
-int ppp_stats_switch_get(struct net_device *dev)
-{
-	struct ppp *ppp;
-
-	if (dev == NULL)
-		return -1;
-
-	ppp = netdev_priv(dev);
-
-	return !ppp->stats_off;
-}
-
-void ppp_stats_switch_set(struct net_device *dev, int on)
-{
-	struct ppp *ppp;
-
-	if (dev == NULL)
-		return;
-
-	ppp = netdev_priv(dev);
-	ppp->stats_off = !on;
+	ppp_recv_unlock(ppp);
 }
 
 void ppp_stats_update(struct net_device *dev,
@@ -2849,13 +2748,37 @@ void ppp_stats_update(struct net_device *dev,
 
 	ppp = netdev_priv(dev);
 
-	ppp_stats_lock(ppp);
-	ppp->stats64.tx_bytes += tx_bytes;
-	ppp->stats64.tx_packets += tx_packets;
+	ppp_recv_lock(ppp);
 	ppp->stats64.rx_bytes += rx_bytes;
 	ppp->stats64.rx_packets += rx_packets;
-	ppp_stats_unlock(ppp);
+	ppp_recv_unlock(ppp);
+
+	ppp_xmit_lock(ppp);
+	ppp->stats64.tx_bytes += tx_bytes;
+	ppp->stats64.tx_packets += tx_packets;
+	ppp_xmit_unlock(ppp);
 }
+
+void ppp_stats_reset(struct net_device *dev)
+{
+	struct ppp *ppp;
+
+	if (dev == NULL)
+		return;
+
+	ppp = netdev_priv(dev);
+
+	ppp_recv_lock(ppp);
+	ppp->stats64.rx_bytes = 0;
+	ppp->stats64.rx_packets = 0;
+	ppp_recv_unlock(ppp);
+
+	ppp_xmit_lock(ppp);
+	ppp->stats64.tx_bytes += 0;
+	ppp->stats64.tx_packets += 0;
+	ppp_xmit_unlock(ppp);
+}
+EXPORT_SYMBOL(ppp_stats_reset);
 
 /*
  * Stuff for handling the lists of ppp units and channels
