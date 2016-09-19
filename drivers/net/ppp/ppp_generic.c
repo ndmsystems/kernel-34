@@ -2701,6 +2701,7 @@ ppp_get_stats(struct ppp *ppp, struct ppp_stats *st)
 #endif
 }
 
+/* used in fastvpn driver */
 void ppp_stat_add_tx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes)
 {
 	struct channel *pch = chan->ppp;
@@ -2719,6 +2720,7 @@ void ppp_stat_add_tx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes)
 	ppp_xmit_unlock(ppp);
 }
 
+/* used in fastvpn driver */
 void ppp_stat_add_rx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes)
 {
 	struct channel *pch = chan->ppp;
@@ -2737,6 +2739,29 @@ void ppp_stat_add_rx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes)
 	ppp_recv_unlock(ppp);
 }
 
+/* used in pppol2tp driver */
+void ppp_stat_add(struct ppp_channel *chan, struct sk_buff *skb)
+{
+	struct channel *pch = chan->ppp;
+	struct ppp *ppp;
+
+	if (pch == NULL)
+		return;
+
+	ppp = pch->ppp;
+	if (ppp == NULL)
+		return;
+
+	skb->dev = ppp->dev;
+
+	ppp_recv_lock(ppp);
+	ppp->stats64.rx_bytes += skb->len;
+	ppp->stats64.rx_packets++;
+	ppp_recv_unlock(ppp);
+}
+EXPORT_SYMBOL(ppp_stat_add);
+
+/* used in hwnat driver */
 void ppp_stats_update(struct net_device *dev,
 		      u32 rx_bytes, u32 rx_packets,
 		      u32 tx_bytes, u32 tx_packets)
@@ -2759,6 +2784,7 @@ void ppp_stats_update(struct net_device *dev,
 	ppp_xmit_unlock(ppp);
 }
 
+/* used in resetnds driver */
 void ppp_stats_reset(struct net_device *dev)
 {
 	struct ppp *ppp;
