@@ -167,6 +167,9 @@ struct ppp {
 #endif /* CONFIG_PPP_FILTER */
 	struct net	*ppp_net;	/* the net we belong to */
 	struct ppp_link_stats stats64;	/* 64 bit network stats */
+#if IS_ENABLED(CONFIG_RA_HW_NAT) && !defined(CONFIG_HNAT_V2)
+	int	stat_block_rx;
+#endif
 };
 
 /*
@@ -264,11 +267,16 @@ struct ppp_net {
 #define seq_after(a, b)		((s32)((a) - (b)) > 0)
 
 /* Prototypes. */
-void ppp_stat_add_tx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes);
-void ppp_stat_add_rx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes);
-void ppp_stats_update(struct net_device *dev,
-		      u32 rx_bytes, u32 rx_packets,
-		      u32 tx_bytes, u32 tx_packets);
+static void ppp_stat_add_tx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes);
+static void ppp_stat_add_rx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes);
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+static void ppp_stats_update(struct net_device *dev,
+			     u32 rx_bytes, u32 rx_packets,
+			     u32 tx_bytes, u32 tx_packets);
+#if !defined(CONFIG_HNAT_V2)
+static void ppp_stat_block(struct net_device *dev, int is_block_rx);
+#endif
+#endif
 static int ppp_unattached_ioctl(struct net *net, struct ppp_file *pf,
 			struct file *file, unsigned int cmd, unsigned long arg);
 static void ppp_xmit_process(struct ppp *ppp);
@@ -975,7 +983,12 @@ static int __init ppp_init(void)
 
 	rcu_assign_pointer(ppp_stat_add_tx_hook, ppp_stat_add_tx);
 	rcu_assign_pointer(ppp_stat_add_rx_hook, ppp_stat_add_rx);
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
 	rcu_assign_pointer(ppp_stats_update_hook, ppp_stats_update);
+#if !defined(CONFIG_HNAT_V2)
+	rcu_assign_pointer(ppp_stat_block_hook, ppp_stat_block);
+#endif
+#endif
 
 	return 0;
 
@@ -1845,8 +1858,13 @@ ppp_receive_nonmp_frame(struct ppp *ppp, struct sk_buff *skb)
 		break;
 	}
 
+#if IS_ENABLED(CONFIG_RA_HW_NAT) && !defined(CONFIG_HNAT_V2)
+    if (!ppp->stat_block_rx)
+#endif
+    {
 	++ppp->stats64.rx_packets;
 	ppp->stats64.rx_bytes += skb->len - 2;
+    }
 
 	npi = proto_to_npindex(proto);
 	if (npi < 0) {
@@ -2702,7 +2720,7 @@ ppp_get_stats(struct ppp *ppp, struct ppp_stats *st)
 }
 
 /* used in fastvpn driver */
-void ppp_stat_add_tx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes)
+static void ppp_stat_add_tx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes)
 {
 	struct channel *pch = chan->ppp;
 	struct ppp *ppp;
@@ -2721,7 +2739,7 @@ void ppp_stat_add_tx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes)
 }
 
 /* used in fastvpn driver */
-void ppp_stat_add_rx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes)
+static void ppp_stat_add_rx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes)
 {
 	struct channel *pch = chan->ppp;
 	struct ppp *ppp;
@@ -2761,10 +2779,10 @@ void ppp_stat_add(struct ppp_channel *chan, struct sk_buff *skb)
 }
 EXPORT_SYMBOL(ppp_stat_add);
 
-/* used in hwnat driver */
-void ppp_stats_update(struct net_device *dev,
-		      u32 rx_bytes, u32 rx_packets,
-		      u32 tx_bytes, u32 tx_packets)
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+static void ppp_stats_update(struct net_device *dev,
+			     u32 rx_bytes, u32 rx_packets,
+			     u32 tx_bytes, u32 tx_packets)
 {
 	struct ppp *ppp;
 
@@ -2783,6 +2801,23 @@ void ppp_stats_update(struct net_device *dev,
 	ppp->stats64.tx_packets += tx_packets;
 	ppp_xmit_unlock(ppp);
 }
+
+#if !defined(CONFIG_HNAT_V2)
+static void ppp_stat_block(struct net_device *dev, int is_block_rx)
+{
+	struct ppp *ppp;
+
+	if (dev == NULL)
+		return;
+
+	ppp = netdev_priv(dev);
+
+	ppp_recv_lock(ppp);
+	ppp->stat_block_rx = is_block_rx;
+	ppp_recv_unlock(ppp);
+}
+#endif
+#endif
 
 /* used in resetnds driver */
 void ppp_stats_reset(struct net_device *dev)

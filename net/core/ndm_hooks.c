@@ -12,17 +12,24 @@ struct net_device;
 struct new_mc_streams;
 
 void (*ppp_stat_add_tx_hook)(struct ppp_channel *chan, u32 add_pkt,
-			     u32 add_bytes);
+			     u32 add_bytes) = NULL;
 EXPORT_SYMBOL(ppp_stat_add_tx_hook);
 
 void (*ppp_stat_add_rx_hook)(struct ppp_channel *chan, u32 add_pkt,
-			     u32 add_bytes);
+			     u32 add_bytes) = NULL;
 EXPORT_SYMBOL(ppp_stat_add_rx_hook);
 
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
 void (*ppp_stats_update_hook)(struct net_device *dev,
 			      u32 rx_bytes, u32 rx_packets,
-			      u32 tx_bytes, u32 tx_packets);
+			      u32 tx_bytes, u32 tx_packets) = NULL;
 EXPORT_SYMBOL(ppp_stats_update_hook);
+
+#if !defined(CONFIG_HNAT_V2)
+void (*ppp_stat_block_hook)(struct net_device *dev, int is_block_rx) = NULL;
+EXPORT_SYMBOL(ppp_stat_block_hook);
+#endif
+#endif
 
 int (*go_swnat)(struct sk_buff * skb, u8 origin) = NULL;
 EXPORT_SYMBOL(go_swnat);

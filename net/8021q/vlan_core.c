@@ -52,8 +52,13 @@ bool vlan_do_receive(struct sk_buff **skbp)
 	rx_stats = this_cpu_ptr(vlan_dev_priv(vlan_dev)->vlan_pcpu_stats);
 
 	u64_stats_update_begin(&rx_stats->syncp);
+#if IS_ENABLED(CONFIG_RA_HW_NAT) && !defined(CONFIG_HNAT_V2)
+    if (!vlan_dev_priv(vlan_dev)->stat_block_rx)
+#endif
+    {
 	rx_stats->rx_packets++;
 	rx_stats->rx_bytes += skb->len;
+    }
 	if (skb->pkt_type == PACKET_MULTICAST)
 		rx_stats->rx_multicast++;
 	u64_stats_update_end(&rx_stats->syncp);
@@ -93,6 +98,14 @@ u16 vlan_dev_vlan_id(const struct net_device *dev)
 	return vlan_dev_priv(dev)->vlan_id;
 }
 EXPORT_SYMBOL(vlan_dev_vlan_id);
+
+#if IS_ENABLED(CONFIG_RA_HW_NAT) && !defined(CONFIG_HNAT_V2)
+void vlan_dev_block_stat(struct net_device *dev, int is_block_rx)
+{
+	vlan_dev_priv(dev)->stat_block_rx = is_block_rx;
+}
+EXPORT_SYMBOL(vlan_dev_block_stat);
+#endif
 
 static struct sk_buff *vlan_reorder_header(struct sk_buff *skb)
 {

@@ -73,6 +73,9 @@ struct vlan_dev_priv {
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	struct netpoll				*netpoll;
 #endif
+#if IS_ENABLED(CONFIG_RA_HW_NAT) && !defined(CONFIG_HNAT_V2)
+	int					stat_block_rx;
+#endif
 };
 
 static inline struct vlan_dev_priv *vlan_dev_priv(const struct net_device *dev)
