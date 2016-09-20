@@ -279,6 +279,10 @@ int spic_init(void)
 	/* use normal SPI mode instead of GPIO mode */
 	ra_and(RALINK_REG_GPIOMODE, ~(RALINK_GPIOMODE_SPI));
 
+#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+	ra_and(RALINK_REG_GPIOMODE, ~(RALINK_GPIOMODE_SPI_REFCLK));
+#endif
+
 	/* reset spi block */
 	ra_or(RT2880_RSTCTRL_REG, RSTCTRL_SPI_RESET);
 	udelay(1);
@@ -288,6 +292,7 @@ int spic_init(void)
 #if defined(CONFIG_RALINK_VITESSE_SWITCH_CONNECT_SPI_CS1)||defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
 	/* config ARB and set the low or high active correctly according to the device */
 	ra_outl(RT2880_SPI_ARB_REG, SPIARB_ARB_EN|(SPIARB_SPI1_ACTIVE_MODE<<1)| SPIARB_SPI0_ACTIVE_MODE);
+
 	ra_outl(RT2880_SPI1_CTL_REG, (~SPIARB_SPI1_ACTIVE_MODE)&0x1);
 #endif
 	ra_outl(RT2880_SPI0_CTL_REG, (~SPIARB_SPI0_ACTIVE_MODE)&0x1);
@@ -298,8 +303,16 @@ int spic_init(void)
 	ra_outl(RT2880_SPICFG_REG, SPICFG_MSBFIRST | SPICFG_TXCLKEDGE_FALLING | SPICFG_SPICLKPOL | CFG_CLK_DIV );
 #endif
 
+#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+	ra_outl(RT2880_SPI1_CFG_REG, SPICFG_MSBFIRST | SPICFG_TXCLKEDGE_FALLING | SPICFG_SPICLKPOL | SPICFG_SPICLK_DIV128);
+#endif
+
 	// set idle state
 	ra_outl(RT2880_SPICTL_REG, SPICTL_HIZSDO | SPICTL_SPIENA_HIGH);
+
+#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+	ra_outl(RT2880_SPI1_CTL_REG, SPICTL_HIZSDO | SPICTL_SPIENA_HIGH);
+#endif
 
 	spi_wait_nsec = (8 * 1000 / (128 / (CFG_CLK_DIV+1)) ) >> 1;
 
