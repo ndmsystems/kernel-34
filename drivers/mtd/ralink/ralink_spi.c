@@ -1166,29 +1166,27 @@ struct chip_info *chip_prob(void)
 {
 	struct chip_info *info, *match;
 	u8 buf[5] = {0};
-	u32 jedec, weight;
-	int i;
+	u32 jedec;
+	int i, table_size;
 
 	raspi_read_devid(buf, 5);
-	jedec = (u32)((u32)(buf[1] << 24) | ((u32)buf[2] << 16) | ((u32)buf[3] <<8) | (u32)buf[4]);
+	jedec = (u32)((u32)(buf[1] << 24) | ((u32)buf[2] << 16) | ((u32)buf[3] << 8) | (u32)buf[4]);
 
 	ra_dbg("device ID: %x %x %x %x %x (%x)\n", buf[0], buf[1], buf[2], buf[3], buf[4], jedec);
 
-	// FIXME, assign default as AT25D
-	weight = 0xffffffff;
 	match = &chips_data[0];
-	for (i = 0; i < ARRAY_SIZE(chips_data); i++) {
+	table_size = ARRAY_SIZE(chips_data);
+
+	for (i = 0; i < table_size; i++) {
 		info = &chips_data[i];
 		if (info->id == buf[0]) {
 			if (info->jedec_id == jedec)
 				return info;
-
-			if (weight > (info->jedec_id ^ jedec)) {
-				weight = info->jedec_id ^ jedec;
-				match = info;
-			}
 		}
 	}
+
+	/* use last stub item */
+	match = &chips_data[table_size - 1];
 
 	printk(KERN_WARNING "Warning: unrecognized SPI chip ID: %x (%x), please update the SPI driver\n", buf[0], jedec);
 
