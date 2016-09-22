@@ -758,7 +758,7 @@ static int raspi_erase_sector(u32 offset)
  */
 struct chip_info *chip_prob(void)
 {
-	struct chip_info *info, *match;
+	struct chip_info *info;
 	u8 buf[4] = {0};
 	u32 jedec;
 	int i, table_size;
@@ -768,7 +768,6 @@ struct chip_info *chip_prob(void)
 
 	ra_dbg("deice id : %x %x %x %x\n", buf[0], buf[1], buf[2], buf[3]);
 
-	match = &chips_data[0];
 	table_size = ARRAY_SIZE(chips_data);
 
 	for (i = 0; i < table_size; i++) {
@@ -780,11 +779,12 @@ struct chip_info *chip_prob(void)
 	}
 
 	/* use last stub item */
-	match = &chips_data[table_size - 1];
+	info = &chips_data[table_size - 1];
 
-	printk("Warning: un-recognized SPI chip ID: %x (%x), please update SPI driver!\n", buf[0], jedec);
+	printk(KERN_WARNING "unrecognized SPI chip ID: %x (%x), please update the SPI driver!\n",
+		buf[0], jedec);
 
-	return match;
+	return info;
 }
 
 /*

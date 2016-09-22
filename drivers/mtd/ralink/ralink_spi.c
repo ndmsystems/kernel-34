@@ -38,7 +38,9 @@
 
 #include "../mtdcore.h"
 //#define SPI_DEBUG
+
 static const char *part_probes[] __initdata = { "ndmpart", NULL };
+
 /******************************************************************************
  * SPI FLASH elementray definition and function
  ******************************************************************************/
@@ -86,11 +88,10 @@ static const char *part_probes[] __initdata = { "ndmpart", NULL };
 #define SR_SRWD			0x80	/* SR write protect */
 
 #if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
-
 static DEFINE_SPINLOCK(spi_lock);
 EXPORT_SYMBOL(spi_lock);
+#endif
 
-#else
 #if defined (CONFIG_RALINK_MT7620)
 
 #define COMMAND_MODE
@@ -121,7 +122,6 @@ EXPORT_SYMBOL(spi_lock);
 #endif
 
 #endif
-#endif
 
 #if defined (CONFIG_MTD_SPI_FAST_CLOCK)
 #define CFG_CLK_DIV		SPICFG_SPICLK_DIV4 /* e.g. 166/4 = 41.0 MHz, 193/4 = 48.0 MHz */
@@ -130,7 +130,6 @@ EXPORT_SYMBOL(spi_lock);
 #endif
 
 extern u32 get_surfboard_sysclk(void);
-static unsigned int spi_wait_nsec = 150;
 
 #if !defined (SPI_DEBUG)
 
@@ -140,10 +139,10 @@ static unsigned int spi_wait_nsec = 150;
 
 #else
 
-int ranfc_debug = 1;
+int raspi_debug = 1;
 #define _ra_inl(addr)  (*(volatile unsigned int *)(addr))
 #define _ra_outl(addr, value)  (*(volatile unsigned int *)(addr) = (value))
-#define ra_dbg(args...) do { if (ranfc_debug) printk(args); } while(0)
+#define ra_dbg(args...) do { if (raspi_debug) printk(args); } while(0)
 
 u32 ra_inl(u32 addr)
 {
@@ -175,6 +174,8 @@ static void usleep(unsigned int usecs)
 
 static int spic_busy_wait(void)
 {
+	u32 spi_wait_nsec = (8 * 1000 / (128 / (CFG_CLK_DIV + 1)) ) >> 1;
+
 	do {
 		if ((ra_inl(RT2880_SPISTAT_REG) & 0x01) == 0)
 			return 0;
@@ -209,22 +210,14 @@ static int spic_transfer(const u8 *cmd, int n_cmd, u8 *buf, int n_buf, int flag)
 			(buf)? (*buf) : 0, n_buf,
 			(flag == SPIC_READ_BYTES)? "read" : "write");
 
-#if defined(CONFIG_RALINK_VITESSE_SWITCH_CONNECT_SPI_CS1)||defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
 	spin_lock_bh(&spi_lock);
-	/* config ARB and set the low or high active correctly according to the device */
-	ra_outl(RT2880_SPI_ARB_REG, SPIARB_ARB_EN|(SPIARB_SPI1_ACTIVE_MODE<<1)| SPIARB_SPI0_ACTIVE_MODE);
-#if	defined(CONFIG_RALINK_SPI_CS1_HIGH_ACTIVE)
-	ra_and(RT2880_SPI1_CTL_REG, (~SPIARB_SPI1_ACTIVE_MODE));
-#else
-	ra_or(RT2880_SPI1_CTL_REG, (~SPIARB_SPI1_ACTIVE_MODE)&0x01);
 #endif
-#endif
-	ra_outl(RT2880_SPICFG_REG, SPICFG_MSBFIRST | SPICFG_RXCLKEDGE_FALLING | SPICFG_TXCLKEDGE_FALLING | CFG_CLK_DIV);
 
-	// assert CS and we are already CLK normal high
-	ra_and(RT2880_SPICTL_REG, ~(SPICTL_SPIENA_HIGH));
+	/* assert CS0 and we are already CLK normal high */
+	ra_and(RT2880_SPI0_CTL_REG, ~(SPICTL_SPIENA_HIGH));
 
-	// write command
+	/* write command */
 	for (retval = 0; retval < n_cmd; retval++) {
 		ra_outl(RT2880_SPIDATA_REG, cmd[retval]);
 		ra_or(RT2880_SPICTL_REG, SPICTL_STARTWR);
@@ -234,7 +227,7 @@ static int spic_transfer(const u8 *cmd, int n_cmd, u8 *buf, int n_buf, int flag)
 		}
 	}
 
-	// read / write  data
+	/* read / write data */
 	if (flag & SPIC_READ_BYTES) {
 		for (retval = 0; retval < n_buf; retval++) {
 			ra_or(RT2880_SPICTL_REG, SPICTL_STARTRD);
@@ -253,22 +246,22 @@ static int spic_transfer(const u8 *cmd, int n_cmd, u8 *buf, int n_buf, int flag)
 	}
 
 end_trans:
-	// de-assert CS and
-	ra_or (RT2880_SPICTL_REG, (SPICTL_SPIENA_HIGH));
+	/* de-assert CS0 */
+	ra_or(RT2880_SPI0_CTL_REG, SPICTL_SPIENA_HIGH);
 
-#if defined(CONFIG_RALINK_VITESSE_SWITCH_CONNECT_SPI_CS1)||defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
 	spin_unlock_bh(&spi_lock);
 #endif
 
 	return retval;
 }
 
-static int spic_read(const u8 *cmd, size_t n_cmd, u8 *rxbuf, size_t n_rx)
+static inline int spic_read(const u8 *cmd, size_t n_cmd, u8 *rxbuf, size_t n_rx)
 {
 	return spic_transfer(cmd, n_cmd, rxbuf, n_rx, SPIC_READ_BYTES);
 }
 
-static int spic_write(const u8 *cmd, size_t n_cmd, const u8 *txbuf, size_t n_tx)
+static inline int spic_write(const u8 *cmd, size_t n_cmd, const u8 *txbuf, size_t n_tx)
 {
 	return spic_transfer(cmd, n_cmd, (u8 *)txbuf, n_tx, SPIC_WRITE_BYTES);
 }
@@ -279,7 +272,7 @@ int spic_init(void)
 	/* use normal SPI mode instead of GPIO mode */
 	ra_and(RALINK_REG_GPIOMODE, ~(RALINK_GPIOMODE_SPI));
 
-#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+#if defined(CONFIG_RALINK_VITESSE_SWITCH_CONNECT_SPI_CS1) || defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
 	ra_and(RALINK_REG_GPIOMODE, ~(RALINK_GPIOMODE_SPI_REFCLK));
 #endif
 
@@ -289,34 +282,25 @@ int spic_init(void)
 	ra_and(RT2880_RSTCTRL_REG, ~RSTCTRL_SPI_RESET);
 	udelay(1);
 
-#if defined(CONFIG_RALINK_VITESSE_SWITCH_CONNECT_SPI_CS1)||defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+#if defined(CONFIG_RALINK_VITESSE_SWITCH_CONNECT_SPI_CS1) || defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
 	/* config ARB and set the low or high active correctly according to the device */
-	ra_outl(RT2880_SPI_ARB_REG, SPIARB_ARB_EN|(SPIARB_SPI1_ACTIVE_MODE<<1)| SPIARB_SPI0_ACTIVE_MODE);
+	ra_outl(RT2880_SPI_ARB_REG, SPIARB_ARB_EN | (SPIARB_SPI1_ACTIVE_MODE << 1) | SPIARB_SPI0_ACTIVE_MODE);
 
-	ra_outl(RT2880_SPI1_CTL_REG, (~SPIARB_SPI1_ACTIVE_MODE)&0x1);
-#endif
-	ra_outl(RT2880_SPI0_CTL_REG, (~SPIARB_SPI0_ACTIVE_MODE)&0x1);
-
-#if !defined (COMMAND_MODE)
-	ra_outl(RT2880_SPICFG_REG, SPICFG_MSBFIRST | SPICFG_RXCLKEDGE_FALLING | SPICFG_TXCLKEDGE_FALLING | CFG_CLK_DIV);
-#else
-	ra_outl(RT2880_SPICFG_REG, SPICFG_MSBFIRST | SPICFG_TXCLKEDGE_FALLING | SPICFG_SPICLKPOL | CFG_CLK_DIV );
-#endif
-
-#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+	ra_outl(RT2880_SPI1_CTL_REG, (~SPIARB_SPI1_ACTIVE_MODE) & 0x1);
 	ra_outl(RT2880_SPI1_CFG_REG, SPICFG_MSBFIRST | SPICFG_TXCLKEDGE_FALLING | SPICFG_SPICLKPOL | SPICFG_SPICLK_DIV128);
-#endif
 
-	// set idle state
-	ra_outl(RT2880_SPICTL_REG, SPICTL_HIZSDO | SPICTL_SPIENA_HIGH);
-
-#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+	/* set SPI1 to idle state */
 	ra_outl(RT2880_SPI1_CTL_REG, SPICTL_HIZSDO | SPICTL_SPIENA_HIGH);
 #endif
 
-	spi_wait_nsec = (8 * 1000 / (128 / (CFG_CLK_DIV+1)) ) >> 1;
+	ra_outl(RT2880_SPI0_CTL_REG, (~SPIARB_SPI0_ACTIVE_MODE) & 0x1);
+	ra_outl(RT2880_SPI0_CFG_REG, SPICFG_MSBFIRST | SPICFG_TXCLKEDGE_FALLING | SPICFG_SPICLKPOL | CFG_CLK_DIV);
 
-	printk(KERN_INFO "Ralink SPI flash driver, SPI clock: %dMHz\n", (get_surfboard_sysclk() / 1000000) >> (CFG_CLK_DIV+1));
+	/* set SPI0 to idle state */
+	ra_outl(RT2880_SPI0_CTL_REG, SPICTL_HIZSDO | SPICTL_SPIENA_HIGH);
+
+	printk(KERN_INFO "Ralink SPI flash driver, SPI clock: %uMHz\n",
+		(get_surfboard_sysclk() / 1000000) >> (CFG_CLK_DIV + 1));
 
 	return 0;
 }
@@ -414,6 +398,10 @@ static int raspi_cmd(const u8 cmd, const u32 addr, const u8 mode, u8 *buf, const
 	u32 reg;
 	int count, retval = 0;
 
+#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+	spin_lock_bh(&spi_lock);
+#endif
+
 	ra_or(RT2880_SPICFG_REG, (SPICFG_SPIENMODE | SPICFG_RXENVDIS));
 	ra_outl(RT2880_SPIDATA_REG, cmd);
 	ra_outl(RT2880_SPIMODE_REG, (mode << 24));
@@ -434,8 +422,10 @@ static int raspi_cmd(const u8 cmd, const u32 addr, const u8 mode, u8 *buf, const
 
 	if (flag & SPIC_READ_BYTES)
 	{
-		if (!buf)
-			return -1;
+		if (!buf) {
+			retval = -1;
+			goto end_cmd;
+		}
 		
 		for (retval = 0; retval < n_buf;)
 		{
@@ -449,8 +439,10 @@ static int raspi_cmd(const u8 cmd, const u32 addr, const u8 mode, u8 *buf, const
 	}
 	else if (flag & SPIC_WRITE_BYTES)
 	{
-		if (!buf)
-			return -1;
+		if (!buf) {
+			retval = -1;
+			goto end_cmd;
+		}
 		
 		count = min(SPI_FIFO_SIZE, n_buf);
 		for (retval = 0; retval < n_buf;)
@@ -471,13 +463,17 @@ static int raspi_cmd(const u8 cmd, const u32 addr, const u8 mode, u8 *buf, const
 	}
 
 	if (spic_busy_wait())
-	{
 		retval = -1;
-	}
+
+end_cmd:
 
 	// de-assert CS before change SPIENMODE to HW control
 	ra_or (RT2880_SPICTL_REG, (SPICTL_SPIENA_HIGH));
 	ra_and(RT2880_SPICFG_REG, ~(SPICFG_SPIENMODE | SPICFG_RXENVDIS));
+
+#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+	spin_unlock_bh(&spi_lock);
+#endif
 
 	return retval;
 }
@@ -1164,7 +1160,7 @@ exit_mtd_write:
  */
 struct chip_info *chip_prob(void)
 {
-	struct chip_info *info, *match;
+	struct chip_info *info;
 	u8 buf[5] = {0};
 	u32 jedec;
 	int i, table_size;
@@ -1174,7 +1170,6 @@ struct chip_info *chip_prob(void)
 
 	ra_dbg("device ID: %x %x %x %x %x (%x)\n", buf[0], buf[1], buf[2], buf[3], buf[4], jedec);
 
-	match = &chips_data[0];
 	table_size = ARRAY_SIZE(chips_data);
 
 	for (i = 0; i < table_size; i++) {
@@ -1186,11 +1181,12 @@ struct chip_info *chip_prob(void)
 	}
 
 	/* use last stub item */
-	match = &chips_data[table_size - 1];
+	info = &chips_data[table_size - 1];
 
-	printk(KERN_WARNING "Warning: unrecognized SPI chip ID: %x (%x), please update the SPI driver\n", buf[0], jedec);
+	printk(KERN_WARNING "unrecognized SPI chip ID: %x (%x), please update the SPI driver!\n",
+		buf[0], jedec);
 
-	return match;
+	return info;
 }
 
 static int __init raspi_init(void)
