@@ -47,7 +47,7 @@ void xfrm4_local_error(struct sk_buff *skb, u32 mtu)
 {
 	struct iphdr *hdr;
 
-	hdr = skb->encapsulation ? inner_ip_hdr(skb) : ip_hdr(skb);
+	hdr = ip_hdr(skb);
 	ip_local_error(skb->sk, EMSGSIZE, hdr->daddr,
 		       inet_sk(skb->sk)->inet_dport, mtu);
 }
