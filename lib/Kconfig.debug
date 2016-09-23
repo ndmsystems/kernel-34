@@ -1289,6 +1289,8 @@ config ASYNC_RAID6_TEST
 
 	  If unsure, say N.
 
+source "drivers/net/rt_rdm/Kconfig"
+
 source "samples/Kconfig"
 
 source "lib/Kconfig.kgdb"
