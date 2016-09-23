@@ -27,7 +27,7 @@ static long rdm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 	baseaddr = register_control;
 	if (cmd == RT_RDM_CMD_SHOW)
 	{
-		rtvalue = le32_to_cpu(*(volatile u32 *)(baseaddr + (*(int *)arg)));
+		rtvalue = (u32)(*(volatile u32 *)(baseaddr + (*(int *)arg)));
 		printk("0x%x\n", (int)rtvalue);
 	}
 	else if (cmd == RT_RDM_CMD_DUMP) 
@@ -36,25 +36,25 @@ static long rdm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 		    addr = baseaddr + (*(int *)arg) + (count*16);
 		    printk("%08X: ", addr);
 		    printk("%08X %08X %08X %08X\n", 
-			        le32_to_cpu(*(volatile u32 *)(addr)),
-				le32_to_cpu(*(volatile u32 *)(addr+4)),
-				le32_to_cpu(*(volatile u32 *)(addr+8)),
-				le32_to_cpu(*(volatile u32 *)(addr+12)));
+			        (u32)(*(volatile u32 *)(addr)),
+				(u32)(*(volatile u32 *)(addr+4)),
+				(u32)(*(volatile u32 *)(addr+8)),
+				(u32)(*(volatile u32 *)(addr+12)));
 		}
 	}
 	else if (cmd == RT_RDM_CMD_DUMP_FPGA_EMU) 
 	{
 	        for (count=0; count < RT_RDM_DUMP_RANGE ; count++) {
 		    addr = baseaddr + (*(int *)arg) + (count*16);
-		    printk("this.cpu_gen.set_reg32('h%08X,'h%08X);\n", addr, le32_to_cpu(*(volatile u32 *)(addr)));
-		    printk("this.cpu_gen.set_reg32('h%08X,'h%08X);\n", addr+4, le32_to_cpu(*(volatile u32 *)(addr+4)));
-		    printk("this.cpu_gen.set_reg32('h%08X,'h%08X);\n", addr+8, le32_to_cpu(*(volatile u32 *)(addr+8)));
-		    printk("this.cpu_gen.set_reg32('h%08X,'h%08X);\n", addr+12, le32_to_cpu(*(volatile u32 *)(addr+12)));
+		    printk("this.cpu_gen.set_reg32('h%08X,'h%08X);\n", addr, (u32)(*(volatile u32 *)(addr)));
+		    printk("this.cpu_gen.set_reg32('h%08X,'h%08X);\n", addr+4, (u32)(*(volatile u32 *)(addr+4)));
+		    printk("this.cpu_gen.set_reg32('h%08X,'h%08X);\n", addr+8, (u32)(*(volatile u32 *)(addr+8)));
+		    printk("this.cpu_gen.set_reg32('h%08X,'h%08X);\n", addr+12, (u32)(*(volatile u32 *)(addr+12)));
 		}
 	}
 	else if (cmd == RT_RDM_CMD_READ) //also read, but return a value instaead of printing it out
 	{
-		rtvalue = le32_to_cpu(*(volatile u32 *)(baseaddr + (*(int *)arg)));
+		rtvalue = (u32)(*(volatile u32 *)(baseaddr + (*(int *)arg)));
 		//printk("rtvalue %x\n", rtvalue);
 		put_user(rtvalue, (int __user *)arg);
 	}
@@ -80,7 +80,7 @@ static long rdm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 	else if (((cmd & 0xffff) == RT_RDM_CMD_WRITE) || ((cmd & 0xffff) == RT_RDM_CMD_WRITE_SILENT))
 	{
 		offset = cmd >> 16;
-		*(volatile u32 *)(baseaddr + offset) = cpu_to_le32((*(int *)arg));
+		*(volatile u32 *)(baseaddr + offset) = (u32)((*(int *)arg));
 		if ((cmd & 0xffff) == RT_RDM_CMD_WRITE)
 			printk("write offset 0x%x, value 0x%x\n", offset, (unsigned int)(*(int *)arg));
 	}else {
