@@ -2835,8 +2835,8 @@ void ppp_stats_reset(struct net_device *dev)
 	ppp_recv_unlock(ppp);
 
 	ppp_xmit_lock(ppp);
-	ppp->stats64.tx_bytes += 0;
-	ppp->stats64.tx_packets += 0;
+	ppp->stats64.tx_bytes = 0;
+	ppp->stats64.tx_packets = 0;
 	ppp_xmit_unlock(ppp);
 }
 EXPORT_SYMBOL(ppp_stats_reset);
