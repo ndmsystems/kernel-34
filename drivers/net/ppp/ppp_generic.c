@@ -2807,6 +2807,11 @@ static void ppp_stat_add_rx(struct ppp_channel *chan, u32 add_pkt, u32 add_bytes
 	if (ppp == NULL)
 		return;
 
+#if IS_ENABLED(CONFIG_RA_HW_NAT) && !defined(CONFIG_HNAT_V2)
+	if (ppp->stat_block_rx)
+		return;
+#endif
+
 	stats = this_cpu_ptr(ppp->stats64);
 
 	u64_stats_update_begin(&stats->syncp);
@@ -2833,6 +2838,11 @@ void ppp_stat_add(struct ppp_channel *chan, struct sk_buff *skb)
 		return;
 
 	skb->dev = ppp->dev;
+
+#if IS_ENABLED(CONFIG_RA_HW_NAT) && !defined(CONFIG_HNAT_V2)
+	if (ppp->stat_block_rx)
+		return;
+#endif
 
 	stats = this_cpu_ptr(ppp->stats64);
 

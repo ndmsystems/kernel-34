@@ -147,20 +147,27 @@ struct net_device * get_vlan_dev_by_real(struct net_device *real_dev, u16 vlan_i
 }
 EXPORT_SYMBOL(get_vlan_dev_by_real);
 
-void vlan_dev_update_stats(struct net_device *vlan_dev, u32 recv_bytes, u32 recv_packets,
-	u32 sent_bytes, u32 sent_packets)
+/*
+ * must be called from non-preemptable context
+ */
+void vlan_dev_update_stats(struct net_device *vlan_dev,
+			   u32 recv_bytes, u32 recv_packets,
+			   u32 sent_bytes, u32 sent_packets)
 {
-	struct vlan_pcpu_stats * stats =
-		per_cpu_ptr(vlan_dev_priv(vlan_dev)->vlan_pcpu_stats, smp_processor_id());
+	struct vlan_dev_priv *vlan = vlan_dev_priv(vlan_dev);
+	struct vlan_pcpu_stats *stats;
 
-	if (NULL != stats) {
-		u64_stats_update_begin(&stats->syncp);
-		stats->rx_packets += recv_packets;
-		stats->rx_bytes += recv_bytes;
-		stats->tx_packets += sent_packets;
-		stats->tx_bytes += sent_bytes;
-		u64_stats_update_end(&stats->syncp);
-	}
+	if (!vlan->vlan_pcpu_stats)
+		return;
+
+	stats = this_cpu_ptr(vlan->vlan_pcpu_stats);
+
+	u64_stats_update_begin(&stats->syncp);
+	stats->rx_packets += recv_packets;
+	stats->rx_bytes += recv_bytes;
+	stats->tx_packets += sent_packets;
+	stats->tx_bytes += sent_bytes;
+	u64_stats_update_end(&stats->syncp);
 }
 EXPORT_SYMBOL(vlan_dev_update_stats);
 

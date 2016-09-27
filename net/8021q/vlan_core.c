@@ -105,6 +105,12 @@ void vlan_dev_block_stat(struct net_device *dev, int is_block_rx)
 	vlan_dev_priv(dev)->stat_block_rx = is_block_rx;
 }
 EXPORT_SYMBOL(vlan_dev_block_stat);
+
+int vlan_dev_block_stat_get(struct net_device *dev)
+{
+	return vlan_dev_priv(dev)->stat_block_rx;
+}
+EXPORT_SYMBOL(vlan_dev_block_stat_get);
 #endif
 
 static struct sk_buff *vlan_reorder_header(struct sk_buff *skb)
