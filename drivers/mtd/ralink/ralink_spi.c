@@ -87,11 +87,6 @@ static const char *part_probes[] __initdata = { "ndmpart", NULL };
 #define SR_EPE			0x20	/* Erase/Program error */
 #define SR_SRWD			0x80	/* SR write protect */
 
-#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
-static DEFINE_SPINLOCK(spi_lock);
-EXPORT_SYMBOL(spi_lock);
-#endif
-
 #if defined (CONFIG_RALINK_MT7620)
 
 #define COMMAND_MODE
@@ -185,6 +180,22 @@ static int spic_busy_wait(void)
 	return -1;
 }
 
+#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+static DEFINE_MUTEX(ra_spic_arb_mutex);
+
+void spic_arbiter_lock(void)
+{
+	mutex_lock(&ra_spic_arb_mutex);
+}
+EXPORT_SYMBOL(spic_arbiter_lock);
+
+void spic_arbiter_unlock(void)
+{
+	mutex_unlock(&ra_spic_arb_mutex);
+}
+EXPORT_SYMBOL(spic_arbiter_unlock);
+#endif
+
 #define SPIC_READ_BYTES		(1<<0)
 #define SPIC_WRITE_BYTES	(1<<1)
 #define SPIC_USER_MODE		(1<<2)
@@ -211,7 +222,7 @@ static int spic_transfer(const u8 *cmd, int n_cmd, u8 *buf, int n_buf, int flag)
 			(flag == SPIC_READ_BYTES)? "read" : "write");
 
 #if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
-	spin_lock_bh(&spi_lock);
+	mutex_lock(&ra_spic_arb_mutex);
 #endif
 
 	/* assert CS0 and we are already CLK normal high */
@@ -250,7 +261,7 @@ end_trans:
 	ra_or(RT2880_SPI0_CTL_REG, SPICTL_SPIENA_HIGH);
 
 #if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
-	spin_unlock_bh(&spi_lock);
+	mutex_unlock(&ra_spic_arb_mutex);
 #endif
 
 	return retval;
@@ -399,7 +410,7 @@ static int raspi_cmd(const u8 cmd, const u32 addr, const u8 mode, u8 *buf, const
 	int count, retval = 0;
 
 #if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
-	spin_lock_bh(&spi_lock);
+	mutex_lock(&ra_spic_arb_mutex);
 #endif
 
 	ra_or(RT2880_SPICFG_REG, (SPICFG_SPIENMODE | SPICFG_RXENVDIS));
@@ -472,7 +483,7 @@ end_cmd:
 	ra_and(RT2880_SPICFG_REG, ~(SPICFG_SPIENMODE | SPICFG_RXENVDIS));
 
 #if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
-	spin_unlock_bh(&spi_lock);
+	mutex_unlock(&ra_spic_arb_mutex);
 #endif
 
 	return retval;
