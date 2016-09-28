@@ -53,7 +53,9 @@ bool vlan_do_receive(struct sk_buff **skbp)
 
 	u64_stats_update_begin(&rx_stats->syncp);
 #if IS_ENABLED(CONFIG_RA_HW_NAT) && !defined(CONFIG_HNAT_V2)
-    if (!vlan_dev_priv(vlan_dev)->stat_block_rx)
+    if (!vlan_dev_priv(vlan_dev)->stat_block_rx ||
+        skb->pkt_type == PACKET_MULTICAST ||
+        skb->pkt_type == PACKET_BROADCAST)
 #endif
     {
 	rx_stats->rx_packets++;
