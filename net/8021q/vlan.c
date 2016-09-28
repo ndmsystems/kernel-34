@@ -134,6 +134,10 @@ int vlan_check_real_dev(struct net_device *real_dev, u16 vlan_id)
 	return 0;
 }
 
+/*
+ * must be rcu_read_lock protected
+ * used in fastvpn driver
+ */
 struct net_device * get_vlan_dev_by_real(struct net_device *real_dev, u16 vlan_id)
 {
 	const char *name = real_dev->name;
@@ -149,6 +153,7 @@ EXPORT_SYMBOL(get_vlan_dev_by_real);
 
 /*
  * must be called from non-preemptable context
+ * used in hw_nat and old fastvpn driver
  */
 void vlan_dev_update_stats(struct net_device *vlan_dev,
 			   u32 recv_bytes, u32 recv_packets,
@@ -170,6 +175,39 @@ void vlan_dev_update_stats(struct net_device *vlan_dev,
 	u64_stats_update_end(&stats->syncp);
 }
 EXPORT_SYMBOL(vlan_dev_update_stats);
+
+/*
+ * must be called from non-preemptable context
+ * used in fastvpn driver
+ */
+void vlan_dev_update_stats_swnat(struct net_device *vlan_dev,
+				u32 recv_bytes, u32 recv_pkts,
+				u32 sent_bytes, u32 sent_pkts,
+				int is_recv_mcast)
+{
+	struct vlan_dev_priv *vlan = vlan_dev_priv(vlan_dev);
+	struct vlan_pcpu_stats *stats;
+
+	if (!vlan->vlan_pcpu_stats)
+		return;
+
+	stats = this_cpu_ptr(vlan->vlan_pcpu_stats);
+
+	u64_stats_update_begin(&stats->syncp);
+#if IS_ENABLED(CONFIG_RA_HW_NAT) && !defined(CONFIG_HNAT_V2)
+	if (!vlan->stat_block_rx || is_recv_mcast)
+#endif
+	{
+		stats->rx_packets += recv_pkts;
+		stats->rx_bytes += recv_bytes;
+	}
+	if (is_recv_mcast)
+		stats->rx_multicast += recv_pkts;
+	stats->tx_packets += sent_pkts;
+	stats->tx_bytes += sent_bytes;
+	u64_stats_update_end(&stats->syncp);
+}
+EXPORT_SYMBOL(vlan_dev_update_stats_swnat);
 
 int register_vlan_dev(struct net_device *dev)
 {
