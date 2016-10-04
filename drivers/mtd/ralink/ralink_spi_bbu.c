@@ -158,6 +158,11 @@ void spic_init(void)
 {
 	u32 clk_sys, clk_div, clk_out, reg;
 
+#ifdef CONFIG_RALINK_RT6XXX_MP
+	/* enable SMC bank 0 alias addressing */
+	ra_or(RALINK_SYSCTL_BASE + 0x38, (1u << 31));
+#endif
+
 	/*
 	 * MT7621 sys_clk 220 MHz
 	 * MT7628 sys_clk 193, 191 MHz
