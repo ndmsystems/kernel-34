@@ -696,13 +696,13 @@ static int raspi_unprotect(void)
 static int raspi_wait_ready(int sleep_ms)
 {
 	int count;
-	int sr = 0;
+	u8 sr = 0;
 
 	/* one chip guarantees max 5 msec wait here after page writes,
 	 * but potentially three seconds (!) after page erase.
 	 */
 	for (count = 0; count < ((sleep_ms+1)*1000*10); count++) {
-		if ((raspi_read_sr((u8 *)&sr)) < 0)
+		if ((raspi_read_sr(&sr)) < 0)
 			break;
 		else if (!(sr & SR_WIP))
 			return 0;
@@ -716,13 +716,13 @@ static int raspi_wait_ready(int sleep_ms)
 static int raspi_wait_sleep_ready(int sleep_ms)
 {
 	int count;
-	int sr = 0;
+	u8 sr = 0;
 
 	/* one chip guarantees max 5 msec wait here after page writes,
 	 * but potentially three seconds (!) after page erase.
 	 */
 	for (count = 0; count < ((sleep_ms+1)*1000); count++) {
-		if ((raspi_read_sr((u8 *)&sr)) < 0)
+		if ((raspi_read_sr(&sr)) < 0)
 			break;
 		else if (!(sr & SR_WIP))
 			return 0;
