@@ -280,14 +280,6 @@ int __init init_ralink_pci(void)
 	PCIBIOS_MIN_IO = 0;
 	PCIBIOS_MIN_MEM = 0;
 
-	/* raise PCIRST */
-	val = RALINK_PCI_PCICFG_ADDR;
-	if (!(val & (1<<1))) {
-		val |= (1<<1);
-		RALINK_PCI_PCICFG_ADDR = val;
-		mdelay(1);
-	}
-
 #if defined (CONFIG_PCIE_PORT1)
 	/* assert PCIe RC0/RC1 reset signal */
 	*((volatile u32 *)(RALINK_RSTCTRL_REG)) |= (RALINK_PCIE0_RST | RALINK_PCIE1_RST);
