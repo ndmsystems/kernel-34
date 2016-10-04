@@ -298,10 +298,10 @@ static int bbu_mb_spic_trans(const u8 code, const u32 addr, u8 *buf, const size_
 
 	/* step 1. set opcode & address */
 	if (flash->chip->addr4b) {
-		reg_ctl |= ((code << 24) & SPI_CTL_ADDREXT_MASK);
+		reg_ctl |= (((u32)code << 24) & SPI_CTL_ADDREXT_MASK);
 		reg_opcode = addr;
 	} else {
-		reg_opcode = (code << 24) | (addr & 0xffffff);
+		reg_opcode = ((u32)code << 24) | (addr & 0xffffff);
 	}
 
 	ra_outl(SPI_REG_OPCODE, reg_opcode);
@@ -390,7 +390,8 @@ static int bbu_spic_trans(const u8 code, const u32 addr, u8 *buf, const size_t n
 
 	reg_opcode = ((addr & 0xffffff) << 8) | code;
 
-#if defined(RD_MODE_QIOR) || defined(RD_MODE_QOR) || defined(RD_MODE_DIOR) || defined(RD_MODE_DOR) || defined(RD_MODE_FAST)
+#if defined(RD_MODE_QIOR) || defined(RD_MODE_QOR) || \
+    defined(RD_MODE_DIOR) || defined(RD_MODE_DOR) || defined(RD_MODE_FAST)
 	/* clear data bit for dummy bits in Quad/Dual/Fast IO Read */
 	if (flag & SPIC_READ_BYTES)
 		ra_outl(SPI_REG_DATA0, 0);
@@ -450,6 +451,7 @@ static int bbu_spic_trans(const u8 code, const u32 addr, u8 *buf, const size_t n
 		reg_ctl |= (n_tx + 1);
 	else
 		reg_ctl |= n_tx;
+	ra_outl(SPI_REG_CTL, reg_ctl);
 
 	/* step 4. kick */
 	ra_outl(SPI_REG_CTL, reg_ctl | SPI_CTL_START);
