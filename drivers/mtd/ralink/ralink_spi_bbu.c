@@ -381,12 +381,11 @@ static int bbu_spic_trans(const u8 code, const u32 addr, u8 *buf, const size_t n
 	reg_ctl &= ~SPI_CTL_TXRXCNT_MASK;
 	reg_ctl &= ~SPI_CTL_ADDREXT_MASK;
 
-	if ((reg_ctl & SPI_CTL_SIZE_MASK) == SPI_CTL_SIZE_MASK)
-		addr4b = 1;
-
 	/* step 1. set opcode & address */
-	if (flash && flash->chip->addr4b && addr4b)
+	if ((reg_ctl & SPI_CTL_SIZE_MASK) == SPI_CTL_SIZE_MASK) {
 		reg_ctl |= (addr & SPI_CTL_ADDREXT_MASK);
+		addr4b = 1;
+	}
 
 	reg_opcode = ((addr & 0xffffff) << 8) | code;
 
@@ -415,7 +414,7 @@ static int bbu_spic_trans(const u8 code, const u32 addr, u8 *buf, const size_t n
 #if defined(RD_MODE_QIOR) || defined(RD_MODE_QOR)
 		case 3:
 			reg_opcode &= 0xff;
-			if (flash->chip->addr4b && addr4b) {
+			if (addr4b) {
 				reg_ctl &= ~SPI_CTL_ADDREXT_MASK;
 				reg_ctl |= (*buf << 24);
 				
@@ -428,7 +427,7 @@ static int bbu_spic_trans(const u8 code, const u32 addr, u8 *buf, const size_t n
 #endif
 		case 2:
 			reg_opcode &= 0xff;
-			if (flash->chip->addr4b && addr4b) {
+			if (addr4b) {
 				reg_ctl &= ~SPI_CTL_ADDREXT_MASK;
 				reg_ctl |= (*buf << 24);
 			} else {
@@ -447,7 +446,7 @@ static int bbu_spic_trans(const u8 code, const u32 addr, u8 *buf, const size_t n
 
 	/* step 3. set mosi_byte_cnt */
 	reg_ctl |= (n_rx << 4);
-	if (flash && flash->chip->addr4b && addr4b && n_tx >= 4)
+	if (addr4b && n_tx >= 4)
 		reg_ctl |= (n_tx + 1);
 	else
 		reg_ctl |= n_tx;
