@@ -43,6 +43,11 @@
 
 #include "mtdcore.h"
 
+#ifdef CONFIG_MTD_NDM_DUAL_IMAGE
+extern int ndmpart_image_cur;
+extern bool ndmpart_di_is_enabled;
+#endif
+
 /*
  * backing device capabilities for non-mappable devices (such as NAND flash)
  * - permits private mappings, copies are taken of the data
@@ -287,6 +292,9 @@ static struct device_type mtd_devtype = {
 
 int add_mtd_device(struct mtd_info *mtd)
 {
+#ifdef CONFIG_MTD_NDM_PARTS
+	char buf[sizeof("RootFS_1")] = "RootFS";
+#endif
 	struct mtd_notifier *not;
 	int i, error;
 
@@ -368,11 +376,17 @@ int add_mtd_device(struct mtd_info *mtd)
 	   either. :) */
 	__module_get(THIS_MODULE);
 
-	if (!strcmp(mtd->name, "RootFS") && ROOT_DEV == 0) {
+#ifdef CONFIG_MTD_NDM_PARTS
+#ifdef CONFIG_MTD_NDM_DUAL_IMAGE
+	if (ndmpart_di_is_enabled)
+		snprintf(buf, sizeof(buf), "RootFS_%d", ndmpart_image_cur);
+#endif
+	if (!strcmp(mtd->name, buf) && ROOT_DEV == 0) {
 		pr_info("mtd: device %d (%s) set to be root filesystem\n",
 			mtd->index, mtd->name);
 		ROOT_DEV = MKDEV(MTD_BLOCK_MAJOR, mtd->index);
 	}
+#endif
 
 	return 0;
 

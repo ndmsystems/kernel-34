@@ -29,6 +29,11 @@ static const char *part_probes[] = { "ndmpart", NULL };
 static struct mtd_partition *mtd_parts;
 int part_num = 0;
 
+#if defined (CONFIG_MTD_NDM_DUAL_IMAGE)
+extern int ndmpart_image_cur;
+extern bool ndmpart_di_is_enabled;
+#endif
+
 #if defined (CONFIG_JFFS2_FS) || defined (CONFIG_JFFS2_FS_MODULE)
 #define JFFS2_WORKAROUND
 #endif
@@ -2271,7 +2276,10 @@ static int mtk_nand_probe(struct platform_device *pdev)
 	int err = 0;
 	u32 i;
 #if defined (CONFIG_MTD_NDM_PARTS)
-	char *s;
+	const char *s;
+	char kern_name[sizeof("Kernel_1")] = "Kernel";
+	char rootfs_name[sizeof("RootFS_1")] = "RootFS";
+	char fw_name[sizeof("Firmware_1")] = "Firmware";
 	struct mtd_partition *mp;
 #endif
 
@@ -2413,17 +2421,28 @@ static int mtk_nand_probe(struct platform_device *pdev)
 #if defined (CONFIG_MTD_NDM_PARTS)
 	err = -ENXIO;
 
-	s = "Kernel";
+#if defined (CONFIG_MTD_NDM_DUAL_IMAGE)
+	if (ndmpart_di_is_enabled) {
+		snprintf(kern_name, sizeof(kern_name), "Kernel_%d",
+			 ndmpart_image_cur);
+		snprintf(rootfs_name, sizeof(rootfs_name), "RootFS_%d",
+			 ndmpart_image_cur);
+		snprintf(fw_name, sizeof(fw_name), "Firmware_%d",
+			 ndmpart_image_cur);
+	}
+#endif
+
+	s = kern_name;
 	mp = mtd_part_find_by_name(s, &kernel_idx);
 	if (mp == NULL)
 		goto out_err_part;
 
-	s = "RootFS";
+	s = rootfs_name;
 	mp = mtd_part_find_by_name(s, &rootfs_idx);
 	if (mp == NULL)
 		goto out_err_part;
 
-	s = "Firmware";
+	s = fw_name;
 	mp = mtd_part_find_by_name(s, NULL);
 	if (mp == NULL)
 		goto out_err_part;

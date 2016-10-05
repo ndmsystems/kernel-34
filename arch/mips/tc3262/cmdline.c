@@ -1,22 +1,45 @@
-#include <linux/kernel.h>
-#include <linux/version.h>
+/**************************************************************************
+ *
+ *  BRIEF MODULE DESCRIPTION
+ *     cmdline parsing for Ralink RT2880 solution
+ *
+ *  Copyright 2007 Ralink Inc. (bruce_chang@ralinktech.com.tw)
+ *
+ *  This program is free software; you can redistribute  it and/or modify it
+ *  under  the terms of  the GNU General  Public License as published by the
+ *  Free Software Foundation;  either version 2 of the  License, or (at your
+ *  option) any later version.
+ *
+ *  THIS  SOFTWARE  IS PROVIDED   ``AS  IS'' AND   ANY  EXPRESS OR IMPLIED
+ *  WARRANTIES,   INCLUDING, BUT NOT  LIMITED  TO, THE IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN
+ *  NO  EVENT  SHALL   THE AUTHOR  BE    LIABLE FOR ANY   DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ *  NOT LIMITED   TO, PROCUREMENT OF  SUBSTITUTE GOODS  OR SERVICES; LOSS OF
+ *  USE, DATA,  OR PROFITS; OR  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ *  ANY THEORY OF LIABILITY, WHETHER IN  CONTRACT, STRICT LIABILITY, OR TORT
+ *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ *  THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ *  You should have received a copy of the  GNU General Public License along
+ *  with this program; if not, write  to the Free Software Foundation, Inc.,
+ *  675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ *
+ **************************************************************************
+ * May 2007 Bruce Chang
+ *
+ * Initial Release
+ *
+ *
+ *
+ **************************************************************************
+ */
+
 #include <linux/init.h>
 #include <linux/string.h>
-#include <linux/delay.h>
-#include <linux/err.h>
 
 #include <asm/bootinfo.h>
-
-#if defined (CONFIG_CMDLINE_BOOL)
-char rt2880_cmdline[] = CONFIG_CMDLINE;
-#else
-#if defined (CONFIG_RT2880_UART_115200)
-#define TTY_BAUDRATE	"115200n8"
-#else
-#define TTY_BAUDRATE	"57600n8"
-#endif
-char rt2880_cmdline[]="console=ttyS0," TTY_BAUDRATE "";
-#endif
 
 #ifdef CONFIG_UBOOT_CMDLINE
 extern int prom_argc;
@@ -36,64 +59,55 @@ char * __init prom_getcmdline(void)
 	return &(arcs_cmdline[0]);
 }
 
-#ifdef CONFIG_IMAGE_CMDLINE_HACK
-extern char __image_cmdline[];
-
-static int __init use_image_cmdline(void)
+#ifdef CONFIG_UBOOT_CMDLINE
+void __init uboot_cmdline(char *s, size_t size)
 {
-	char *p = __image_cmdline;
-	int replace = 0;
+	int i;
+
+	for (i = 1; i < prom_argc; i++) { /* Skip argv[0] */
+		strlcat(s, prom_argv(i), size);
+
+		/* Prevent last space */
+		if (i != prom_argc - 1)
+			strlcat(s, " ", size);
+	}
+}
+#else
+static inline void uboot_cmdline(char *s, size_t size) {}
+#endif
+
+#ifdef CONFIG_IMAGE_CMDLINE_HACK
+void __init image_cmdline(char *s, size_t size)
+{
+	bool replace = false;
+	char *p;
+	extern char __image_cmdline[];
+
+	p = &__image_cmdline[0];
 
 	if (*p == '-') {
-		replace = 1;
+		replace = true;
 		p++;
 	}
 
 	if (*p == '\0')
-		return 0;
+		return;
 
 	if (replace) {
-		strlcpy(arcs_cmdline, p, sizeof(arcs_cmdline));
+		strlcpy(s, p, size);
 	} else {
-		strlcat(arcs_cmdline, " ", sizeof(arcs_cmdline));
-		strlcat(arcs_cmdline, p, sizeof(arcs_cmdline));
+		/* Add space if there are symbols in buffer */
+		if (*s)
+			strlcat(s, " ", size);
+		strlcat(s, p, size);
 	}
-
-	return 1;
 }
 #else
-static int inline use_image_cmdline(void) { return 0; }
+static inline void image_cmdline(char *s, size_t size) {}
 #endif
 
 void  __init prom_init_cmdline(void)
 {
-#ifdef CONFIG_UBOOT_CMDLINE
-	int actr=1; /* Always ignore argv[0] */
-#endif
-	char *cp;
-
-	if (use_image_cmdline())
-		return;
-
-	cp = &(arcs_cmdline[0]);
-#ifdef CONFIG_UBOOT_CMDLINE
-	if (prom_argc > 1) {
-		while(actr < prom_argc) {
-			strcpy(cp, prom_argv(actr));
-			cp += strlen(prom_argv(actr));
-			*cp++ = ' ';
-			actr++;
-		}
-	} else
-#endif
-	{
-		strcpy(cp, rt2880_cmdline);
-		cp += strlen(rt2880_cmdline);
-		*cp++ = ' ';
-	}
-
-	if (cp != &(arcs_cmdline[0])) /* get rid of trailing space */
-		--cp;
-	*cp = '\0';
+	uboot_cmdline(arcs_cmdline, sizeof(arcs_cmdline));
+	image_cmdline(arcs_cmdline, sizeof(arcs_cmdline));
 }
-
