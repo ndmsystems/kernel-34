@@ -94,11 +94,17 @@ static int xfrm_output_one(struct sk_buff *skb, int err)
 		err = x->type->output(x, skb);
 
 #if defined (CONFIG_RALINK_HWCRYPTO) || defined (CONFIG_RALINK_HWCRYPTO_MODULE)
-		if (atomic_read(&esp_mtk_hardware) &&
-			(skb->protocol == htons(ETH_P_IP) ||
-				skb->protocol == htons(ETH_P_IPV6))) {
-			if (err == 1)
-				return err;
+		if (atomic_read(&esp_mtk_hardware) {
+			if (skb->protocol == htons(ETH_P_IP)) {
+
+				/* check skb in progress */
+				if (err == HWCRYPTO_OK)
+					return -EINPROGRESS;
+
+				/* check skb already freed */
+				if (err == HWCRYPTO_NOMEM)
+					return -ENOMEM;
+			}
 		}
 #endif
 
@@ -153,11 +159,6 @@ int xfrm_output_resume(struct sk_buff *skb, int err)
 
 	if (err == -EINPROGRESS)
 		err = 0;
-
-#if defined (CONFIG_RALINK_HWCRYPTO) || defined (CONFIG_RALINK_HWCRYPTO_MODULE)
-	if (atomic_read(&esp_mtk_hardware) && (skb->protocol == htons(ETH_P_IP)))
-		return 0;
-#endif
 
 out:
 	return err;

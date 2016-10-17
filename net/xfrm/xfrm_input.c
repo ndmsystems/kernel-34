@@ -198,10 +198,17 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
 #if defined (CONFIG_RALINK_HWCRYPTO) || defined (CONFIG_RALINK_HWCRYPTO_MODULE)
 		if (atomic_read(&esp_mtk_hardware)) {
 			if (family == AF_INET) {
-				if (x->type->input(x, skb) == 1) {
+				err = x->type->input(x, skb);
+
+				/* check skb in progress */
+				if (err == HWCRYPTO_OK)
 					return 0;
-				} else
-					goto drop;
+
+				/* check skb already freed */
+				if (err == HWCRYPTO_NOMEM)
+					return 0;
+
+				goto drop;
 			}
 		}
 #endif
