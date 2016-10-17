@@ -94,7 +94,7 @@ static int xfrm_output_one(struct sk_buff *skb, int err)
 		err = x->type->output(x, skb);
 
 #if defined (CONFIG_RALINK_HWCRYPTO) || defined (CONFIG_RALINK_HWCRYPTO_MODULE)
-		if (atomic_read(&esp_mtk_hardware) {
+		if (atomic_read(&esp_mtk_hardware)) {
 			if (skb->protocol == htons(ETH_P_IP)) {
 
 				/* check skb in progress */
