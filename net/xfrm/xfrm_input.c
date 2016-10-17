@@ -202,16 +202,11 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
 					return 0;
 				} else
 					goto drop;
-			} else {
-				nexthdr = x->type->input(x, skb);
-				goto after_nexthdr;
 			}
 		}
 #endif
 
 		nexthdr = x->type->input(x, skb);
-
-after_nexthdr:
 
 		if (nexthdr == -EINPROGRESS)
 			return 0;
