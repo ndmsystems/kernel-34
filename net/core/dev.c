@@ -145,6 +145,7 @@
 #include "net-sysfs.h"
 
 extern int (*ipv6_pthrough)(struct sk_buff *skb);
+extern int (*pppoe_pthrough)(struct sk_buff *skb);
 
 /* Instead of increasing this, you should create a hash table. */
 #define MAX_GRO_SKBS 8
@@ -3372,6 +3373,7 @@ static int __netif_receive_skb(struct sk_buff *skb)
 	struct net_device *null_or_dev;
 	bool deliver_exact = false;
 	int (*ipv6hook)(struct sk_buff *skb);
+	int (*pppoehook)(struct sk_buff *skb);
 	int ret = NET_RX_DROP;
 	__be16 type;
 
@@ -3406,6 +3408,11 @@ another_round:
 	}
 
 	if ((ipv6hook = rcu_dereference(ipv6_pthrough)) && ipv6hook(skb)) {
+		ret = NET_RX_SUCCESS;
+		goto out;
+	}
+
+	if ((pppoehook = rcu_dereference(pppoe_pthrough)) && pppoehook(skb)) {
 		ret = NET_RX_SUCCESS;
 		goto out;
 	}
