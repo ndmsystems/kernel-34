@@ -135,12 +135,12 @@ static bool get_nand_device_info_table(u16 id, u32 ext_id)
 	for (index = 0; gen_FlashTable[index].id != 0; index++) {
 		if (id == gen_FlashTable[index].id && ext_id == gen_FlashTable[index].ext_id) {
 			memcpy(&nand_devinfo, &gen_FlashTable[index], sizeof(flashdev_info));
-			printk("%s: NAND chip found in MTK table: %s\n", MTK_NAND_MODULE_TEXT, nand_devinfo.devicename);
+			printk(KERN_INFO "%s: NAND chip found in the MTK table: %s\n", MTK_NAND_MODULE_TEXT, nand_devinfo.devicename);
 			return true;
 		}
 	}
 
-	printk(KERN_WARNING "%s: NAND chip with device ID %x is not found in MTK table!\n", MTK_NAND_MODULE_TEXT, id);
+	printk(KERN_WARNING "%s: NAND chip with device ID %x is not found in the MTK table\n", MTK_NAND_MODULE_TEXT, id);
 	return false;
 }
 
@@ -189,7 +189,7 @@ static int mtk_nand_init_size(struct mtd_info *mtd, struct nand_chip *chip, u8 *
 	u16 id;
 	u32 id_ext;
 
-	printk("%s: NAND ID [%02X %02X, %02X %02X %02X %02X]\n",
+	printk(KERN_INFO "%s: NAND ID [%02X %02X, %02X %02X %02X %02X]\n",
 		MTK_NAND_MODULE_TEXT, id_data[0], id_data[1], id_data[2], id_data[3], id_data[4], id_data[5]);
 
 	id = ((u16)id_data[0] << 8) | id_data[1];
@@ -2218,7 +2218,7 @@ static int load_fact_bbt(struct mtd_info *mtd)
 	for (i = total_block - 1; i >= (total_block - FACT_BBT_BLOCK_NUM); i--) {
 		page = i << (chip->phys_erase_shift - chip->page_shift);
 		if (read_fact_bbt(mtd, page, fact_bbt, fact_bbt_size) == 0) {
-			printk("%s: success load FACT_BBT from block %d\n", MTK_NAND_MODULE_TEXT, i);
+			printk(KERN_INFO "%s: success load FACT_BBT from block %d\n", MTK_NAND_MODULE_TEXT, i);
 			ret = 0;
 			break;
 		}
