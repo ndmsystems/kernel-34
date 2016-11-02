@@ -93,6 +93,16 @@ static inline void tc_uart_setup(void)
 
 static inline void tc_ahb_setup(void)
 {
+#ifdef CONFIG_RALINK_RT63365
+	/* assert DMT reset */
+	VPint(CR_AHB_DMTCR) = 0x1;
+	udelay(100);
+
+#ifndef CONFIG_TC3162_ADSL
+	/* disable DMT clock to power save */
+	VPint(CR_AHB_DMTCR) = 0x3;
+#endif
+#endif
 	/* setup bus timeout value */
 	VPint(CR_AHB_AACS) = 0xffff;
 }

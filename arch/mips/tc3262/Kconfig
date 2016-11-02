@@ -9,15 +9,21 @@ endif
 
 #--------------------------
 
+if RALINK_RT63365
+
+config TC3162_ADSL
+	bool "Enable ADSL support"
+	default n
+
+endif
+
+#--------------------------
+
 if MIPS_TC3262
 
 config TC3262_IMEM
 	bool "Enable SPRAM IMEM"
 	default y
-
-#config TC3162_SFL
-#	bool "Include Trendchip soft-float library"
-#	default n
 
 endif
 

@@ -1,6 +1,7 @@
 #include <linux/kernel.h>
 #include <linux/version.h>
 #include <linux/init.h>
+#include <linux/module.h>
 #include <linux/string.h>
 #include <linux/delay.h>
 #include <linux/err.h>
@@ -9,11 +10,32 @@
 #include <asm/time.h>
 
 #include <asm/tc3162/tc3162.h>
+#ifdef CONFIG_TC3162_ADSL
+struct sk_buff;
+#include <asm/tc3162/TCIfSetQuery_os.h>
+#endif
 
 void (*back_to_prom)(void) = (void (*)(void))0xbfc00000;
 
+#ifdef CONFIG_TC3162_ADSL
+adsldev_ops *adsl_dev_ops = NULL;
+EXPORT_SYMBOL(adsl_dev_ops);
+
+void stop_adsl_dmt(void)
+{
+	/* stop adsl */
+	if (adsl_dev_ops)
+		adsl_dev_ops->set(ADSL_SET_DMT_CLOSE, NULL, NULL);
+}
+#endif
+
 static void hw_reset(void)
 {
+#ifdef CONFIG_TC3162_ADSL
+	/* stop adsl */
+	stop_adsl_dmt();
+#endif
+
 	/* stop each module dma task */
 	VPint(CR_INTC_IMR) = 0x0;
 	VPint(CR_TIMER_CTL) = 0x0;

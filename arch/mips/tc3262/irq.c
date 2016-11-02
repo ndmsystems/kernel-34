@@ -21,6 +21,9 @@
 extern void vsmp_int_init(void);
 extern int plat_set_irq_affinity(struct irq_data *d,
 				 const struct cpumask *affinity, bool force);
+#ifdef CONFIG_TC3162_ADSL
+extern void stop_adsl_dmt(void);
+#endif
 
 static DEFINE_SPINLOCK(tc3262_irq_lock);
 
@@ -270,6 +273,12 @@ static irqreturn_t tc_watchdog_timer_interrupt(int irq, void *dev_id)
 	VPint(CR_TIMER_CTL) = word;
 
 	printk(KERN_WARNING "watchdog timer interrupt\n");
+
+#ifdef CONFIG_TC3162_ADSL
+	/* stop adsl */
+	stop_adsl_dmt();
+#endif
+
 	dump_stack();
 
 	return IRQ_HANDLED;

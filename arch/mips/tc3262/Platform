@@ -2,7 +2,6 @@
 # Trendchip TC3262 boards
 #
 platform-$(CONFIG_MIPS_TC3262)		+= tc3262/
-platform-$(CONFIG_TC3162_SFL)		+= softfloat/
 cflags-$(CONFIG_MIPS_TC3262)		+= -I$(srctree)/arch/mips/include/asm/tc3162/
 cflags-$(CONFIG_MIPS_TC3262)		+= -mtune=34kc
 load-$(CONFIG_MIPS_TC3262)		+= 0xffffffff80020000
