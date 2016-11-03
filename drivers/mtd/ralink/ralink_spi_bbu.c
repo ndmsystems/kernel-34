@@ -36,9 +36,11 @@
 #include "ralink_spi_bbu.h"
 
 #include "../mtdcore.h"
+
+static const char *part_probes[] __initdata = { "ndmpart", NULL };
+
 //#define SPI_DEBUG
 //#define TEST_CS1_FLASH
-static const char *part_probes[] __initdata = { "ndmpart", NULL };
 
 #if defined (CONFIG_MTD_SPI_READ_FAST)
 #define RD_MODE_FAST
@@ -133,7 +135,15 @@ u32 ra_outl(u32 addr, u32 val)
 #define SPIC_READ_BYTES		(1<<0)
 #define SPIC_WRITE_BYTES	(1<<1)
 
-void usleep(unsigned int usecs)
+#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+/* SPI_SEM used in vport */
+DEFINE_SEMAPHORE(SPI_SEM);
+EXPORT_SYMBOL(SPI_SEM);
+#endif
+
+static u32 ra_spic_clk_div = 4;
+
+static void usleep(unsigned int usecs)
 {
 	unsigned long timeout = usecs_to_jiffies(usecs);
 
@@ -154,7 +164,26 @@ static int bbu_spic_busy_wait(void)
 	return -1;
 }
 
-void spic_init(void)
+static inline u32 bbu_spic_master(void)
+{
+	u32 reg_val;
+
+	/* disable DOR/QOR/MORE_BUF, enable prefetch, select CS0 */
+	reg_val = 0x8880;
+
+	/* set clock */
+	reg_val |= (ra_spic_clk_div << 16);
+
+#if defined(TEST_CS1_FLASH) && !defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+	reg_val |= (1 << 29);
+#endif
+
+	ra_outl(SPI_REG_MASTER, reg_val);
+
+	return reg_val;
+}
+
+static void spic_init(void)
 {
 	u32 clk_sys, clk_div, clk_out, reg;
 
@@ -180,18 +209,15 @@ void spic_init(void)
 	if (clk_div < 3)
 		clk_div = 3;
 
-	reg = ra_inl(SPI_REG_MASTER);
-	reg &= ~(0x7);
-	reg &= ~(0x0fff << 16);
-	reg |= ((clk_div - 2) << 16);
-	ra_outl(SPI_REG_MASTER, reg);
+	ra_spic_clk_div = clk_div - 2;
 
-#ifdef TEST_CS1_FLASH
+#if defined(TEST_CS1_FLASH) && !defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
 #if defined (CONFIG_RALINK_MT7628)
 	ra_and(RALINK_REG_GPIOMODE, ~(3 << 4));
 #endif
-	ra_or(SPI_REG_MASTER, (1 << 29));
 #endif
+
+	bbu_spic_master();
 
 	printk(KERN_INFO "MediaTek BBU SPI flash driver, SPI clock: %uMHz\n", clk_sys / clk_div);
 }
@@ -815,9 +841,18 @@ static int ramtd_erase(struct mtd_info *mtd, struct erase_info *instr)
 
 	mutex_lock(&flash->lock);
 
+#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+	down(&SPI_SEM);
+#endif
+
+	bbu_spic_master();
+
 	/* wait until finished previous command. */
 	if (raspi_wait_ready(10)) {
 		instr->state = MTD_ERASE_FAILED;
+#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+		up(&SPI_SEM);
+#endif
 		mutex_unlock(&flash->lock);
 		return -EIO;
 	}
@@ -839,6 +874,10 @@ static int ramtd_erase(struct mtd_info *mtd, struct erase_info *instr)
 
 	if (flash->chip->addr4b)
 		raspi_4byte_mode(0);
+
+#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+	up(&SPI_SEM);
+#endif
 
 	instr->state = (exit_code == 0) ? MTD_ERASE_DONE : MTD_ERASE_FAILED;
 
@@ -903,17 +942,23 @@ static int ramtd_read(struct mtd_info *mtd, loff_t from, size_t len,
 
 	mutex_lock(&flash->lock);
 
+#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+	down(&SPI_SEM);
+#endif
+
+	reg_master = bbu_spic_master();
+
 	/* Wait till previous write/erase is done. */
 	if (raspi_wait_ready(1)) {
+#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+		up(&SPI_SEM);
+#endif
 		mutex_unlock(&flash->lock);
 		return -EIO;
 	}
 
 	if (flash->chip->addr4b)
 		raspi_4byte_mode(1);
-
-	reg_master = ra_inl(SPI_REG_MASTER);
-	reg_master &= ~(0x7);
 
 #ifdef MORE_BUF_MODE
 	/* SPI mode = more byte mode */
@@ -951,6 +996,10 @@ static int ramtd_read(struct mtd_info *mtd, loff_t from, size_t len,
 
 	if (flash->chip->addr4b)
 		raspi_4byte_mode(0);
+
+#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+	up(&SPI_SEM);
+#endif
 
 	mutex_unlock(&flash->lock);
 
@@ -999,8 +1048,17 @@ static int ramtd_write(struct mtd_info *mtd, loff_t to, size_t len,
 
 	mutex_lock(&flash->lock);
 
+#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+	down(&SPI_SEM);
+#endif
+
+	reg_master = bbu_spic_master();
+
 	/* wait until finished previous write command. */
 	if (raspi_wait_ready(2)) {
+#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+		up(&SPI_SEM);
+#endif
 		mutex_unlock(&flash->lock);
 		return -EIO;
 	}
@@ -1009,9 +1067,6 @@ static int ramtd_write(struct mtd_info *mtd, loff_t to, size_t len,
 
 	if (flash->chip->addr4b)
 		raspi_4byte_mode(1);
-
-	reg_master = ra_inl(SPI_REG_MASTER);
-	reg_master &= ~(0x7);
 
 	/* what page do we start with? */
 	page_offset = to % FLASH_PAGESIZE;
@@ -1072,6 +1127,10 @@ exit_mtd_write:
 
 	if (flash->chip->addr4b)
 		raspi_4byte_mode(0);
+
+#if defined(CONFIG_RALINK_SLIC_CONNECT_SPI_CS1)
+	up(&SPI_SEM);
+#endif
 
 	mutex_unlock(&flash->lock);
 
