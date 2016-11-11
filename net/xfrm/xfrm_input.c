@@ -14,7 +14,9 @@
 #include <net/ip.h>
 #include <net/xfrm.h>
 
+#if IS_ENABLED(CONFIG_RALINK_HWCRYPTO)
 #include "xfrm_mtk_symbols.h"
+#endif
 
 static struct kmem_cache *secpath_cachep __read_mostly;
 
@@ -195,21 +197,19 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
 
 		skb_dst_force(skb);
 
-#if defined (CONFIG_RALINK_HWCRYPTO) || defined (CONFIG_RALINK_HWCRYPTO_MODULE)
-		if (atomic_read(&esp_mtk_hardware)) {
-			if (family == AF_INET) {
-				err = x->type->input(x, skb);
+#if IS_ENABLED(CONFIG_RALINK_HWCRYPTO)
+		if (family == AF_INET && atomic_read(&esp_mtk_hardware)) {
+			err = x->type->input(x, skb);
 
-				/* check skb in progress */
-				if (err == HWCRYPTO_OK)
-					return 0;
+			/* check skb in progress */
+			if (err == HWCRYPTO_OK)
+				return 0;
 
-				/* check skb already freed */
-				if (err == HWCRYPTO_NOMEM)
-					return 0;
+			/* check skb already freed */
+			if (err == HWCRYPTO_NOMEM)
+				return 0;
 
-				goto drop;
-			}
+			goto drop;
 		}
 #endif
 

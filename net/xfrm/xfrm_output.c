@@ -23,7 +23,9 @@
 #include <../ndm/hw_nat/ra_nat.h>
 #endif
 
+#if IS_ENABLED(CONFIG_RALINK_HWCRYPTO)
 #include "xfrm_mtk_symbols.h"
+#endif
 
 static int xfrm_output2(struct sk_buff *skb);
 
@@ -93,18 +95,15 @@ static int xfrm_output_one(struct sk_buff *skb, int err)
 
 		err = x->type->output(x, skb);
 
-#if defined (CONFIG_RALINK_HWCRYPTO) || defined (CONFIG_RALINK_HWCRYPTO_MODULE)
+#if IS_ENABLED(CONFIG_RALINK_HWCRYPTO)
 		if (atomic_read(&esp_mtk_hardware)) {
-			if (skb->protocol == htons(ETH_P_IP)) {
+			/* check skb in progress */
+			if (err == HWCRYPTO_OK)
+				return -EINPROGRESS;
 
-				/* check skb in progress */
-				if (err == HWCRYPTO_OK)
-					return -EINPROGRESS;
-
-				/* check skb already freed */
-				if (err == HWCRYPTO_NOMEM)
-					return -ENOMEM;
-			}
+			/* check skb already freed */
+			if (err == HWCRYPTO_NOMEM)
+				return -ENOMEM;
 		}
 #endif
 

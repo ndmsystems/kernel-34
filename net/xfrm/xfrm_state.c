@@ -27,7 +27,10 @@
 #include <linux/kernel.h>
 
 #include "xfrm_hash.h"
+
+#if IS_ENABLED(CONFIG_RALINK_HWCRYPTO)
 #include "xfrm_mtk_symbols.h"
+#endif
 
 /* Each xfrm_state may be linked to two tables:
 
@@ -561,6 +564,7 @@ int __xfrm_state_delete(struct xfrm_state *x)
 		xfrm_state_put(x);
 		err = 0;
 
+#if IS_ENABLED(CONFIG_RALINK_HWCRYPTO)
 		rcu_read_lock();
 		if ((x->type != NULL) &&
 			atomic_read(&esp_mtk_hardware) &&
@@ -572,6 +576,7 @@ int __xfrm_state_delete(struct xfrm_state *x)
 			ipsec_do_free(x->id.spi);
 		}
 		rcu_read_unlock();
+#endif
 	}
 
 	return err;
