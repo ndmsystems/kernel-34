@@ -25,10 +25,6 @@
 #include <net/netfilter/ipv4/nf_conntrack_ipv4.h>
 #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>
 
-#if IS_ENABLED(CONFIG_FAST_NAT)
-extern int ipv4_fastnat_conntrack;
-#endif
-
 enum udp_conntrack {
 	UDP_CT_UNREPLIED,
 	UDP_CT_REPLIED,
@@ -136,11 +132,6 @@ static int udp_error(struct net *net, struct nf_conn *tmpl, struct sk_buff *skb,
 				"nf_ct_udp: truncated/malformed packet ");
 		return -NF_ACCEPT;
 	}
-
-#if IS_ENABLED(CONFIG_FAST_NAT)
-	if (ipv4_fastnat_conntrack)
-		return NF_ACCEPT;
-#endif
 
 	/* Packet with no checksum */
 	if (!hdr->check)

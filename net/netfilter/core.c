@@ -27,7 +27,6 @@
 
 #if IS_ENABLED(CONFIG_FAST_NAT)
 extern int (*fast_nat_hit_hook_func)(struct sk_buff *skb);
-extern int ipv4_fastnat_conntrack;
 #endif
 
 #if defined(CONFIG_NETFILTER_FP_SMB)

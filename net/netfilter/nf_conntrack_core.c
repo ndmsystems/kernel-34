@@ -66,9 +66,6 @@
 #define NF_CONNTRACK_VERSION	"0.5.0"
 
 #if IS_ENABLED(CONFIG_FAST_NAT)
-/* Enable or Disable FastNAT */
-extern int ipv4_fastnat_conntrack;
-
 extern int (*fast_nat_hit_hook_func)(struct sk_buff *skb);
 
 extern int (*fast_nat_bind_hook_func)(struct nf_conn *ct,
@@ -117,27 +114,6 @@ int cone_man_ifindex __read_mostly = -1;
 #if IS_ENABLED(CONFIG_NETFILTER_XT_MATCH_WEBSTR)
 unsigned int web_str_loaded __read_mostly = 0;
 EXPORT_SYMBOL_GPL(web_str_loaded);
-#endif
-
-#if IS_ENABLED(CONFIG_RA_HW_NAT)
-static inline bool is_local_svc(u_int8_t protonm)
-{
-	/* Local gre/esp/ah/ip-ip/ipv6_in_ipv4/icmp proto must be skip from hw/sw offload
-	    and mark as interested by ALG  for correct tracking this */
-	switch (protonm) {
-	case IPPROTO_IPIP:
-#if !defined(CONFIG_RA_HW_NAT_IPV6) || !defined(CONFIG_HNAT_V2)
-	case IPPROTO_IPV6:
-#endif
-	case IPPROTO_GRE:
-	case IPPROTO_ICMP:
-	case IPPROTO_ESP:
-	case IPPROTO_AH:
-		return true;
-	}
-
-	return false;
-};
 #endif
 
 static u32 hash_conntrack_raw(const struct nf_conntrack_tuple *tuple)
@@ -1136,12 +1112,6 @@ resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
 	return ct;
 }
 
-#if IS_ENABLED(CONFIG_FAST_NAT)
-#define NF_IP_PRE_ROUTING_			0
-#define NF_IP_LOCAL_OUT_			3
-#define NF_IP_POST_ROUTING_			4
-#endif
-
 unsigned int
 nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 		struct sk_buff *skb)
@@ -1258,9 +1228,8 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 	rcu_read_lock();
 	if (pf == PF_INET &&
 		!ct->fast_ext &&
-		ipv4_fastnat_conntrack &&
 		(fast_nat_bind_hook = rcu_dereference(fast_nat_bind_hook_func)) &&
-		(hooknum == NF_IP_PRE_ROUTING_) &&
+		(hooknum == NF_INET_PRE_ROUTING) &&
 		(ctinfo == IP_CT_ESTABLISHED || ctinfo == IP_CT_ESTABLISHED + IP_CT_IS_REPLY) &&
 		(protonum == IPPROTO_TCP || protonum == IPPROTO_UDP)) {
 
@@ -1367,7 +1336,7 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 
 	if (set_reply && !test_and_set_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
 #if IS_ENABLED(CONFIG_FAST_NAT)
-		if( hooknum == NF_IP_LOCAL_OUT_ )
+		if (hooknum == NF_INET_LOCAL_OUT)
 			ct->fast_ext = 1;
 #endif
 		nf_conntrack_event_cache(IPCT_REPLY, ct);

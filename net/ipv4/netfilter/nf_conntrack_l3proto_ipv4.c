@@ -37,10 +37,6 @@ EXPORT_SYMBOL_GPL(nf_nat_seq_adjust_hook);
 #include <../ndm/hw_nat/ra_nat.h>
 #endif
 
-#if IS_ENABLED(CONFIG_FAST_NAT)
-extern int ipv4_fastnat_conntrack;
-#endif
-
 static bool ipv4_pkt_to_tuple(const struct sk_buff *skb, unsigned int nhoff,
 			      struct nf_conntrack_tuple *tuple)
 {
@@ -395,15 +391,6 @@ static ctl_table ip_ct_sysctl_table[] = {
 		.mode		= 0644,
 		.proc_handler	= flush_ip_addr_wan_proc_handler,
 	},
-#if IS_ENABLED(CONFIG_FAST_NAT)
-	{
-		.procname	= "ip_conntrack_fastnat",
-		.data		= &ipv4_fastnat_conntrack,
-		.maxlen		= sizeof(int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
-	},
-#endif
 	{ }
 };
 #endif /* CONFIG_SYSCTL && CONFIG_NF_CONNTRACK_PROC_COMPAT */

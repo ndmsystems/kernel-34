@@ -27,9 +27,6 @@
 #include <linux/rcupdate.h>
 #include <linux/ntc_shaper_hooks.h>
 
-#define NF_IP_PRE_ROUTING       0
-#define NF_IP_POST_ROUTING      4
-
 //#define DEBUG
 
 extern int (*fast_nat_hit_hook_func)(struct sk_buff *skb);
@@ -181,7 +178,7 @@ fast_nat_do_bindings(struct nf_conn *ct,
 		struct nf_conntrack_l3proto *l3proto,
 		struct nf_conntrack_l4proto *l4proto)
 {
-	static int hn[2] = {NF_IP_PRE_ROUTING, NF_IP_POST_ROUTING};
+	static int hn[2] = {NF_INET_PRE_ROUTING, NF_INET_POST_ROUTING};
 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
 	unsigned int i = 0;
 
