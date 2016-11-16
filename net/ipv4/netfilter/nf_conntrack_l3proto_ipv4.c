@@ -257,7 +257,7 @@ static void flush_entries_lan(uint32_t ipaddr) {
 	}
 	rcu_read_unlock();
 
-	printk(KERN_INFO "IPv4 conntrack: flushed %d entries with address %pI4\n", counter, &ip);
+	printk(KERN_INFO "IPv4 conntrack lan: flushed %d entries with address %pI4\n", counter, &ip);
 }
 
 static void flush_entries_wan(uint32_t ipaddr) {
@@ -294,6 +294,7 @@ static void flush_entries_wan(uint32_t ipaddr) {
 					(((tuple_orig->dst.u3.ip == ip) && (tuple_orig->dst.u3.ip != tuple_repl->src.u3.ip)) ||
 						/* Connection from LAN -> WAN, excluding router local sources */
 						((tuple_repl->dst.u3.ip == ip) && (tuple_repl->dst.u3.ip != tuple_orig->src.u3.ip)))) {
+
 					if (del_timer(&ct->timeout)) {
 						death_by_timeout((unsigned long)ct);
 					}
@@ -307,11 +308,58 @@ static void flush_entries_wan(uint32_t ipaddr) {
 	}
 	rcu_read_unlock();
 
-	printk(KERN_INFO "IPv4 conntrack: flushed %d entries with address %pI4\n", counter, &ip);
+	printk(KERN_INFO "IPv4 conntrack wan: flushed %d entries with address %pI4\n", counter, &ip);
+}
+
+static void flush_entries_unreplied(void) {
+	size_t counter = 0;
+	unsigned int i = 0;
+	struct nf_conn *ct;
+	struct nf_conntrack_tuple_hash *h;
+	struct hlist_nulls_node *n;
+	struct nf_conntrack_tuple *tuple_orig, *tuple_repl;
+
+	rcu_read_lock();
+	for (i = 0; i < init_net.ct.htable_size; i++) {
+		hlist_nulls_for_each_entry_rcu(h, n, &init_net.ct.hash[i], hnnode) {
+			if (NF_CT_DIRECTION(h) != IP_CT_DIR_ORIGINAL) {
+				continue;
+			}
+
+			ct = nf_ct_tuplehash_to_ctrack(h);
+			if (!atomic_inc_not_zero(&ct->ct_general.use)) {
+				continue;
+			}
+
+			/* Check against original src/dst */
+			tuple_orig = nf_ct_tuple(ct, IP_CT_DIR_ORIGINAL);
+			tuple_repl = nf_ct_tuple(ct, IP_CT_DIR_REPLY);
+
+			if (likely((tuple_orig != NULL) && (tuple_repl != NULL))) {
+				if ((tuple_orig->src.l3num == PF_INET) &&
+					(tuple_orig->dst.protonum == IPPROTO_UDP) &&
+					!test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
+
+					if (del_timer(&ct->timeout)) {
+						death_by_timeout((unsigned long)ct);
+					}
+					++counter;
+					continue;
+				}
+			}
+
+			nf_ct_put(ct);
+		}
+	}
+	rcu_read_unlock();
+
+	if (counter)
+		printk(KERN_INFO "IPv4 conntrack unreplied: flushed %d entries\n", counter);
 }
 
 static uint32_t flush_ip_addr_lan = 0;
 static uint32_t flush_ip_addr_wan = 0;
+static uint32_t flush_unreplied = 0;
 
 int flush_ip_addr_lan_proc_handler(struct ctl_table *table, int write,
 		void __user *buffer, size_t *lenp, loff_t *ppos) {
@@ -335,6 +383,18 @@ int flush_ip_addr_wan_proc_handler(struct ctl_table *table, int write,
 	}
 
 	flush_ip_addr_wan = 0;
+
+	return res;
+}
+
+int flush_unreplied_proc_handler(struct ctl_table *table, int write,
+		void __user *buffer, size_t *lenp, loff_t *ppos) {
+	int res = proc_dointvec(table, write, buffer, lenp, ppos);
+
+	if (flush_unreplied != 0)
+		flush_entries_unreplied();
+
+	flush_unreplied = 0;
 
 	return res;
 }
@@ -390,6 +450,13 @@ static ctl_table ip_ct_sysctl_table[] = {
 		.maxlen		= sizeof(uint32_t),
 		.mode		= 0644,
 		.proc_handler	= flush_ip_addr_wan_proc_handler,
+	},
+	{
+		.procname	= "ip_conntrack_flush_unreplied",
+		.data		= &flush_unreplied,
+		.maxlen		= sizeof(uint32_t),
+		.mode		= 0644,
+		.proc_handler	= flush_unreplied_proc_handler,
 	},
 	{ }
 };
