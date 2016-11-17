@@ -329,7 +329,8 @@ static void flush_entries_unreplied(struct net *net)
 
 			if ((tuple_orig->src.l3num == AF_INET) &&
 				(tuple_orig->dst.protonum == IPPROTO_UDP) &&
-				!test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
+				!test_bit(IPS_SEEN_REPLY_BIT, &ct->status) &&
+				!ipv4_is_multicast(tuple_orig->dst.u3.ip)) {
 				++counter;
 				if (del_timer(&ct->timeout))
 					death_by_timeout((unsigned long)ct);
