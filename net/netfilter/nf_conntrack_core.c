@@ -66,6 +66,9 @@
 #define NF_CONNTRACK_VERSION	"0.5.0"
 
 #if IS_ENABLED(CONFIG_FAST_NAT)
+/* Enable or Disable FastNAT */
+extern int ipv4_fastnat_conntrack;
+
 extern int (*fast_nat_hit_hook_func)(struct sk_buff *skb);
 
 extern int (*fast_nat_bind_hook_func)(struct nf_conn *ct,
@@ -1215,7 +1218,7 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 	}
 
 	help = nfct_help(ct);
-	if (help && help->helper) {
+	if ((help && help->helper) || skb_sec_path(skb)) {
 #if IS_ENABLED(CONFIG_RA_HW_NAT)
 		FOE_ALG_MARK(skb);
 #endif
@@ -1225,12 +1228,10 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 	}
 
 #if IS_ENABLED(CONFIG_FAST_NAT)
-	if (skb_sec_path(skb))
-		ct->fast_ext = 1;
-
 	rcu_read_lock();
 	if (pf == PF_INET &&
 		!ct->fast_ext &&
+		ipv4_fastnat_conntrack &&
 		(fast_nat_bind_hook = rcu_dereference(fast_nat_bind_hook_func)) &&
 		(hooknum == NF_INET_PRE_ROUTING) &&
 		(ctinfo == IP_CT_ESTABLISHED || ctinfo == IP_CT_ESTABLISHED + IP_CT_IS_REPLY) &&

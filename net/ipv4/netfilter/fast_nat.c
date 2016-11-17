@@ -29,6 +29,8 @@
 
 //#define DEBUG
 
+extern int ipv4_fastnat_conntrack;
+
 extern int (*fast_nat_hit_hook_func)(struct sk_buff *skb);
 extern int (*fast_nat_bind_hook_func)(struct nf_conn *ct,
 	enum ip_conntrack_info ctinfo, 
@@ -239,17 +241,21 @@ static int __init fast_nat_init(void)
 	rcu_assign_pointer(fast_nat_hit_hook_func, fast_nat_path);
 	synchronize_rcu();
 	rcu_assign_pointer(fast_nat_bind_hook_func, fast_nat_do_bindings);
+	ipv4_fastnat_conntrack = 1;
 	printk(KERN_INFO "Fast NAT loaded\n");
 	return 0;
 }
 
 static void __exit fast_nat_fini(void)
 {
+#if defined(CONFIG_FAST_NAT_MODULE)
+	ipv4_fastnat_conntrack = 0;
 	rcu_assign_pointer(fast_nat_bind_hook_func, NULL);
 	synchronize_rcu();
 	rcu_assign_pointer(fast_nat_hit_hook_func, NULL);
 	rcu_assign_pointer(fast_nat_bind_hook_ingress, NULL);
 	printk(KERN_INFO "Fast NAT unloaded\n");
+#endif
 }
 
 module_init(fast_nat_init);

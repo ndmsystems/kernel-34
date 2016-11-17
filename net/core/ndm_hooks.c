@@ -101,6 +101,9 @@ int (*fast_nat_bind_hook_func)(struct nf_conn *ct,
 	struct nf_conntrack_l4proto *l4proto) = NULL;
 EXPORT_SYMBOL(fast_nat_bind_hook_func);
 
+int ipv4_fastnat_conntrack = 0;
+EXPORT_SYMBOL(ipv4_fastnat_conntrack);
+
 int (*fast_nat_bind_hook_ingress)(struct sk_buff * skb) = NULL;
 EXPORT_SYMBOL(fast_nat_bind_hook_ingress);
 #endif
