@@ -29,10 +29,6 @@
 #include <net/netfilter/ipv4/nf_conntrack_ipv4.h>
 #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>
 
-#if IS_ENABLED(CONFIG_FAST_NAT)
-extern int ipv4_fastnat_conntrack;
-#endif
-
 /* Do not check the TCP window for incoming packets  */
 static int nf_ct_tcp_no_window_check __read_mostly = 1;
 
@@ -802,11 +798,6 @@ static int tcp_error(struct net *net, struct nf_conn *tmpl,
 				"nf_ct_tcp: truncated/malformed packet ");
 		return -NF_ACCEPT;
 	}
-
-#if IS_ENABLED(CONFIG_FAST_NAT)
-	if (ipv4_fastnat_conntrack)
-		return NF_ACCEPT;
-#endif
 
 	/* Checksum invalid? Ignore.
 	 * We skip checking packets on the outgoing path

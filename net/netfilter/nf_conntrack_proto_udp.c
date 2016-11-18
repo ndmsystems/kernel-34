@@ -25,10 +25,6 @@
 #include <net/netfilter/ipv4/nf_conntrack_ipv4.h>
 #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>
 
-#if IS_ENABLED(CONFIG_FAST_NAT)
-extern int ipv4_fastnat_conntrack;
-#endif
-
 enum udp_conntrack {
 	UDP_CT_UNREPLIED,
 	UDP_CT_REPLIED,
@@ -136,11 +132,6 @@ static int udp_error(struct net *net, struct nf_conn *tmpl, struct sk_buff *skb,
 				"nf_ct_udp: truncated/malformed packet ");
 		return -NF_ACCEPT;
 	}
-
-#if IS_ENABLED(CONFIG_FAST_NAT)
-	if (ipv4_fastnat_conntrack)
-		return NF_ACCEPT;
-#endif
 
 	/* Packet with no checksum */
 	if (!hdr->check)
@@ -260,7 +251,11 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_udp4 __read_mostly =
 	.packet			= udp_packet,
 	.get_timeouts		= udp_get_timeouts,
 	.new			= udp_new,
+#if IS_ENABLED(CONFIG_FAST_NAT)
+	.error			= NULL,
+#else
 	.error			= udp_error,
+#endif
 #if IS_ENABLED(CONFIG_NF_CT_NETLINK)
 	.tuple_to_nlattr	= nf_ct_port_tuple_to_nlattr,
 	.nlattr_to_tuple	= nf_ct_port_nlattr_to_tuple,
@@ -298,11 +293,7 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_udp6 __read_mostly =
 	.packet			= udp_packet,
 	.get_timeouts		= udp_get_timeouts,
 	.new			= udp_new,
-#if IS_ENABLED(CONFIG_FAST_NAT)
-	.error			= NULL,
-#else
 	.error			= udp_error,
-#endif
 #if IS_ENABLED(CONFIG_NF_CT_NETLINK)
 	.tuple_to_nlattr	= nf_ct_port_tuple_to_nlattr,
 	.nlattr_to_tuple	= nf_ct_port_nlattr_to_tuple,
