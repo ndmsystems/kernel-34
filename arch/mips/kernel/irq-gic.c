@@ -282,6 +282,7 @@ static struct irq_chip gic_irq_controller = {
 	.name			=	"MIPS GIC",
 	.irq_ack		=	gic_ack_irq,
 	.irq_mask		=	gic_mask_irq,
+	.irq_mask_ack		=	gic_mask_irq,
 	.irq_unmask		=	gic_unmask_irq,
 	.irq_disable		=	gic_mask_irq,
 	.irq_enable		=	gic_unmask_irq,
