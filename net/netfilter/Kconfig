@@ -401,6 +401,10 @@ config NETFILTER_XT_MARK
 	"Use netfilter MARK value as routing key") and can also be used by
 	other subsystems to change their behavior.
 
+config NETFILTER_XT_NDMMARK
+	tristate 'ndmmark target and match support'
+	default m if NETFILTER_ADVANCED=n
+
 config NETFILTER_XT_CONNMARK
 	tristate 'ctmark target and match support'
 	depends on NF_CONNTRACK

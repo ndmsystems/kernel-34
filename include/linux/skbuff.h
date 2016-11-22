@@ -497,6 +497,7 @@ struct sk_buff {
 #if IS_ENABLED(CONFIG_NET_VENDOR_INTEL)
 	__u8			no_fcs:1;
 #endif
+	__u8			ndm_mark:8;
 	/* 9/11 bit hole (depending on ndisc_nodetype presence) */
 	kmemcheck_bitfield_end(flags2);
 
@@ -2511,6 +2512,7 @@ static inline void __nf_copy(struct sk_buff *dst, const struct sk_buff *src)
 #if defined(CONFIG_NETFILTER_FP_SMB)
 	dst->nf_fp_cache = src->nf_fp_cache;
 #endif
+	dst->ndm_mark = src->ndm_mark;
 }
 
 static inline void nf_copy(struct sk_buff *dst, const struct sk_buff *src)
