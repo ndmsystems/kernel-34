@@ -21,35 +21,24 @@
 #define SWNAT_ORIGIN_RT2860		0x20
 #define SWNAT_ORIGIN_USB_MAC	0x30
 
-/* 32-th bit */
-#define SWNAT_FNAT_MARK		0x80000000
-#define SWNAT_FNAT_MASK		0x7fffffff
+#define SWNAT_CB_OFFSET		46
 
-/* 31-th bit */
-#define SWNAT_PPP_MARK		0x40000000
-#define SWNAT_PPP_MASK		0xbfffffff
-
-/* 30-th bit */
-#define SWNAT_MC_MARK		0x20000000
-#define SWNAT_MC_MASK		0xdfffffff
-
-/* 29-th bit */
-#define SWNAT_MC_PROBE_MARK		0x10000000
-#define SWNAT_MC_PROBE_MASK		0xefffffff
+#define SWNAT_FNAT_MARK		0x01
+#define SWNAT_PPP_MARK		0x02
 
 /* FNAT mark */
 
 #define SWNAT_FNAT_SET_MARK(skb_) \
 do { \
-	(skb_)->mark = ((skb_)->mark & ~SWNAT_FNAT_MASK) ^ SWNAT_FNAT_MARK; \
+	(skb_)->cb[SWNAT_CB_OFFSET] = SWNAT_FNAT_MARK; \
 } while (0);
 
 #define SWNAT_FNAT_CHECK_MARK(skb_) \
-	(((skb_)->mark & ~SWNAT_FNAT_MASK) == SWNAT_FNAT_MARK)
+	((skb_)->cb[SWNAT_CB_OFFSET] == SWNAT_FNAT_MARK)
 
 #define SWNAT_FNAT_RESET_MARK(skb_) \
 do { \
-	(skb_)->mark = ((skb_)->mark & ~SWNAT_FNAT_MASK) ^ 0; \
+	(skb_)->cb[SWNAT_CB_OFFSET] = 0; \
 } while (0);
 
 /* End of FNAT mark */
@@ -58,52 +47,18 @@ do { \
 
 #define SWNAT_PPP_SET_MARK(skb_) \
 do { \
-	(skb_)->mark = ((skb_)->mark & ~SWNAT_PPP_MASK) ^ SWNAT_PPP_MARK; \
+	(skb_)->cb[SWNAT_CB_OFFSET] = SWNAT_PPP_MARK; \
 } while (0);
 
 #define SWNAT_PPP_CHECK_MARK(skb_) \
-	(((skb_)->mark & ~SWNAT_PPP_MASK) == SWNAT_PPP_MARK)
+	((skb_)->cb[SWNAT_CB_OFFSET] == SWNAT_PPP_MARK)
 
 #define SWNAT_PPP_RESET_MARK(skb_) \
 do { \
-	(skb_)->mark = ((skb_)->mark & ~SWNAT_PPP_MASK) ^ 0; \
+	(skb_)->cb[SWNAT_CB_OFFSET] = 0; \
 } while (0);
 
 /* End of PPP mark */
-
-/* MC mark */
-
-#define SWNAT_MC_SET_MARK(skb_) \
-do { \
-	(skb_)->mark = ((skb_)->mark & ~SWNAT_MC_MASK) ^ SWNAT_MC_MARK; \
-} while (0);
-
-#define SWNAT_MC_CHECK_MARK(skb_) \
-	(((skb_)->mark & ~SWNAT_MC_MASK) == SWNAT_MC_MARK)
-
-#define SWNAT_MC_RESET_MARK(skb_) \
-do { \
-	(skb_)->mark = ((skb_)->mark & ~SWNAT_MC_MASK) ^ 0; \
-} while (0);
-
-/* End of MC mark */
-
-/* MC probe mark */
-
-#define SWNAT_MC_PROBE_SET_MARK(skb_) \
-do { \
-	(skb_)->mark = ((skb_)->mark & ~SWNAT_MC_PROBE_MASK) ^ SWNAT_MC_PROBE_MARK; \
-} while (0);
-
-#define SWNAT_MC_PROBE_CHECK_MARK(skb_) \
-	(((skb_)->mark & ~SWNAT_MC_PROBE_MASK) == SWNAT_MC_PROBE_MARK)
-
-#define SWNAT_MC_PROBE_RESET_MARK(skb_) \
-do { \
-	(skb_)->mark = ((skb_)->mark & ~SWNAT_MC_PROBE_MASK) ^ 0; \
-} while (0);
-
-/* End of MC probe mark */
 
 /* List of new MC streams */
 
