@@ -48,7 +48,7 @@ ndmmark_mt(const struct sk_buff *skb, struct xt_action_param *par)
 
 static struct xt_target ndmmark_tg_reg __read_mostly = {
 	.name           = "NDMMARK",
-	.revision       = 1,
+	.revision       = 0,
 	.family         = NFPROTO_UNSPEC,
 	.target         = ndmmark_tg,
 	.targetsize     = sizeof(struct xt_ndmmark_tginfo),
@@ -57,7 +57,7 @@ static struct xt_target ndmmark_tg_reg __read_mostly = {
 
 static struct xt_match ndmmark_mt_reg __read_mostly = {
 	.name           = "ndmmark",
-	.revision       = 1,
+	.revision       = 0,
 	.family         = NFPROTO_UNSPEC,
 	.match          = ndmmark_mt,
 	.matchsize      = sizeof(struct xt_ndmmark_mtinfo),
