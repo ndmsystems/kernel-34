@@ -215,20 +215,24 @@ static struct nf_hook_ops ipv4_conntrack_ops[] __read_mostly = {
 static int log_invalid_proto_min = 0;
 static int log_invalid_proto_max = 255;
 
+struct flush_ct4 {
+	__be32 ip;
+	uint32_t counter;
+};
+
 static int kill_all_by_ipv4_lan(struct nf_conn *ct, void *data)
 {
-	uint32_t ipaddr = *((uint32_t *)data);
-	uint32_t *counter = ((uint32_t *)data) + 1;
+	struct flush_ct4 *fct = (struct flush_ct4 *)data;
 
 	struct nf_conntrack_tuple *tuple_orig = nf_ct_tuple(ct, IP_CT_DIR_ORIGINAL);
 	struct nf_conntrack_tuple *tuple_repl = nf_ct_tuple(ct, IP_CT_DIR_REPLY);
 
 	if ((tuple_orig->src.l3num == AF_INET) &&
 		/* Connection from LAN -> WAN */
-		((tuple_orig->src.u3.ip == ipaddr) ||
+		((tuple_orig->src.u3.ip == fct->ip) ||
 		/* Connection from WAN -> LAN through forwarded port */
-		(tuple_repl->src.u3.ip == ipaddr))) {
-		++(*counter);
+		(tuple_repl->src.u3.ip == fct->ip))) {
+		++fct->counter;
 		return 1;
 	}
 
@@ -237,20 +241,20 @@ static int kill_all_by_ipv4_lan(struct nf_conn *ct, void *data)
 
 static void flush_entries_lan(struct net *net, uint32_t ipaddr)
 {
-	uint32_t data[2];
+	struct flush_ct4 fct;
 
-	data[0] = htonl(ipaddr);
-	data[1] = 0; /* counter */
+	fct.ip = htonl(ipaddr);
+	fct.counter = 0;
 
-	nf_ct_iterate_cleanup(net, kill_all_by_ipv4_lan, &data);
+	nf_ct_iterate_cleanup(net, kill_all_by_ipv4_lan, &fct);
 
-	printk(KERN_INFO "IPv4 conntrack lan: flushed %d entries with address %pI4\n", data[1], &data[0]);
+	printk(KERN_INFO "IPv4 conntrack lan: flushed %u entries with address %pI4\n",
+		fct.counter, &fct.ip);
 }
 
 static int kill_all_by_ipv4_wan(struct nf_conn *ct, void *data)
 {
-	uint32_t ipaddr = *((uint32_t *)data);
-	uint32_t *counter = ((uint32_t *)data) + 1;
+	struct flush_ct4 *fct = (struct flush_ct4 *)data;
 
 	struct nf_conntrack_tuple *tuple_orig = nf_ct_tuple(ct, IP_CT_DIR_ORIGINAL);
 	struct nf_conntrack_tuple *tuple_repl = nf_ct_tuple(ct, IP_CT_DIR_REPLY);
@@ -260,10 +264,10 @@ static int kill_all_by_ipv4_wan(struct nf_conn *ct, void *data)
 		 (tuple_orig->dst.protonum == IPPROTO_TCP) ||
 		 (tuple_orig->dst.protonum == IPPROTO_ICMP)) &&
 		/* Connection from WAN -> LAN through forwarded port, excluding router local dests */
-		(((tuple_orig->dst.u3.ip == ipaddr) && (tuple_orig->dst.u3.ip != tuple_repl->src.u3.ip)) ||
+		(((tuple_orig->dst.u3.ip == fct->ip) && (tuple_orig->dst.u3.ip != tuple_repl->src.u3.ip)) ||
 			/* Connection from LAN -> WAN, excluding router local sources */
-			((tuple_repl->dst.u3.ip == ipaddr) && (tuple_repl->dst.u3.ip != tuple_orig->src.u3.ip)))) {
-		++(*counter);
+			((tuple_repl->dst.u3.ip == fct->ip) && (tuple_repl->dst.u3.ip != tuple_orig->src.u3.ip)))) {
+		++fct->counter;
 		return 1;
 	}
 
@@ -272,20 +276,21 @@ static int kill_all_by_ipv4_wan(struct nf_conn *ct, void *data)
 
 static void flush_entries_wan(struct net *net, uint32_t ipaddr)
 {
-	uint32_t data[2];
+	struct flush_ct4 fct;
 
-	data[0] = htonl(ipaddr);
-	data[1] = 0; /* counter */
+	fct.ip = htonl(ipaddr);
+	fct.counter = 0;
 
-	nf_ct_iterate_cleanup(net, kill_all_by_ipv4_wan, &data);
+	nf_ct_iterate_cleanup(net, kill_all_by_ipv4_wan, &fct);
 
-	printk(KERN_INFO "IPv4 conntrack wan: flushed %d entries with address %pI4\n", data[1], &data[0]);
+	printk(KERN_INFO "IPv4 conntrack wan: flushed %u entries with address %pI4\n",
+		fct.counter, &fct.ip);
 }
 
 static int kill_all_udp_unreplied(struct nf_conn *ct, void *data)
 {
 	struct nf_conntrack_tuple *tuple_orig = nf_ct_tuple(ct, IP_CT_DIR_ORIGINAL);
-	uint32_t *counter = data;
+	uint32_t *counter = (uint32_t *)data;
 
 	if ((tuple_orig->src.l3num == AF_INET) &&
 		(tuple_orig->dst.protonum == IPPROTO_UDP) &&
@@ -304,7 +309,8 @@ static void flush_entries_unreplied(struct net *net)
 
 	nf_ct_iterate_cleanup(net, kill_all_udp_unreplied, &counter);
 
-	printk(KERN_DEBUG "IPv4 conntrack unreplied: flushed %d entries\n", counter);
+	printk(KERN_DEBUG "IPv4 conntrack unreplied: flushed %u entries\n",
+		counter);
 }
 
 static uint32_t flush_ip_addr_lan = 0;
