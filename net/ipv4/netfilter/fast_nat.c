@@ -134,11 +134,10 @@ static int fast_nat_path(struct sk_buff *skb)
 	int retval = 0;
 
 	if (skb_dst(skb) == NULL) {
-		const struct iphdr *iph = ip_hdr(skb);
+		struct iphdr *iph = ip_hdr(skb);
 		struct net_device *dev = skb->dev;
 
-		if (ip_route_input_noref(skb, iph->daddr, iph->saddr,
-					 iph->tos, dev)) {
+		if (ip_route_input(skb, iph->daddr, iph->saddr, iph->tos, dev)) {
 			kfree_skb(skb);
 			return -EINVAL;
 		}
@@ -212,10 +211,9 @@ fast_nat_do_bindings(struct nf_conn *ct,
 
 			if (skb_dst(skb) == NULL && mtype == NF_NAT_MANIP_SRC) {
 				struct net_device *dev = skb->dev;
-				const struct iphdr *iph = ip_hdr(skb);
+				struct iphdr *iph = ip_hdr(skb);
 
-				if (ip_route_input_noref(skb, iph->daddr, iph->saddr,
-				    iph->tos, dev)) {
+				if (ip_route_input(skb, iph->daddr, iph->saddr, iph->tos, dev)) {
 					return NF_DROP;
 				}
 				/* Change skb owner to output device */
