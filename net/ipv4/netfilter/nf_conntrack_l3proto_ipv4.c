@@ -309,7 +309,7 @@ static void flush_entries_unreplied(struct net *net)
 
 	nf_ct_iterate_cleanup(net, kill_all_udp_unreplied, &counter);
 
-	printk(KERN_DEBUG "IPv4 conntrack unreplied: flushed %u entries\n",
+	pr_debug("IPv4 conntrack unreplied: flushed %u entries\n",
 		counter);
 }
 
