@@ -43,6 +43,13 @@ choice
 	select MT_MAC
 	select WIFI_MT_MAC
 	select CHIP_MT7603E
+
+	config FIRST_IF_MT7615E
+	bool "MT7615E"
+	depends on RALINK_MT7621
+	select MT_MAC
+	select WIFI_MT_MAC
+	select CHIP_MT7615E
 endchoice
 
 choice
@@ -110,6 +117,7 @@ config RT_FIRST_CARD
 	default 5392 if FIRST_IF_RT5392
 	default 7602 if FIRST_IF_MT7602E
 	default 7603 if FIRST_IF_MT7603E
+	default 7615 if FIRST_IF_MT7615E
 
 config RT_SECOND_CARD
 	int
@@ -152,6 +160,31 @@ config RLT_MAC
 config MT_MAC
 	bool
 
+config RTMP_RBUS_SUPPORT
+	bool
+
+config RTMP_PCI_SUPPORT
+	bool
+
+config RTMP_USB_SUPPORT
+	bool
+
+config MULTI_INF_SUPPORT
+	bool
+	default y if (RTMP_RBUS_SUPPORT && RTMP_PCI_SUPPORT)
+
+config RALINK_RT6352
+	bool
+	select RTMP_RBUS_SUPPORT
+
+config RALINK_MT7612E
+	bool
+	select RTMP_PCI_SUPPORT
+
+config CHIP_MT7615E
+	bool
+	select RTMP_PCI_SUPPORT
+
 if (RALINK_MT7620)
 menu "Ralink MT7620 RBUS Wireless driver (rt2860v2)"
 source "ndm/rt2860v2_ap/Kconfig"
@@ -174,6 +207,11 @@ endmenu
 #source "ndm/mt7603_ap/Kconfig"
 #source "ndm/mt7603/Kconfig"
 #endmenu
+
+menu "MediaTek MT7615E PCIe Wireless driver"
+source "ndm/mt7615_ap/Kconfig"
+source "ndm/mt7615/Kconfig"
+endmenu
 
 menu "Ralink RT5392E PCIe Wireless driver"
 source "ndm/rt5392_ap/Kconfig"
