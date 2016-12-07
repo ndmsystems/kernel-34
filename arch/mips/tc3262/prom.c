@@ -20,6 +20,44 @@ extern struct plat_smp_ops msmtc_smp_ops;
 unsigned int surfboard_sysclk;
 unsigned int tc_mips_cpu_freq;
 
+#ifdef CONFIG_UBOOT_CMDLINE
+int prom_argc;
+int *_prom_argv, *_prom_envp;
+
+/*
+ * YAMON (32-bit PROM) pass arguments and environment as 32-bit pointer.
+ * This macro take care of sign extension, if running in 64-bit mode.
+ */
+#define prom_envp(index) ((char *)(((int *)(int)_prom_envp)[(index)]))
+#endif
+
+char *prom_getenv(char *envname)
+{
+#ifdef CONFIG_UBOOT_CMDLINE
+	/*
+	 * Return a pointer to the given environment variable.
+	 * In 64-bit mode: we're using 64-bit pointers, but all pointers
+	 * in the PROM structures are only 32-bit, so we need some
+	 * workarounds, if we are running in 64-bit mode.
+	 */
+	int i, index=0;
+	char *p, *q;
+
+	i = strlen(envname);
+	while (prom_envp(index)) {
+		p = (char*) KSEG0ADDR(prom_envp(index));
+		if(!strncmp(envname, p, i)) {
+			q = strchr(p, '=');
+			if (q)
+				q++;
+			return q;
+		}
+		index++;
+	}
+#endif
+	return NULL;
+}
+
 const char *get_system_type(void)
 {
 #ifdef __BIG_ENDIAN
@@ -119,6 +157,12 @@ void __init prom_init(void)
 	}
 
 	mips_machtype = MACH_RALINK_ROUTER;
+
+#ifdef CONFIG_UBOOT_CMDLINE
+	prom_argc = fw_arg0;
+	_prom_argv = (int*) fw_arg1;
+	_prom_envp = (int*) fw_arg2;
+#endif
 
 	set_io_port_base(KSEG1);
 
