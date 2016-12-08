@@ -846,7 +846,7 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 			 * the roothub is registered.
 			 */
 
-			if (force_usb2 = rcu_dereference(force_usb2_hook))
+			if ((force_usb2 = rcu_dereference(force_usb2_hook)))
 				usb3_disable = force_usb2();
 
 			if (usb3_disable && hcd->speed == HCD_USB3)
