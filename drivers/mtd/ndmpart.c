@@ -247,6 +247,9 @@ static uint32_t parts_size_default_get(enum part part, struct mtd_info *master)
 	return size;
 }
 
+#if defined(CONFIG_MTD_NDM_BOOT_UPDATE) || \
+    defined(CONFIG_MTD_NDM_DUAL_IMAGE) || \
+    defined(CONFIG_MTD_NDM_CONFIG_TRANSITION)
 static int mtd_write_retry(struct mtd_info *mtd, loff_t to, size_t len,
 			   size_t *retlen, const u_char *buf)
 {
@@ -293,7 +296,7 @@ static int mtd_erase_retry(struct mtd_info *mtd, struct erase_info *instr)
 
 	return ret;
 }
-
+#endif
 
 #ifdef CONFIG_MTD_NDM_BOOT_UPDATE
 static int ndm_flash_boot(struct mtd_info *master,
