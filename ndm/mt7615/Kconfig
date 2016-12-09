@@ -15,15 +15,6 @@ config MT7615_LED_PHR_CONTROL_SUPPORT
 	depends on MT7615_LED_CONTROL_SUPPORT
 	default y
 
-config MT7615_RATE_ADAPTION
-	bool "Rate Adaptation support"
-	default y
-
-config MT7615_RATE_ADAPT_AGBS_SUPPORT
-	bool "Adaptive AGBS Mode"
-	depends on MT7615_RATE_ADAPTION
-	default y
-
 config MT7615_WSC_INCLUDED
 	bool "WSC (WiFi Simple Config) support"
 	default y
@@ -81,14 +72,6 @@ config MT7615_TXBF_SUPPORT
 
 config MT7615_SMART_CARRIER_SENSE_SUPPORT
 	bool "Smart Carrier Sense support"
-	default y
-
-config MT7615_HDR_TRANS_TX_SUPPORT
-	bool "Tx Header Translation"
-	default y
-
-config MT7615_HDR_TRANS_RX_SUPPORT
-	bool "Rx Header Translation"
 	default y
 
 config MT7615_SINGLE_SKU
