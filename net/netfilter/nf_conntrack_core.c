@@ -1271,7 +1271,7 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 					if ((ntce_pass_pkt = rcu_dereference(ntce_pass_pkt_func)) &&
 						(ntce_enq_pkt_hook = rcu_dereference(ntce_enq_pkt_hook_func))) {
 
-						if (ntce_skip_swnat = ntce_pass_pkt(skb)) {
+						if ((ntce_skip_swnat = ntce_pass_pkt(skb))) {
 							ntce_enq_pkt_hook(skb);
 						}
 					} else {
