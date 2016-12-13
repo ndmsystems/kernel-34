@@ -29,10 +29,7 @@
 extern char *prom_getcmdline(void);
 extern char *prom_getenv(char *name);
 extern void prom_printf(char *fmt, ...);
-extern void prom_init_printf(int tty_no);
 extern void prom_init_cmdline(void);
-extern void prom_init_irq(void);
-extern void prom_meminit(void);
 extern void prom_free_prom_memory(void);
 
 #endif
