@@ -894,15 +894,17 @@ static int dm9620_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 		status = skb->data[1];
 		len = (skb->data[2] | (skb->data[3] << 8)) - 4;
 
-		if (unlikely(status & 0xbf)) {
+		/* bit[7] RUNT packets - accept it (thanks to Ian from Metanoia) */
+		if (unlikely(status & 0x3f)) {
 			if (status & 0x01) dev->net->stats.rx_fifo_errors++;
 			if (status & 0x02) dev->net->stats.rx_crc_errors++;
 			if (status & 0x04) dev->net->stats.rx_frame_errors++;
+			if (status & 0x10) dev->net->stats.rx_length_errors++;
 			if (status & 0x20) dev->net->stats.rx_missed_errors++;
-			if (status & 0x90) dev->net->stats.rx_length_errors++;
 			return 0;
 		}
 
+		/* drop RUNT packets < 14 bytes */
 		if (unlikely(len < ETH_HLEN)) {
 			dev->net->stats.rx_length_errors++;
 			return 0;
@@ -921,15 +923,17 @@ static int dm9620_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 		status = skb->data[0];
 		len = (skb->data[1] | (skb->data[2] << 8)) - 4;
 
-		if (unlikely(status & 0xbf)) {
+		/* bit[7] RUNT packets - accept it (thanks to Ian from Metanoia) */
+		if (unlikely(status & 0x3f)) {
 			if (status & 0x01) dev->net->stats.rx_fifo_errors++;
 			if (status & 0x02) dev->net->stats.rx_crc_errors++;
 			if (status & 0x04) dev->net->stats.rx_frame_errors++;
+			if (status & 0x10) dev->net->stats.rx_length_errors++;
 			if (status & 0x20) dev->net->stats.rx_missed_errors++;
-			if (status & 0x90) dev->net->stats.rx_length_errors++;
 			return 0;
 		}
 
+		/* drop RUNT packets < 14 bytes */
 		if (unlikely(len < ETH_HLEN)) {
 			dev->net->stats.rx_length_errors++;
 			return 0;
