@@ -248,8 +248,9 @@ static void flush_entries_lan(struct net *net, uint32_t ipaddr)
 
 	nf_ct_iterate_cleanup(net, kill_all_by_ipv4_lan, &fct);
 
-	printk(KERN_INFO "IPv4 conntrack lan: flushed %u entries with address %pI4\n",
-		fct.counter, &fct.ip);
+	if (fct.counter)
+		printk(KERN_INFO "IPv4 conntrack lan: flushed %u entries with address %pI4\n",
+			fct.counter, &fct.ip);
 }
 
 static int kill_all_by_ipv4_wan(struct nf_conn *ct, void *data)
@@ -283,8 +284,9 @@ static void flush_entries_wan(struct net *net, uint32_t ipaddr)
 
 	nf_ct_iterate_cleanup(net, kill_all_by_ipv4_wan, &fct);
 
-	printk(KERN_INFO "IPv4 conntrack wan: flushed %u entries with address %pI4\n",
-		fct.counter, &fct.ip);
+	if (fct.counter)
+		printk(KERN_INFO "IPv4 conntrack wan: flushed %u entries with address %pI4\n",
+			fct.counter, &fct.ip);
 }
 
 static int kill_all_udp_unreplied(struct nf_conn *ct, void *data)
