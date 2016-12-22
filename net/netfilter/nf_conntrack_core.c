@@ -90,6 +90,8 @@ extern unsigned int (*ntce_pass_pkt_func)(struct sk_buff *skb);
 extern void (*ntce_enq_pkt_hook_func)(struct sk_buff *skb);
 #endif /* defined(CONFIG_NTCE_MODULE) */
 
+extern void (*nacct_conntrack_free)(struct nf_conn *ct);
+
 int (*nfnetlink_parse_nat_setup_hook)(struct nf_conn *ct,
 				      enum nf_nat_manip_type manip,
 				      const struct nlattr *attr) __read_mostly;
@@ -887,6 +889,15 @@ EXPORT_SYMBOL_GPL(nf_conntrack_alloc);
 void nf_conntrack_free(struct nf_conn *ct)
 {
 	struct net *net = nf_ct_net(ct);
+	void (*nacct_conntrack_free_hook)(struct nf_conn *ct) = NULL;
+
+	rcu_read_lock();
+
+	if (nacct_conntrack_free_hook = rcu_dereference(nacct_conntrack_free)) {
+		nacct_conntrack_free_hook(ct);
+	}
+
+	rcu_read_unlock();
 
 	nf_ct_ext_destroy(ct);
 	atomic_dec(&net->ct.count);

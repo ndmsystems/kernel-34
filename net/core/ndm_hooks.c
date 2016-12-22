@@ -9,6 +9,7 @@
 
 struct ppp_channel;
 struct net_device;
+struct nf_conn;
 struct new_mc_streams;
 
 void (*ppp_stat_add_tx_hook)(struct ppp_channel *chan, u32 add_pkt,
@@ -134,3 +135,5 @@ void (*ntce_enq_pkt_hook_func)(struct sk_buff *skb) = NULL;
 EXPORT_SYMBOL(ntce_enq_pkt_hook_func);
 #endif /* defined(CONFIG_NTCE_MODULE) */
 
+void (*nacct_conntrack_free)(struct nf_conn *ct) = NULL;
+EXPORT_SYMBOL(nacct_conntrack_free);
