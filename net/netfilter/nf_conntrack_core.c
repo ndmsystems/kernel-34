@@ -1591,6 +1591,13 @@ void nf_ct_iterate_cleanup(struct net *net,
 }
 EXPORT_SYMBOL_GPL(nf_ct_iterate_cleanup);
 
+void nf_ct_interate(int (*iter)(struct nf_conn *i, void *data),
+			   void *data)
+{
+	nf_ct_iterate_cleanup(&init_net, iter, data);
+}
+EXPORT_SYMBOL(nf_ct_interate);
+
 struct __nf_ct_flush_report {
 	u32 pid;
 	int report;
