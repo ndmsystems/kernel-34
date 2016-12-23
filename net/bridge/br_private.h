@@ -451,12 +451,21 @@ static inline bool br_multicast_is_router(struct net_bridge *br)
 
 static inline bool ipv4_is_ssdp_multicast(__be32 addr)
 {
+	/* check address is SSDP discovery */
 	return (addr == htonl(0xeffffffa));
+}
+
+static inline bool ipv4_is_coap_multicast(__be32 addr)
+{
+	/* check address is CoAP discovery (all nodes) */
+	return (addr == htonl(0xe00001bb));
 }
 
 static inline bool ipv4_is_flooded_multicast(__be32 addr)
 {
-	return (ipv4_is_local_multicast(addr) || ipv4_is_ssdp_multicast(addr));
+	return (ipv4_is_local_multicast(addr) ||
+		ipv4_is_ssdp_multicast(addr) ||
+		ipv4_is_coap_multicast(addr));
 }
 #else
 static inline int br_multicast_rcv(struct net_bridge *br,
