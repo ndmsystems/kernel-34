@@ -29,6 +29,7 @@
 #include <linux/magic.h>
 
 #ifdef CONFIG_MTD_NDM_BOOT_UPDATE
+#include <linux/crc32.h>
 #include <linux/reboot.h>
 #include <linux/xz.h>
 #include "ndm_boot.h"
@@ -47,6 +48,7 @@
 #define PART_OPTIONAL_NUM		2		/* storage and dump */
 
 #define MIN_FLASH_SIZE_FOR_STORAGE	0x800000	/* 8 MB */
+#define MTD_MAX_RETRIES			3
 
 enum {
 	PART_U_BOOT,
@@ -108,33 +110,86 @@ struct mtd_partition ndm_parts[PART_MAX] = {
 #endif
 };
 
+#if defined(CONFIG_MTD_NDM_BOOT_UPDATE) || \
+    defined(CONFIG_MTD_NDM_CONFIG_TRANSITION)
+static int mtd_write_retry(struct mtd_info *mtd, loff_t to, size_t len,
+			   size_t *retlen, const u_char *buf)
+{
+	int ret, retries = MTD_MAX_RETRIES;
+
+	do {
+		ret = mtd_write(mtd, to, len, retlen, buf);
+		if (ret) {
+			printk("%s: write%s failed at 0x%012llx\n", __func__,
+				"", (unsigned long long) to);
+		}
+
+		if (len != *retlen) {
+			printk("%s: short write at 0x%012llx\n", __func__,
+				(unsigned long long) to);
+			ret = -EIO;
+		}
+	} while (ret && --retries);
+
+	if (ret) {
+		printk("%s: write%s failed at 0x%012llx\n", __func__,
+			" completely", (unsigned long long) to);
+	}
+
+	return ret;
+}
+
+static int mtd_erase_retry(struct mtd_info *mtd, struct erase_info *instr)
+{
+	int ret, retries = MTD_MAX_RETRIES;
+
+	do {
+		ret = mtd_erase(mtd, instr);
+		if (ret) {
+			printk("%s: erase%s failed at 0x%012llx\n", __func__,
+				"", (unsigned long long) instr->addr);
+		}
+	} while (ret && --retries);
+
+	if (ret) {
+		printk("%s: erase%s failed at 0x%012llx\n", __func__,
+			" completely", (unsigned long long) instr->addr);
+	}
+
+	return ret;
+}
+#endif
+
 #ifdef CONFIG_MTD_NDM_BOOT_UPDATE
-static int ndm_flash_boot(struct mtd_info *master)
+static int ndm_flash_boot(struct mtd_info *master,
+			  uint32_t p_off, uint32_t p_size)
 {
 	bool update_need;
-	int res = -1, ret;
+	int res = -1, ret, retries;
 	size_t len;
 	struct xz_buf b;
 	struct xz_dec *s;
-	uint32_t off, size, p_off, p_size, es;
-	unsigned char *m;
+	uint32_t off, size, es, ws;
+	uint32_t dst_crc = 0, src_crc = 0;
+	unsigned char *m, *v;
 
 	es = master->erasesize;
-	p_off = ndm_parts[PART_U_BOOT].offset;
-	p_size = ndm_parts[PART_U_BOOT].size;
 
-	// Check bootloader size.
+	/* Check bootloader size */
 	if (boot_bin_len > p_size) {
 		printk(KERN_ERR "too big bootloader\n");
 		goto out;
 	}
 
-	// Read current bootloader.
+	/* Read current bootloader */
 	m = kmalloc(p_size, GFP_KERNEL);
-	if (m == NULL) {
-		printk(KERN_ERR "no memory\n");
+	if (m == NULL)
 		goto out;
-	}
+
+	/* Alloc verify buffer */
+	v = kmalloc(es, GFP_KERNEL);
+	if (v == NULL)
+		goto out_kfree;
 
 	ret = mtd_read(master, p_off, p_size, &len, m);
 	if (ret || len != p_size) {
@@ -142,7 +197,7 @@ static int ndm_flash_boot(struct mtd_info *master)
 		goto out_kfree;
 	}
 
-	// Detect and compare version.
+	/* Detect and compare version */
 	len = strlen(NDM_BOOT_VERSION);
 	size = p_size;
 	update_need = true;
@@ -164,7 +219,7 @@ static int ndm_flash_boot(struct mtd_info *master)
 
 	printk(KERN_INFO "Updating bootloader...\n");
 
-	// Decompress bootloader.
+	/* Decompress bootloader */
 	s = xz_dec_init(XZ_SINGLE, 0);
 	if (s == NULL) {
 		printk(KERN_ERR "xz_dec_init error\n");
@@ -185,40 +240,59 @@ static int ndm_flash_boot(struct mtd_info *master)
 		goto out_xz_dec_end;
 	}
 
-	// Clear partition.
-	for (off = p_off; off < p_off + p_size; off += es) {
+	size = ALIGN(b.out_pos, master->writesize);
+
+	/* fill padding */
+	if (size > b.out_pos)
+		memset(m + b.out_pos, 0xff, size - b.out_pos);
+
+	/* erase & write -> verify */
+	for (off = 0; off < size; off += es) {
 		struct erase_info ei = {
 			.mtd = master,
-			.addr = off,
+			.addr = off + p_off,
 			.len = es
 		};
 
-		ret = mtd_erase(master, &ei);
-		if (ret || ei.state == MTD_ERASE_FAILED) {
-			printk(KERN_ERR "erase failed at 0x%012llx\n",
-			       (unsigned long long) ei.addr);
-			goto out_xz_dec_end;
-		}
+		/* write size can be < erase size */
+		ws = min(es, size - off);
+
+		src_crc = crc32(0, m + off, ws);
+		dst_crc = src_crc + 1;
+
+		retries = MTD_MAX_RETRIES;
+		do {
+			ret = mtd_erase_retry(master, &ei);
+			if (ret)
+				goto out_write_fail;
+
+			ret = mtd_write_retry(master, ei.addr, ws, &len,
+					      m + off);
+			if (ret)
+				goto out_write_fail;
+
+			memset(v, 0xff, ws);
+			ret = mtd_read(master, ei.addr, ws, &len, v);
+			if (ret == 0 && len == ws)
+				dst_crc = crc32(0, v, ws);
+
+		} while (src_crc != dst_crc && --retries);
 	}
 
-	// Write new bootloader.
-	size = ALIGN(b.out_pos, master->writesize);
-
-	ret = mtd_write(master, p_off, size, &len, m);
-	if (ret || len != size) {
-		printk(KERN_ERR "write failed at 0x%012llx\n",
-		       (unsigned long long) p_off);
-		goto out_xz_dec_end;
+	if (src_crc == dst_crc) {
+		res = 0;
+		printk("Bootloader update complete, do reboot...\n");
+		kernel_restart(NULL);
 	}
 
-	printk("Bootloader update complete\n");
-
-	kernel_restart(NULL);
-
-	res = 0;
+out_write_fail:
+	if (src_crc != dst_crc)
+		printk(KERN_ERR "Bootloader update FAILED!"
+			" Device may be bricked!\n");
 out_xz_dec_end:
 	xz_dec_end(s);
 out_kfree:
+	kfree(v);
 	kfree(m);
 out:
 	return res;
@@ -270,7 +344,7 @@ static int config_find(struct mtd_info *master, u32 *offset)
  * - erase full partition (?);
  * - smart detecting size of config.
  */
-static void config_move(struct mtd_info *master)
+static void config_move(struct mtd_info *master, uint32_t offset_new)
 {
 	int ret;
 	u32 offset;
@@ -283,7 +357,7 @@ static void config_move(struct mtd_info *master)
 		goto out;
 
 	printk(KERN_INFO "Found config in old partition at 0x%012llx, move it\n",
-	       (unsigned long long) offset);
+		(unsigned long long) offset);
 
 	iobuf = kmalloc(master->erasesize, GFP_KERNEL);
 	if (iobuf == NULL) {
@@ -291,49 +365,38 @@ static void config_move(struct mtd_info *master)
 		goto out;
 	}
 
-	// Read old config.
+	/* Read old config */
 	ret = mtd_read(master, offset, master->erasesize,
-			   &len, iobuf);
+			&len, iobuf);
 	if (ret || len != master->erasesize) {
 		printk(KERN_ERR "read failed at 0x%012llx\n",
-		       (unsigned long long) offset);
+			(unsigned long long) offset);
 		goto out_kfree;
 	}
 
-	// Erase new place.
+	/* Erase new place */
 	memset(&ei, 0, sizeof(struct erase_info));
 	ei.mtd  = master;
-	ei.addr = ndm_parts[PART_CONFIG].offset;
+	ei.addr = offset_new;
 	ei.len  = master->erasesize;
 
-	ret = mtd_erase(master, &ei);
-	if (ret || ei.state == MTD_ERASE_FAILED) {
-		printk(KERN_ERR "erase failed at 0x%012llx\n",
-		       (unsigned long long) ei.addr);
+	ret = mtd_erase_retry(master, &ei);
+	if (ret)
 		goto out_kfree;
-	}
 
-	// Write config to new place.
-	ret = mtd_write(master, ndm_parts[PART_CONFIG].offset,
-			    master->erasesize, &len, iobuf);
-	if (ret || len != master->erasesize) {
-		printk(KERN_ERR "write failed at 0x%012llx\n",
-		       (unsigned long long) ndm_parts[PART_CONFIG].offset);
+	/* Write config to new place */
+	ret = mtd_write_retry(master, offset_new,
+			master->erasesize, &len, iobuf);
+	if (ret)
 		goto out_kfree;
-	}
 
-	// Erase old place.
+	/* Erase old place */
 	memset(&ei, 0, sizeof(struct erase_info));
 	ei.mtd  = master;
 	ei.addr = offset;
 	ei.len  = master->erasesize;
 
-	ret = mtd_erase(master, &ei);
-	if (ret || ei.state == MTD_ERASE_FAILED) {
-		printk(KERN_ERR "erase failed at 0x%012llx\n",
-		       (unsigned long long) ei.addr);
-	}
-
+	mtd_erase_retry(master, &ei);
 out_kfree:
 	kfree(iobuf);
 out:
@@ -497,7 +560,7 @@ static int create_mtd_partitions(struct mtd_info *master,
 	/* Config */
 	ndm_parts[PART_CONFIG].offset = config_offset;
 #ifdef CONFIG_MTD_NDM_CONFIG_TRANSITION
-	config_move(master);
+	config_move(master, ndm_parts[PART_CONFIG].offset);
 #endif
 
 	/* Backup */
@@ -525,10 +588,12 @@ static int create_mtd_partitions(struct mtd_info *master,
 	ndm_parts[PART_ROOTFS].size = ndm_parts[PART_CONFIG].offset -
 				      ndm_parts[PART_ROOTFS].offset;
 
-	*pparts = kmemdup(ndm_parts, sizeof(struct mtd_partition) * part_num, GFP_KERNEL);
+	*pparts = kmemdup(ndm_parts, sizeof(struct mtd_partition) * part_num,
+			  GFP_KERNEL);
 
 #ifdef CONFIG_MTD_NDM_BOOT_UPDATE
-	ndm_flash_boot(master);
+	ndm_flash_boot(master, ndm_parts[PART_U_BOOT].offset,
+		       ndm_parts[PART_U_BOOT].size);
 #endif
 
 	return part_num;
