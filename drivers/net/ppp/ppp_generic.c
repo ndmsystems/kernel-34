@@ -57,6 +57,8 @@
 #include <net/net_namespace.h>
 #include <net/netns/generic.h>
 
+#include <net/fast_vpn.h>
+
 #if IS_ENABLED(CONFIG_RA_HW_NAT)
 #include <../ndm/hw_nat/ra_nat.h>
 #endif
@@ -1277,12 +1279,21 @@ ppp_send_frame(struct ppp *ppp, struct sk_buff *skb)
 #endif /* CONFIG_PPP_FILTER */
 	}
 
-	stats = this_cpu_ptr(ppp->stats64);
+	if ( 1
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+		&& !FOE_SKB_IS_KEEPALIVE(skb)
+#endif
+#if IS_ENABLED(CONFIG_FAST_NAT)
+		&& !SWNAT_KA_CHECK_MARK(skb)
+#endif
+		) {
+		stats = this_cpu_ptr(ppp->stats64);
 
-	u64_stats_update_begin(&stats->syncp);
-	stats->tx_packets++;
-	stats->tx_bytes += skb->len - 2;
-	u64_stats_update_end(&stats->syncp);
+		u64_stats_update_begin(&stats->syncp);
+		stats->tx_packets++;
+		stats->tx_bytes += skb->len - 2;
+		u64_stats_update_end(&stats->syncp);
+	}
 
 	switch (proto) {
 	case PPP_IP:
@@ -1881,10 +1892,17 @@ ppp_receive_nonmp_frame(struct ppp *ppp, struct sk_buff *skb)
 		break;
 	}
 
-#if IS_ENABLED(CONFIG_RA_HW_NAT) && !defined(CONFIG_HNAT_V2)
-	if (!ppp->stat_block_rx)
+	if ( 1
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+#if !defined(CONFIG_HNAT_V2)
+		&& !ppp->stat_block_rx
 #endif
-	{
+		&& !FOE_SKB_IS_KEEPALIVE(skb)
+#endif
+#if IS_ENABLED(CONFIG_FAST_NAT)
+		&& !SWNAT_KA_CHECK_MARK(skb)
+#endif
+		) {
 		struct ppp_link_pcpu_stats *stats = this_cpu_ptr(ppp->stats64);
 
 		u64_stats_update_begin(&stats->syncp);

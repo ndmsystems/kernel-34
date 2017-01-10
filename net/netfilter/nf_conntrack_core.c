@@ -1246,7 +1246,8 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 		(fast_nat_bind_hook = rcu_dereference(fast_nat_bind_hook_func)) &&
 		(hooknum == NF_INET_PRE_ROUTING) &&
 		(ctinfo == IP_CT_ESTABLISHED || ctinfo == IP_CT_ESTABLISHED + IP_CT_IS_REPLY) &&
-		(protonum == IPPROTO_TCP || protonum == IPPROTO_UDP)) {
+		(protonum == IPPROTO_TCP || protonum == IPPROTO_UDP) &&
+		!SWNAT_KA_CHECK_MARK(skb)) {
 
 			struct nf_conntrack_tuple *t1, *t2;
 #if defined(CONFIG_NTCE_MODULE)
@@ -1437,6 +1438,17 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
 	}
 
 acct:
+	if (unlikely( 0
+#if IS_ENABLED(CONFIG_FAST_NAT)
+		|| SWNAT_KA_CHECK_MARK(skb)
+#endif
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+		|| FOE_SKB_IS_KEEPALIVE(skb)
+#endif
+	)) {
+		return;
+	}
+
 	if (do_acct) {
 		struct nf_conn_counter *acct;
 

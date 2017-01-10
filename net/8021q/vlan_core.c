@@ -3,7 +3,12 @@
 #include <linux/if_vlan.h>
 #include <linux/netpoll.h>
 #include <linux/export.h>
+#include <net/fast_vpn.h>
 #include "vlan.h"
+
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+#include <../ndm/hw_nat/ra_nat.h>
+#endif
 
 bool vlan_do_receive(struct sk_buff **skbp)
 {
@@ -52,14 +57,21 @@ bool vlan_do_receive(struct sk_buff **skbp)
 	rx_stats = this_cpu_ptr(vlan_dev_priv(vlan_dev)->vlan_pcpu_stats);
 
 	u64_stats_update_begin(&rx_stats->syncp);
-#if IS_ENABLED(CONFIG_RA_HW_NAT) && !defined(CONFIG_HNAT_V2)
-    if (!vlan_dev_priv(vlan_dev)->stat_block_rx ||
+	if ( 1
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+#if !defined(CONFIG_HNAT_V2)
+		&& (!vlan_dev_priv(vlan_dev)->stat_block_rx ||
         skb->pkt_type == PACKET_MULTICAST ||
         skb->pkt_type == PACKET_BROADCAST)
 #endif
-    {
-	rx_stats->rx_packets++;
-	rx_stats->rx_bytes += skb->len;
+        && !FOE_SKB_IS_KEEPALIVE(skb)
+#endif
+#if IS_ENABLED(CONFIG_FAST_NAT)
+		&& !SWNAT_KA_CHECK_MARK(skb)
+#endif
+        ) {
+		rx_stats->rx_packets++;
+		rx_stats->rx_bytes += skb->len;
     }
 	if (skb->pkt_type == PACKET_MULTICAST)
 		rx_stats->rx_multicast++;

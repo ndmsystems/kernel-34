@@ -24,7 +24,12 @@
 #include <linux/if_bridge.h>
 #include <linux/netfilter_bridge.h>
 #include <../net/8021q/vlan.h>
+#include <net/fast_vpn.h>
 #include "br_private.h"
+
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+#include <../ndm/hw_nat/ra_nat.h>
+#endif
 
 #define MAC_FORCED		0
 
@@ -66,10 +71,19 @@ static rx_handler_result_t ubr_handle_frame(struct sk_buff **pskb)
 
 	ustats = this_cpu_ptr(ubr->stats);
 
-	u64_stats_update_begin(&ustats->syncp);
-	ustats->rx_packets++;
-	ustats->rx_bytes += skb->len;
-	u64_stats_update_end(&ustats->syncp);
+	if (likely( 1
+#if IS_ENABLED(CONFIG_FAST_NAT)
+		&& !SWNAT_KA_CHECK_MARK(skb)
+#endif
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+		&& !FOE_SKB_IS_KEEPALIVE(skb)
+#endif
+		)) {
+		u64_stats_update_begin(&ustats->syncp);
+		ustats->rx_packets++;
+		ustats->rx_bytes += skb->len;
+		u64_stats_update_end(&ustats->syncp);
+	}
 
 	skb->dev = ubr->dev;
 	skb->pkt_type = PACKET_HOST;
@@ -119,10 +133,19 @@ static netdev_tx_t ubr_xmit(struct sk_buff *skb,
 
 	ustats = this_cpu_ptr(ubr->stats);
 
-	u64_stats_update_begin(&ustats->syncp);
-	ustats->tx_packets++;
-	ustats->tx_bytes += skb->len;
-	u64_stats_update_end(&ustats->syncp);
+	if (likely( 1
+#if IS_ENABLED(CONFIG_FAST_NAT)
+		&& !SWNAT_KA_CHECK_MARK(skb)
+#endif
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+		&& !FOE_SKB_IS_KEEPALIVE(skb)
+#endif
+		)) {
+		u64_stats_update_begin(&ustats->syncp);
+		ustats->tx_packets++;
+		ustats->tx_bytes += skb->len;
+		u64_stats_update_end(&ustats->syncp);
+	}
 
 	skb->dev = slave_dev;
 	return dev_queue_xmit(skb);

@@ -18,6 +18,11 @@
 #include <linux/ethtool.h>
 #include <linux/list.h>
 #include <linux/netfilter_bridge.h>
+#include <net/fast_vpn.h>
+
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+#include <../ndm/hw_nat/ra_nat.h>
+#endif
 
 #include <asm/uaccess.h>
 #include "br_private.h"
@@ -40,10 +45,19 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 #endif
 
-	u64_stats_update_begin(&brstats->syncp);
-	brstats->tx_packets++;
-	brstats->tx_bytes += skb->len;
-	u64_stats_update_end(&brstats->syncp);
+	if (likely( 1
+#if IS_ENABLED(CONFIG_FAST_NAT)
+		&& !SWNAT_KA_CHECK_MARK(skb)
+#endif
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+		&& !FOE_SKB_IS_KEEPALIVE(skb)
+#endif
+		)) {
+		u64_stats_update_begin(&brstats->syncp);
+		brstats->tx_packets++;
+		brstats->tx_bytes += skb->len;
+		u64_stats_update_end(&brstats->syncp);
+	}
 
 	BR_INPUT_SKB_CB(skb)->brdev = dev;
 

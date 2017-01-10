@@ -17,7 +17,12 @@
 #include <linux/etherdevice.h>
 #include <linux/netfilter_bridge.h>
 #include <linux/export.h>
+#include <net/fast_vpn.h>
 #include "br_private.h"
+
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+#include <../ndm/hw_nat/ra_nat.h>
+#endif
 
 /* Bridge group multicast address 802.1d (pg 51). */
 const u8 br_group_address[ETH_ALEN] = { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x00 };
@@ -34,10 +39,19 @@ static inline int br_pass_frame_up(struct sk_buff *skb)
 	struct net_bridge *br = netdev_priv(brdev);
 	struct br_cpu_netstats *brstats = this_cpu_ptr(br->stats);
 
-	u64_stats_update_begin(&brstats->syncp);
-	brstats->rx_packets++;
-	brstats->rx_bytes += skb->len;
-	u64_stats_update_end(&brstats->syncp);
+	if (likely( 1
+#if IS_ENABLED(CONFIG_FAST_NAT)
+		&& !SWNAT_KA_CHECK_MARK(skb)
+#endif
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+		&& !FOE_SKB_IS_KEEPALIVE(skb)
+#endif
+		)) {
+		u64_stats_update_begin(&brstats->syncp);
+		brstats->rx_packets++;
+		brstats->rx_bytes += skb->len;
+		u64_stats_update_end(&brstats->syncp);
+	}
 
 	indev = skb->dev;
 	skb->dev = brdev;
