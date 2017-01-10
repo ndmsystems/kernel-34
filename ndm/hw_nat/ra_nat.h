@@ -110,12 +110,18 @@ typedef struct {
 #ifndef UN_HIT
 #define UN_HIT 0x0D
 #endif
+#ifndef HIT_BIND_KEEPALIVE_DUP_OLD_HDR
+#define HIT_BIND_KEEPALIVE_DUP_OLD_HDR 0x15
+#endif 
 #else
 #define FOE_ENTRY_VALID(skb)		((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->FVLD
 #define FOE_AI(skb)			((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->AI
 #define FOE_SP(skb)			((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->SP
 #ifndef UN_HIT
 #define UN_HIT 0x93
+#endif
+#ifndef HIT_BIND_KEEPALIVE
+#define HIT_BIND_KEEPALIVE 0x98
 #endif
 #endif
 
@@ -131,6 +137,14 @@ typedef struct {
 
 #define FOE_ALG_MARK(skb) \
 	FOE_ALG_SKIP(skb)
+
+#if defined(CONFIG_HNAT_V2)
+#define FOE_SKB_IS_KEEPALIVE(skb) \
+	(FOE_AI(skb) == HIT_BIND_KEEPALIVE_DUP_OLD_HDR)
+#else
+#define FOE_SKB_IS_KEEPALIVE(skb) \
+	(FOE_AI(skb) == HIT_BIND_KEEPALIVE)
+#endif
 
 /* reset AI for local output flow */
 #define FOE_AI_UNHIT(skb) \
