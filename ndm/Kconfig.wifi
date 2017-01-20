@@ -67,6 +67,20 @@ choice
 endchoice
 
 choice
+	prompt "PA & LNA type of 1st card"
+	depends on FIRST_IF_MT7615E
+
+	config FIRST_IF_EPAELNA
+	bool "ePA/eLNA"
+
+	config FIRST_IF_IPAILNA
+	bool "iPA/iLNA"
+
+	config FIRST_IF_IPAELNA
+	bool "iPA/eLNA"
+endchoice
+
+choice
 	prompt "Choose second Wi-Fi interface"
 
 	config SECOND_IF_NONE
@@ -106,6 +120,20 @@ choice
 
 	config SECOND_IF_EEPROM_FLASH
 	bool "FLASH"
+endchoice
+
+choice
+	prompt "PA & LNA type of 2nd card"
+	depends on SECOND_IF_MT7615E
+
+	config SECOND_IF_EPAELNA
+	bool "ePA/eLNA"
+
+	config SECOND_IF_IPAILNA
+	bool "iPA/iLNA"
+
+	config SECOND_IF_IPAELNA
+	bool "iPA/eLNA"
 endchoice
 
 config RT_FIRST_CARD
