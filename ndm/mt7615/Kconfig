@@ -6,6 +6,16 @@ config MT7615_DBDC_MODE
 	bool "DBDC mode support"
 	default y
 
+config MT7615_MULTI_PROFILE_SUPPORT
+	bool "Multi Profile Support"
+	depends on MT7615_DBDC_MODE
+	default n
+
+config MT7615_DEFAULT_5G_PROFILE
+	bool "5G default profile for DBDC"
+	depends on MT7615_DBDC_MODE
+	default n
+
 config MT7615_LED_CONTROL_SUPPORT
 	bool "LED support"
 	default y
@@ -74,6 +84,10 @@ config MT7615_SMART_CARRIER_SENSE_SUPPORT
 	bool "Smart Carrier Sense support"
 	default y
 
+config MT7615_TCP_RACK_SUPPORT
+	bool "TCP Reduced ACK support"
+	default n
+
 config MT7615_SINGLE_SKU
 	bool "Single SKU V2 support"
 	default n
@@ -83,25 +97,13 @@ config MT7615_RF_LOCKDOWN_SUPPORT
 	depends on MT7615_SINGLE_SKU
 	default n
 
-config MT7615_RLM_CAL_CACHE_SUPPORT
-	bool "RLM Calibration Cache support"
-	default y
-
-config MT7615_PRE_CAL_FLASH_SUPPORT
-	bool "Pre-calibration to Flash support"
-	default y
-
-config MT7615_CAL_BIN_FILE_SUPPORT
-	bool "Calibration to BinFile support"
-	default n
-
-config MT7615_FDB_SUPPORT
-	bool "FW Debug Port"
-	depends on WIFI_DEBUG_SUPPORT
-	default n
-
 config MT7615_CFG80211_SUPPORT
 	bool "CFG80211"
+	default n
+
+config MT7615_CUSTOMIZED_HOSTAPD
+	bool "Customized Hostapd Support"
+	depends on MT7615_CFG80211_SUPPORT
 	default n
 
 endif # (MT7615_AP || MT7615_STA)

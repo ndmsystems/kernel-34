@@ -52,6 +52,10 @@ config MT7615_RED_SUPPORT
 	bool "RED (Random Early Drop) support"
 	default n
 
+config MT7615_DSCP_QOS_MAP_SUPPORT
+	bool "DSCP Qos Mapping Support"
+	default n
+
 config MT7615_BAND_STEERING
 	bool "Band Steering support"
 	default n
