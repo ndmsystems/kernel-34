@@ -22,12 +22,16 @@
 #include <net/netfilter/nf_nat_core.h>
 #include <net/netfilter/nf_conntrack.h>
 #include <net/netfilter/nf_conntrack_core.h>
+#include <net/netfilter/nf_conntrack_acct.h>
 #include <linux/netfilter/nf_conntrack_common.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/rcupdate.h>
+#include <net/fast_vpn.h>
 #include <linux/ntc_shaper_hooks.h>
 
-//#define DEBUG
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+#include <../ndm/hw_nat/ra_nat.h>
+#endif
 
 extern int ipv4_fastnat_conntrack;
 
@@ -132,6 +136,32 @@ static int fast_nat_path(struct sk_buff *skb)
 {
 	ntc_shaper_hook_fn * shaper_egress = NULL;
 	int retval = 0;
+
+	if (likely( 1
+#if IS_ENABLED(CONFIG_FAST_NAT)
+		&& !SWNAT_KA_CHECK_MARK(skb)
+#endif
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+		&& !FOE_SKB_IS_KEEPALIVE(skb)
+#endif
+	)) {
+		struct nf_conn *ct;
+		struct nf_conn_counter *acct;
+		enum ip_conntrack_info ctinfo;
+
+		ct = nf_ct_get(skb, &ctinfo);
+
+		if (unlikely(ct == NULL)) {
+			return NF_ACCEPT;
+		}
+
+		acct = nf_conn_acct_find(ct);
+
+		if (likely(acct != NULL)) {
+			atomic64_inc(&acct[CTINFO2DIR(ctinfo)].packets);
+			atomic64_add(skb->len, &acct[CTINFO2DIR(ctinfo)].bytes);
+		}
+	}
 
 	if (skb_dst(skb) == NULL) {
 		struct iphdr *iph = ip_hdr(skb);

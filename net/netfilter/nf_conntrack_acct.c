@@ -13,10 +13,18 @@
 #include <linux/kernel.h>
 #include <linux/moduleparam.h>
 #include <linux/export.h>
+#include <linux/netfilter_ipv4.h>
+#include <linux/netfilter_ipv6.h>
 
 #include <net/netfilter/nf_conntrack.h>
 #include <net/netfilter/nf_conntrack_extend.h>
 #include <net/netfilter/nf_conntrack_acct.h>
+
+#include <net/fast_vpn.h>
+
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+#include <../ndm/hw_nat/ra_nat.h>
+#endif
 
 static bool nf_ct_acct __read_mostly = 1;
 
@@ -102,6 +110,116 @@ static void nf_conntrack_acct_fini_sysctl(struct net *net)
 }
 #endif
 
+static unsigned int do_ipv4_conntrack_acct(unsigned int hooknum,
+				      struct sk_buff *skb,
+				      const struct net_device *in,
+				      const struct net_device *out,
+				      int (*okfn)(struct sk_buff *))
+{
+	if (unlikely( 0
+#if IS_ENABLED(CONFIG_FAST_NAT)
+		|| SWNAT_KA_CHECK_MARK(skb)
+#endif
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+		|| FOE_SKB_IS_KEEPALIVE(skb)
+#endif
+	)) {
+		return NF_ACCEPT;
+	}
+
+	{
+		struct nf_conn *ct;
+		struct nf_conn_counter *acct;
+		enum ip_conntrack_info ctinfo;
+
+		ct = nf_ct_get(skb, &ctinfo);
+
+		if (unlikely(ct == NULL)) {
+			return NF_ACCEPT;
+		}
+
+		acct = nf_conn_acct_find(ct);
+
+		if (likely(acct != NULL)) {
+			atomic64_inc(&acct[CTINFO2DIR(ctinfo)].packets);
+			atomic64_add(skb->len, &acct[CTINFO2DIR(ctinfo)].bytes);
+		}
+	}
+
+	return NF_ACCEPT;
+}
+
+#ifdef CONFIG_IPV6
+static unsigned int do_ipv6_conntrack_acct(unsigned int hooknum,
+				      struct sk_buff *skb,
+				      const struct net_device *in,
+				      const struct net_device *out,
+				      int (*okfn)(struct sk_buff *))
+{
+	if (unlikely( 0
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+		|| FOE_SKB_IS_KEEPALIVE(skb)
+#endif
+	)) {
+		return NF_ACCEPT;
+	}
+
+	{
+		struct nf_conn *ct;
+		struct nf_conn_counter *acct;
+		enum ip_conntrack_info ctinfo;
+
+		ct = nf_ct_get(skb, &ctinfo);
+
+		if (unlikely(ct == NULL)) {
+			return NF_ACCEPT;
+		}
+
+		acct = nf_conn_acct_find(ct);
+
+		if (likely(acct != NULL)) {
+			atomic64_inc(&acct[CTINFO2DIR(ctinfo)].packets);
+			atomic64_add(skb->len, &acct[CTINFO2DIR(ctinfo)].bytes);
+		}
+	}
+
+	return NF_ACCEPT;
+}
+#endif
+
+static struct nf_hook_ops conntrack_acct_ops[] __read_mostly = {
+	{
+		.hook		= do_ipv4_conntrack_acct,
+		.owner		= THIS_MODULE,
+		.pf			= NFPROTO_IPV4,
+		.hooknum	= NF_INET_LOCAL_IN,
+		.priority	= NF_IP_PRI_CONNTRACK_ACCT,
+	},
+	{
+		.hook		= do_ipv4_conntrack_acct,
+		.owner		= THIS_MODULE,
+		.pf			= NFPROTO_IPV4,
+		.hooknum	= NF_INET_FORWARD,
+		.priority	= NF_IP_PRI_CONNTRACK_ACCT,
+	},
+#ifdef CONFIG_IPV6
+	{
+		.hook		= do_ipv6_conntrack_acct,
+		.owner		= THIS_MODULE,
+		.pf			= NFPROTO_IPV6,
+		.hooknum	= NF_INET_LOCAL_IN,
+		.priority	= NF_IP6_PRI_CONNTRACK_ACCT,
+	},
+	{
+		.hook		= do_ipv6_conntrack_acct,
+		.owner		= THIS_MODULE,
+		.pf			= NFPROTO_IPV6,
+		.hooknum	= NF_INET_FORWARD,
+		.priority	= NF_IP6_PRI_CONNTRACK_ACCT,
+	},
+#endif
+};
+
 int nf_conntrack_acct_init(struct net *net)
 {
 	int ret;
@@ -120,7 +238,17 @@ int nf_conntrack_acct_init(struct net *net)
 	if (ret < 0)
 		goto out_sysctl;
 
+	ret = nf_register_hooks(conntrack_acct_ops,
+				ARRAY_SIZE(conntrack_acct_ops));
+	if (ret < 0) {
+		printk(KERN_ERR "nf_conntrack_acct: can't register accounting hooks\n");
+		goto out_acct_opts;
+	}
+
 	return 0;
+
+out_acct_opts:
+	nf_conntrack_acct_fini_sysctl(net);
 
 out_sysctl:
 	if (net_eq(net, &init_net))
@@ -131,6 +259,9 @@ out_extend_register:
 
 void nf_conntrack_acct_fini(struct net *net)
 {
+	nf_unregister_hooks(conntrack_acct_ops,
+		ARRAY_SIZE(conntrack_acct_ops));
+
 	nf_conntrack_acct_fini_sysctl(net);
 	if (net_eq(net, &init_net))
 		nf_ct_extend_unregister(&acct_extend);

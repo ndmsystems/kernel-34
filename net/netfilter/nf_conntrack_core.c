@@ -66,6 +66,9 @@
 #define NF_CONNTRACK_VERSION	"0.5.0"
 
 #if IS_ENABLED(CONFIG_FAST_NAT)
+
+#define FAST_NAT_SKIP_PACKETS	2
+
 /* Enable or Disable FastNAT */
 extern int ipv4_fastnat_conntrack;
 
@@ -893,7 +896,7 @@ void nf_conntrack_free(struct nf_conn *ct)
 
 	rcu_read_lock();
 
-	if (nacct_conntrack_free_hook = rcu_dereference(nacct_conntrack_free)) {
+	if ((nacct_conntrack_free_hook = rcu_dereference(nacct_conntrack_free))) {
 		nacct_conntrack_free_hook(ct);
 	}
 
@@ -1141,6 +1144,7 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 	int set_reply = 0;
 	int ret;
 #if IS_ENABLED(CONFIG_FAST_NAT)
+	struct nf_conn_counter *ctrs;
 	void (*swnat_prebind)(struct sk_buff * skb,
 		u32 orig_saddr, u16 orig_sport,
 		struct nf_conn * ct,
@@ -1210,6 +1214,23 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 	}
 
 	NF_CT_ASSERT(skb->nfct);
+
+#if IS_ENABLED(CONFIG_FAST_NAT)
+	ctrs = nf_conn_acct_find(ct);
+
+	if (likely(ctrs != NULL)) {
+		if ((atomic64_read(&ctrs[IP_CT_DIR_ORIGINAL].packets) <=
+				FAST_NAT_SKIP_PACKETS) ||
+			(atomic64_read(&ctrs[IP_CT_DIR_REPLY].packets) <=
+				FAST_NAT_SKIP_PACKETS)) {
+				ct->fast_ext = 1;
+		} else {
+			ct->fast_ext = 0;
+		}
+	} else {
+		ct->fast_ext = 1;
+	}
+#endif
 
 	/* Decide what timeout policy we want to apply to this flow. */
 	timeouts = nf_ct_timeout_lookup(net, ct, l4proto);
