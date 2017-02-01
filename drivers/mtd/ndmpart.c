@@ -592,6 +592,10 @@ static int create_mtd_partitions(struct mtd_info *master,
 	if (!flash_size_lim)
 		flash_size_lim = flash_size;
 
+#ifdef CONFIG_MTD_NDM_BOOT_UPDATE
+	ndm_flash_boot(master, 0, parts_size_default_get(PART_U_BOOT, master));
+#endif
+
 #ifdef CONFIG_MTD_NDM_DUAL_IMAGE
 	if (ndmpart_di_is_enabled) {
 		off_si = flash_size >> 1;
@@ -738,12 +742,6 @@ static int create_mtd_partitions(struct mtd_info *master,
 #ifdef CONFIG_MTD_NDM_CONFIG_TRANSITION
 	config_move(master, parts[PART_CONFIG_1].offset);
 #endif
-
-#ifdef CONFIG_MTD_NDM_BOOT_UPDATE
-	ndm_flash_boot(master, parts[PART_U_BOOT].offset,
-		       parts[PART_U_BOOT].size);
-#endif
-
 	ndm_parts_num = parts_num();
 
 	ndm_parts = kzalloc(sizeof(*ndm_parts) * ndm_parts_num, GFP_KERNEL);
