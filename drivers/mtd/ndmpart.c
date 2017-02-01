@@ -113,11 +113,13 @@ struct part_dsc {
 };
 
 #ifdef CONFIG_MTD_NDM_DUAL_IMAGE
+static bool di_is_enabled(void);
+static bool u_state_is_pending(void);
+
 static int u_state_init(struct mtd_info *master, uint32_t off, uint32_t size);
 static int u_state_get(const char *name, int *val);
 static int u_state_set(const char *name, int val);
 static int u_state_commit(void);
-static bool di_is_enabled(void);
 #endif
 
 #ifdef CONFIG_MTD_NDM_DUAL_IMAGE
@@ -1042,6 +1044,11 @@ static int u_state_commit(void)
 		.len = master->erasesize
 	};
 
+	if (!u_state_is_pending()) {
+		res = 0;
+		goto out;
+	}
+
 	m = kzalloc(master->erasesize, GFP_KERNEL);
 	if (m == NULL) {
 		res = -ENOMEM;
@@ -1077,6 +1084,21 @@ static bool di_is_enabled(void)
 	s = prom_getenv("dual_image");
 	if (s && !strcmp(s, "0"))
 		return false;
+
+	return true;
+}
+
+static bool u_state_is_pending(void)
+{
+	int ret;
+	size_t len;
+	struct di_u_state u;
+
+	ret = mtd_read(u_state_master, u_state_offset, sizeof(u), &len, (void *)&u);
+	if (!ret && len == sizeof(u) &&
+	    !memcmp(&u, &u_state, sizeof(u))) {
+		return false;
+	}
 
 	return true;
 }
