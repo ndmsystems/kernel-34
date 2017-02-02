@@ -45,10 +45,11 @@
  * v2.59.2m2 - Modify "rx_urb_size" parameter
  * v2.59.2m3r - Modify "rx_urb_size" parameter
  * v2.59.2m4 - Fix "dm_read_shared_word()" deadlock on error path, code cleanup
+ * v2.59.2m5 - Fix for big endian, del mem allocation for unused usb_submit_urb
  */
 
 //#define DEBUG
-#define LNX_DM9620_VER_STR  "V2.59.2m4"
+#define LNX_DM9620_VER_STR  "V2.59.2m5"
 
 
 #include <linux/module.h>
@@ -128,7 +129,7 @@ struct dm96xx_priv {
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,33)
 #define dm9620_print(__dev, format, args...) netdev_dbg((__dev)->net, format, ##args)
 #define dm9620_err(__dev, format, args...) netdev_err((__dev)->net, format, ##args)
-#else if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,33)
+#elif LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,33)
 #define dm9620_print(dev, format, args...) devdbg(dev, format, ##args)
 #define dm9620_err(dev, format, args...) deverr(dev, format, ##args)
 #endif
@@ -150,20 +151,7 @@ static int dm_read(struct usbnet *dev, u8 reg, u16 length, void *data)
 
 static int dm_read_reg(struct usbnet *dev, u8 reg, u8 *value)
 {
-	u16 *tmpwPtr;
-	int ret;
-
-	tmpwPtr = kmalloc(2, GFP_ATOMIC);
-	if (!tmpwPtr) {
-		printk(KERN_ERR "+++++++++++ JJ5 dm_read_reg() Error: can not kmalloc!\n"); //usbnet_suspend (intf, message);
-		return -ENOMEM;
-	}
-
-	ret = dm_read(dev, reg, 2, tmpwPtr);  // usb_submit_urb v.s. usb_control_msg
-	*value = (u8)(*tmpwPtr & 0xff);
-
-	kfree(tmpwPtr);
-	return ret;
+	return dm_read(dev, reg, 1, value);
 }
 
 static int dm_write(struct usbnet *dev, u8 reg, u16 length, void *data)
@@ -202,7 +190,6 @@ static void dm_write_reg_async(struct usbnet *dev, u8 reg, u8 value)
 static int dm_read_shared_word(struct usbnet *dev, int phy, u8 reg, __le16 *value)
 {
 	int ret, i;
-	u16 *tmpwPtr1;
 
 	mutex_lock(&dev->phy_mutex);
 
@@ -229,19 +216,7 @@ static int dm_read_shared_word(struct usbnet *dev, int phy, u8 reg, __le16 *valu
 	}
 
 	dm_write_reg(dev, DM_SHARED_CTRL, 0x0);
-//	ret = dm_read(dev, DM_SHARED_DATA, 2, value); 
-	//Stone add
-	tmpwPtr1 = kmalloc(2, GFP_ATOMIC);
-	if (!tmpwPtr1) {
-		printk(KERN_ERR "+++++++++++ JJ5 dm_read_reg() Error: can not kmalloc!\n"); //usbnet_suspend (intf, message);
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	ret = dm_read(dev, DM_SHARED_DATA, 2, tmpwPtr1);  // usb_submit_urb v.s. usb_control_msg
-	*value = (u16)(*tmpwPtr1 & 0xffff);
-
-	kfree (tmpwPtr1);
+	ret = dm_read(dev, DM_SHARED_DATA, 2, value);
 
 //	dm9620_print(dev, "read shared %d 0x%02x returned 0x%04x, %d",
 //	phy, reg, *value, ret);
@@ -399,7 +374,8 @@ static int dm9620_get_eeprom(struct net_device *net,
 static int dm9620_mdio_read(struct net_device *netdev, int phy_id, int loc)
 {
 	struct usbnet *dev = netdev_priv(netdev);
-	__le16 res;
+	u16 res;
+	__le16 val;
 	u8 tmp;
 
 	// Support 'EXT MII'
@@ -416,7 +392,7 @@ static int dm9620_mdio_read(struct net_device *netdev, int phy_id, int loc)
 			dm_read_reg(dev, 0x01, &tmp); //= DM_NET_STATUS
 			if (!(tmp & 0x80)) // speed 10/100
 				res |= 0x2000;
-			return le16_to_cpu(res);
+			return res;
 		}
 		if (loc == 1) //bmsr
 		{
@@ -424,23 +400,21 @@ static int dm9620_mdio_read(struct net_device *netdev, int phy_id, int loc)
 			dm_read_reg(dev, 0x01, &tmp); //= DM_NET_STATUS
 			if (tmp & 0x40) // linl status
 				res = 0x784D;
-			return le16_to_cpu(res);
+			return res;
 		}
 		if (loc == 4) //advertise
 		{
-			res = 0x05e1;
-			return le16_to_cpu(res);
+			return 0x05e1;
 		}
 		if (loc == 5) //lpa
 		{
-			res = 0x45e1;
-			return le16_to_cpu(res);
+			return 0x45e1;
 		}
 	}
 
-	dm_read_shared_word(dev, phy_id, loc, &res);
+	dm_read_shared_word(dev, phy_id, loc, &val);
 
-	return le16_to_cpu(res);
+	return le16_to_cpu(val);
 }
 
 static void dm9620_mdio_write(struct net_device *netdev, int phy_id, int loc,
@@ -703,7 +677,7 @@ static const struct net_device_ops vm_netdev_ops = {
 
 static int dm9620_bind(struct usbnet *dev, struct usb_interface *intf)
 {
-	u16 *tmpwPtr2;
+	__le16 p_id;
 	int ret,mdio_val;
 	struct dm96xx_priv* priv;
 	u8 temp;
@@ -743,8 +717,8 @@ static int dm9620_bind(struct usbnet *dev, struct usb_interface *intf)
 	//Stone add Enable "MAC layer" Flow Control, TX Pause Packet Enable and 
 	dm_write_reg(dev, DM_FLOW_CTRL, 0x29);
 	//Stone add Enable "PHY layer" Flow Control support (phy register 0x04 bit 10)
-	temp = dm9620_mdio_read(dev->net, dev->mii.phy_id, 0x04);
-	dm9620_mdio_write(dev->net, dev->mii.phy_id, 0x04, temp | 0x400);
+	mdio_val = dm9620_mdio_read(dev->net, dev->mii.phy_id, 0x04);
+	dm9620_mdio_write(dev->net, dev->mii.phy_id, 0x04, mdio_val | 0x400);
 	/* Add V1.1, Enable auto link while plug in RJ45, Hank July 20, 2009*/
 	dm_write_reg(dev, USB_CTRL, 0x20);
 
@@ -800,22 +774,15 @@ static int dm9620_bind(struct usbnet *dev, struct usb_interface *intf)
 	}
 
 	//Stone add for check Product ID == 0x1269
-	tmpwPtr2 = kmalloc(2, GFP_KERNEL);
-	if (!tmpwPtr2) {
-		printk(KERN_ERR "+++++++++++ JJ5 dm_read_reg() Error: can not kmalloc!\n"); //usbnet_suspend (intf, message);
-		kfree(dev->driver_priv);
-		dev->driver_priv = NULL;
-		return -ENOMEM;
+	ret = dm_read(dev, DM_PID, 2, &p_id);
+	if (ret < 0) {
+		printk(KERN_ERR "[dm96] Error read DM_PID register\n");
+	} else {
+		if (p_id == cpu_to_le16(0x1269) ||
+		    p_id == cpu_to_le16(0x0269)) {
+			dm_write_reg(dev, DM_SMIREG, 0xa0);
+		}
 	}
-	ret = dm_read(dev, DM_PID, 2, tmpwPtr2);
-
-	if (*tmpwPtr2 == 0x1269)
-		dm_write_reg(dev, DM_SMIREG, 0xa0);
-
-	if (*tmpwPtr2 == 0x0269)
-		dm_write_reg(dev, DM_SMIREG, 0xa0);
-
-	kfree(tmpwPtr2);
 
 	/* power up phy */
 	dm_write_reg(dev, DM_GPR_CTRL,
@@ -1496,7 +1463,7 @@ static const struct usb_device_id products[] = {
 		.driver_info = (unsigned long)&dm9620_info,
 	},
 
-	// 2015-2016 by NDM Ssytems (afom@ndmsystems.com)
+	// 2015-2017 by NDM Systems (developers@ndmsystems.com)
 	{
 		USB_DEVICE(0x0586, 0x3427),     /* ZyXEL Keenetic Plus DSL */
 		.driver_info = (unsigned long)&kplusdsl_info,
