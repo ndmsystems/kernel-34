@@ -1223,12 +1223,12 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 				FAST_NAT_SKIP_PACKETS) ||
 			(atomic64_read(&ctrs[IP_CT_DIR_REPLY].packets) <=
 				FAST_NAT_SKIP_PACKETS)) {
-				ct->fast_ext = 1;
+				ct->fast_nat_binded = 0;
 		} else {
-			ct->fast_ext = 0;
+			ct->fast_nat_binded = 1;
 		}
 	} else {
-		ct->fast_ext = 1;
+		ct->fast_nat_binded = 0;
 	}
 #endif
 
@@ -1263,6 +1263,7 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 	rcu_read_lock();
 	if (pf == PF_INET &&
 		!ct->fast_ext &&
+		ct->fast_nat_binded &&
 		ipv4_fastnat_conntrack &&
 		(fast_nat_bind_hook = rcu_dereference(fast_nat_bind_hook_func)) &&
 		(hooknum == NF_INET_PRE_ROUTING) &&
