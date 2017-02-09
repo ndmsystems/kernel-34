@@ -116,28 +116,30 @@ static inline int fast_nat_path_output(struct sk_buff *skb)
 	return -EINVAL;
 }
 
-static inline int
-ip_skb_dst_mtu(struct sk_buff *skb)
+static inline int ip_skb_dst_mtu(struct sk_buff *skb)
 {
 	struct inet_sock *inet = skb->sk ? inet_sk(skb->sk) : NULL;
 
 	return (inet && inet->pmtudisc == IP_PMTUDISC_PROBE) ?
-	       skb_dst(skb)->dev->mtu : dst_mtu(skb_dst(skb));
+		skb_dst(skb)->dev->mtu : dst_mtu(skb_dst(skb));
 }
 
-int fast_nat_bind_hook_egress(struct sk_buff * skb) {
+static int fast_nat_bind_hook_egress(struct sk_buff * skb)
+{
 	if (skb->len > ip_skb_dst_mtu(skb) && !skb_is_gso(skb))
 		return ip_fragment(skb, fast_nat_path_output);
-	else
-		return fast_nat_path_output(skb);
+
+	return fast_nat_path_output(skb);
 }
 
+/* Returns 1 if nf_hook okfn() needs to be executed by the caller,
+ * -EPERM for NF_DROP, 0 otherwise. */
 static int fast_nat_path(struct sk_buff *skb)
 {
-	ntc_shaper_hook_fn * shaper_egress = NULL;
+	ntc_shaper_hook_fn *shaper_egress;
 	int retval = 0;
 
-	if (likely( 1
+	if (likely(1
 #if IS_ENABLED(CONFIG_FAST_NAT)
 		&& !SWNAT_KA_CHECK_MARK(skb)
 #endif
@@ -146,30 +148,26 @@ static int fast_nat_path(struct sk_buff *skb)
 #endif
 	)) {
 		struct nf_conn *ct;
-		struct nf_conn_counter *acct;
 		enum ip_conntrack_info ctinfo;
 
 		ct = nf_ct_get(skb, &ctinfo);
+		if (likely(ct != NULL)) {
+			struct nf_conn_counter *acct = nf_conn_acct_find(ct);
 
-		if (unlikely(ct == NULL)) {
-			return NF_ACCEPT;
-		}
-
-		acct = nf_conn_acct_find(ct);
-
-		if (likely(acct != NULL)) {
-			atomic64_inc(&acct[CTINFO2DIR(ctinfo)].packets);
-			atomic64_add(skb->len, &acct[CTINFO2DIR(ctinfo)].bytes);
+			if (likely(acct != NULL)) {
+				atomic64_inc(&acct[CTINFO2DIR(ctinfo)].packets);
+				atomic64_add(skb->len, &acct[CTINFO2DIR(ctinfo)].bytes);
+			}
 		}
 	}
 
 	if (skb_dst(skb) == NULL) {
-		struct iphdr *iph = ip_hdr(skb);
+		const struct iphdr *iph = ip_hdr(skb);
 		struct net_device *dev = skb->dev;
 
 		if (ip_route_input(skb, iph->daddr, iph->saddr, iph->tos, dev)) {
 			kfree_skb(skb);
-			return -EINVAL;
+			return -EPERM;
 		}
 
 		/*  Change skb owner to output device */
@@ -178,25 +176,23 @@ static int fast_nat_path(struct sk_buff *skb)
 
 	shaper_egress = ntc_shaper_egress_hook_get();
 
-	if ((NULL != shaper_egress) && (NULL != skb)) {
+	if (shaper_egress) {
 		unsigned int ntc_retval = shaper_egress(skb, 0, 0, NULL, fast_nat_bind_hook_egress, NULL, NULL);
 
 		switch (ntc_retval) {
 			case NF_ACCEPT:
 				retval = fast_nat_bind_hook_egress(skb);
 				break;
-			case NF_DROP:
-				kfree_skb(skb);
-				retval = 0;
-				break;
 			case NF_STOLEN:
 				retval = 0;
 				break;
+			default:
+				kfree_skb(skb);
+				retval = -EPERM;
+				break;
 		}
-
-	} else {
+	} else
 		retval = fast_nat_bind_hook_egress(skb);
-	}
 
 	ntc_shaper_egress_hook_put();
 
@@ -240,12 +236,12 @@ fast_nat_do_bindings(struct nf_conn *ct,
 			struct nf_conntrack_tuple target;
 
 			if (skb_dst(skb) == NULL && mtype == NF_NAT_MANIP_SRC) {
+				const struct iphdr *iph = ip_hdr(skb);
 				struct net_device *dev = skb->dev;
-				struct iphdr *iph = ip_hdr(skb);
 
-				if (ip_route_input(skb, iph->daddr, iph->saddr, iph->tos, dev)) {
+				if (ip_route_input(skb, iph->daddr, iph->saddr, iph->tos, dev))
 					return NF_DROP;
-				}
+
 				/* Change skb owner to output device */
 				skb->dev = skb_dst(skb)->dev;
 			}
@@ -253,9 +249,8 @@ fast_nat_do_bindings(struct nf_conn *ct,
 			/* We are aiming to look like inverse of other direction. */
 			nf_ct_invert_tuple(&target, &ct->tuplehash[!dir].tuple, l3proto, l4proto);
 
-			if (!manip_pkt(target.dst.protonum, skb, 0, &target, mtype)) {
+			if (!manip_pkt(target.dst.protonum, skb, 0, &target, mtype))
 				return NF_DROP;
-			}
 		}
 		i++;
 	} while (i < 2);

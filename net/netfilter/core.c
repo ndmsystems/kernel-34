@@ -189,9 +189,8 @@ int nf_hook_slow(u_int8_t pf, unsigned int hook, struct sk_buff *skb,
 	struct list_head *elem;
 	unsigned int verdict;
 	int ret = 0;
-
 #if IS_ENABLED(CONFIG_FAST_NAT)
-	int (*fast_nat_hit_hook) (struct sk_buff *skb);
+	typeof(fast_nat_hit_hook_func) fast_nat_hit_hook;
 #endif
 
 	/* We may already have this, but read-locks nest anyway */
@@ -230,9 +229,9 @@ next_hook:
 	}
 #if IS_ENABLED(CONFIG_FAST_NAT)
 	else if (verdict == NF_FAST_NAT) {
-		if (NULL != (fast_nat_hit_hook = rcu_dereference(fast_nat_hit_hook_func)))
+		if ((fast_nat_hit_hook = rcu_dereference(fast_nat_hit_hook_func))) {
 			ret = fast_nat_hit_hook(skb);
-		else {
+		} else {
 			kfree_skb(skb);
 			ret = -EPERM;
 		}
