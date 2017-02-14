@@ -141,11 +141,13 @@
 #include <linux/net_tstamp.h>
 #include <linux/static_key.h>
 #include <net/flow_keys.h>
+#include <net/fast_vpn.h>
 
 #include "net-sysfs.h"
 
 extern int (*ipv6_pthrough)(struct sk_buff *skb);
 extern int (*pppoe_pthrough)(struct sk_buff *skb);
+extern int (*vpn_pthrough)(struct sk_buff *skb, int in);
 
 /* Instead of increasing this, you should create a hash table. */
 #define MAX_GRO_SKBS 8
@@ -3374,6 +3376,7 @@ static int __netif_receive_skb(struct sk_buff *skb)
 	bool deliver_exact = false;
 	int (*ipv6hook)(struct sk_buff *skb);
 	int (*pppoehook)(struct sk_buff *skb);
+	int (*vpnhook)(struct sk_buff *skb, int in);
 	int ret = NET_RX_DROP;
 	__be16 type;
 
@@ -3413,6 +3416,12 @@ another_round:
 	}
 
 	if ((pppoehook = rcu_dereference(pppoe_pthrough)) && pppoehook(skb)) {
+		ret = NET_RX_SUCCESS;
+		goto out;
+	}
+
+	if ((vpnhook = rcu_dereference(vpn_pthrough)) &&
+			vpnhook(skb, FAST_VPN_RECV) == FAST_VPN_RES_OK) {
 		ret = NET_RX_SUCCESS;
 		goto out;
 	}
