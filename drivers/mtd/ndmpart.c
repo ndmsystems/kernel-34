@@ -600,6 +600,11 @@ static int create_mtd_partitions(struct mtd_info *master,
 	if (ndmpart_di_is_enabled) {
 		off_si = flash_size >> 1;
 
+		if (off_si < flash_size_lim) {
+			printk(KERN_ERR "di: invalid flash size limit!\n");
+			return -EINVAL;
+		}
+
 		ret = u_state_init(master,
 				   off_si,
 				   parts_size_default_get(PART_U_BOOT, master));
@@ -619,9 +624,8 @@ static int create_mtd_partitions(struct mtd_info *master,
 		else
 			ndmpart_image_cur = di_image_num_pair_get(boot_backup);
 
-		printk(KERN_INFO "boot_active = %d\n", boot_active);
-		printk(KERN_INFO "boot_backup = %d\n", boot_backup);
-		printk(KERN_INFO "ndmpart_image_cur = %d\n", ndmpart_image_cur);
+		printk(KERN_INFO "di: active = %d, backup = %d, current = %d\n",
+				 boot_active, boot_backup, ndmpart_image_cur);
 	}
 #endif
 
