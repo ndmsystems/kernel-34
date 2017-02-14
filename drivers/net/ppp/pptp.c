@@ -264,6 +264,8 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 
 	len = skb->len;
 
+	spin_lock(&opt->seq_ack_lock);
+
 	seq_recv = opt->seq_recv;
 
 	if (opt->ack_sent == seq_recv)
@@ -286,6 +288,9 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 		hdr->ack  = htonl(seq_recv);
 		opt->ack_sent = seq_recv;
 	}
+
+	spin_unlock(&opt->seq_ack_lock);
+
 	hdr->payload_len = htons(len);
 
 	/*	Push down and install the IP header. */
@@ -366,12 +371,18 @@ static int pptp_rcv_core(struct sock *sk, struct sk_buff *skb)
 	header = (struct pptp_gre_header *)(skb->data);
 	headersize  = sizeof(*header);
 
+	spin_lock(&opt->seq_ack_lock);
+
 	/* test if acknowledgement present */
 	if (PPTP_GRE_IS_A(header->ver)) {
 		__u32 ack;
 
-		if (!pskb_may_pull(skb, headersize))
+		if (!pskb_may_pull(skb, headersize)) {
+			spin_unlock(&opt->seq_ack_lock);
+
 			goto drop;
+		}
+
 		header = (struct pptp_gre_header *)(skb->data);
 
 		/* ack in different place if S = 0 */
@@ -388,15 +399,21 @@ static int pptp_rcv_core(struct sock *sk, struct sk_buff *skb)
 		headersize -= sizeof(header->ack);
 	}
 	/* test if payload present */
-	if (!PPTP_GRE_IS_S(header->flags))
+	if (!PPTP_GRE_IS_S(header->flags)) {
+		spin_unlock(&opt->seq_ack_lock);
+
 		goto drop;
+	}
 
 	payload_len = ntohs(header->payload_len);
 	seq         = ntohl(header->seq);
 
 	/* check for incomplete packet (length smaller than expected) */
-	if (!pskb_may_pull(skb, headersize + payload_len))
+	if (!pskb_may_pull(skb, headersize + payload_len)) {
+		spin_unlock(&opt->seq_ack_lock);
+
 		goto drop;
+	}
 
 	payload = skb->data + headersize;
 
@@ -409,6 +426,10 @@ static int pptp_rcv_core(struct sock *sk, struct sk_buff *skb)
 	{
 		unsigned int magic = opt->src_addr.magic_num;
 
+		opt->seq_recv = seq;
+
+		spin_unlock(&opt->seq_ack_lock);
+
 		payload[4] = PPP_LCP_ECHOREP; /* Set Reply flag */
 
 		/* Set our magic number */
@@ -420,7 +441,6 @@ static int pptp_rcv_core(struct sock *sk, struct sk_buff *skb)
 		skb_pull(skb, headersize);
 
 		opt->ppp_flags = SC_COMP_AC;
-		opt->seq_recv = seq;
 
 		pptp_xmit(&po->chan, skb);
 		return NET_RX_DROP;
@@ -443,10 +463,16 @@ allow_packet:
 
 		if (payload[0] == PPP_ALLSTATIONS && payload[1] == PPP_UI) {
 			/* chop off address/control */
-			if (skb->len < 3)
+			if (skb->len < 3) {
+				spin_unlock(&opt->seq_ack_lock);
+
 				goto drop;
+			}
+
 			skb_pull(skb, 2);
 		}
+
+		spin_unlock(&opt->seq_ack_lock);
 
 		if ((*skb->data) & 1) {
 			/* protocol is compressed */
@@ -459,6 +485,9 @@ allow_packet:
 
 		return NET_RX_SUCCESS;
 	}
+
+	spin_unlock(&opt->seq_ack_lock);
+
 drop:
 	kfree_skb(skb);
 	return NET_RX_DROP;
@@ -707,6 +736,8 @@ static int pptp_create(struct net *net, struct socket *sock)
 
 	po = pppox_sk(sk);
 	opt = &po->proto.pptp;
+
+	spin_lock_init(&opt->seq_ack_lock);
 
 	opt->seq_sent = 0; opt->seq_recv = 0xffffffff;
 	opt->ack_recv = 0; opt->ack_sent = 0xffffffff;

@@ -147,6 +147,7 @@ struct pppoe_hdr {
 #define PPPOE_SES_HLEN	8
 
 #ifdef __KERNEL__
+#include <linux/spinlock.h>
 #include <linux/skbuff.h>
 #include <linux/workqueue.h>
 
@@ -170,6 +171,7 @@ struct pptp_opt {
 	u32 ack_sent, ack_recv;
 	u32 seq_sent, seq_recv;
 	int ppp_flags;
+	spinlock_t seq_ack_lock;
 };
 #include <net/sock.h>
 
