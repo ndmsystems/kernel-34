@@ -78,7 +78,7 @@ EXPORT_SYMBOL(pppoe_pthrough);
 int (*ipv6_pthrough)(struct sk_buff *skb) = NULL;
 EXPORT_SYMBOL(ipv6_pthrough);
 
-int (*vpn_pthrough)(struct sk_buff *skb, int in) = NULL;
+int (*vpn_pthrough)(struct sk_buff *skb) = NULL;
 EXPORT_SYMBOL(vpn_pthrough);
 
 int (*vpn_pthrough_setup)(uint32_t sip, int add) = NULL;

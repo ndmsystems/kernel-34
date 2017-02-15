@@ -3,12 +3,6 @@
 
 #include <linux/list.h>
 
-#define FAST_VPN_RECV			1
-// By default, send through tasklets
-#define FAST_VPN_SEND_ASYNC		2
-#define FAST_VPN_SEND_SYNC		0
-
-
 #define FAST_VPN_ACTION_SETUP		1
 #define FAST_VPN_ACTION_RELEASE		0
 
