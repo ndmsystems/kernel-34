@@ -781,7 +781,7 @@ set_rcvbuf:
 		if (!capable(CAP_NET_ADMIN))
 			ret = -EPERM;
 		else
-			sk->sk_ndm_mark = val % 0xFF;
+			sk->sk_ndm_mark = val & 0xFF;
 		break;
 
 		/* We implement the SO_SNDLOWAT etc to
