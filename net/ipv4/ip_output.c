@@ -167,6 +167,9 @@ int ip_build_and_send_pkt(struct sk_buff *skb, struct sock *sk,
 
 	skb->priority = sk->sk_priority;
 	skb->mark = sk->sk_mark;
+#if IS_ENABLED(CONFIG_NETFILTER_XT_NDMMARK)
+	skb->ndm_mark = sk->sk_ndm_mark;
+#endif
 
 	/* Send it out. */
 	return ip_local_out(skb);
@@ -396,6 +399,9 @@ packet_routed:
 
 	skb->priority = sk->sk_priority;
 	skb->mark = sk->sk_mark;
+#if IS_ENABLED(CONFIG_NETFILTER_XT_NDMMARK)
+	skb->ndm_mark = sk->sk_ndm_mark;
+#endif
 
 	res = ip_local_out(skb);
 	rcu_read_unlock();
@@ -1359,6 +1365,9 @@ struct sk_buff *__ip_make_skb(struct sock *sk,
 
 	skb->priority = sk->sk_priority;
 	skb->mark = sk->sk_mark;
+#if IS_ENABLED(CONFIG_NETFILTER_XT_NDMMARK)
+	skb->ndm_mark = sk->sk_ndm_mark;
+#endif
 	/*
 	 * Steal rt from cork.dst to avoid a pair of atomic_inc/atomic_dec
 	 * on dst refcount

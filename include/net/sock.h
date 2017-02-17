@@ -362,6 +362,7 @@ struct sock {
 	void			*sk_security;
 #endif
 	__u32			sk_mark;
+	__u8			sk_ndm_mark;
 	u32			sk_classid;
 	struct cg_proto		*sk_cgrp;
 	void			(*sk_state_change)(struct sock *sk);

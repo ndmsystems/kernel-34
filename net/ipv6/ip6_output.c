@@ -252,6 +252,9 @@ int ip6_xmit(struct sock *sk, struct sk_buff *skb, struct flowi6 *fl6,
 
 	skb->priority = sk->sk_priority;
 	skb->mark = sk->sk_mark;
+#if IS_ENABLED(CONFIG_NETFILTER_XT_NDMMARK)
+	skb->ndm_mark = sk->sk_ndm_mark;
+#endif
 
 	mtu = dst_mtu(dst);
 	if ((skb->len <= mtu) || skb->local_df || skb_is_gso(skb)) {

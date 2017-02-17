@@ -1543,6 +1543,9 @@ retry:
 	skb->dev = dev;
 	skb->priority = sk->sk_priority;
 	skb->mark = sk->sk_mark;
+#if IS_ENABLED(CONFIG_NETFILTER_XT_NDMMARK)
+	skb->ndm_mark = sk->sk_ndm_mark;
+#endif
 	err = sock_tx_timestamp(sk, &skb_shinfo(skb)->tx_flags);
 	if (err < 0)
 		goto out_unlock;
@@ -2000,6 +2003,9 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
 	skb->dev = dev;
 	skb->priority = po->sk.sk_priority;
 	skb->mark = po->sk.sk_mark;
+#if IS_ENABLED(CONFIG_NETFILTER_XT_NDMMARK)
+	skb->ndm_mark = po->sk.sk_ndm_mark;
+#endif
 	skb_shinfo(skb)->destructor_arg = ph.raw;
 
 	switch (po->tp_version) {
@@ -2387,6 +2393,9 @@ static int packet_snd(struct socket *sock,
 	skb->dev = dev;
 	skb->priority = sk->sk_priority;
 	skb->mark = sk->sk_mark;
+#if IS_ENABLED(CONFIG_NETFILTER_XT_NDMMARK)
+	skb->ndm_mark = sk->sk_ndm_mark;
+#endif
 
 	if (po->has_vnet_hdr) {
 		if (vnet_hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {

@@ -777,6 +777,13 @@ set_rcvbuf:
 			sk->sk_mark = val;
 		break;
 
+	case SO_NDMMARK:
+		if (!capable(CAP_NET_ADMIN))
+			ret = -EPERM;
+		else
+			sk->sk_ndm_mark = val % 0xFF;
+		break;
+
 		/* We implement the SO_SNDLOWAT etc to
 		   not be settable (1003.1g 5.3) */
 	case SO_RXQ_OVFL:
@@ -1021,6 +1028,10 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
 
 	case SO_MARK:
 		v.val = sk->sk_mark;
+		break;
+
+	case SO_NDMMARK:
+		v.val = sk->sk_ndm_mark;
 		break;
 
 	case SO_RXQ_OVFL:
