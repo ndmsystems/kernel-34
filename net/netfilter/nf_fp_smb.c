@@ -110,16 +110,13 @@ static int nf_fp_smb_seq_show(struct seq_file *s, void *v)
 {
 	size_t i;
 
+	seq_printf(s, "%lu\n", nf_fp_smb_on);
+
 	for (i = 0; i < HOSTS_COUNT; ++i) {
 		seq_printf(s, "%pI4\n", PHOST_AT(i));
 	}
 
 	return 0;
-}
-
-static int nf_fp_smb_off_seq_show(struct seq_file *s, void *v)
-{
-	return seq_printf(s, "%u\n", nf_fp_smb_on);
 }
 
 static ssize_t nf_fp_smb_seq_write(struct file *file,
@@ -146,33 +143,26 @@ static ssize_t nf_fp_smb_seq_write(struct file *file,
 		return count;
 	}
 
-	if (smb_ip == (u32)-1)
+	if (smb_ip == (u32)-1) {
+		nf_fp_smb_on = 0;
+
+		memset(nf_fp_smb_hosts, 0, HOSTS_COUNT * sizeof(__be32));
+
+		printk(KERN_INFO "disable SMB fastpath\n");
+
 		return count;
+	}
 
 	for (i = 0; i < HOSTS_COUNT; ++i) {
 		if (HOST_AT(i) == 0 || HOST_AT(i) == cpu_to_be32(smb_ip)) {
 			HOST_AT(i) = cpu_to_be32(smb_ip);
+			nf_fp_smb_on = 1;
 
 			printk(KERN_INFO "enable SMB fastpath for %pI4\n", PHOST_AT(i));
 
 			break;
 		}
 	}
-
-	return count;
-}
-
-static ssize_t nf_fp_smb_off_seq_write(struct file *file,
-	const char __user *buffer, size_t count, loff_t *ppos)
-{
-	if (count == 0)
-		return count;
-
-	nf_fp_smb_on = 0;
-
-	memset(nf_fp_smb_hosts, 0, HOSTS_COUNT * sizeof(__be32));
-
-	printk(KERN_INFO "disable SMB fastpath\n");
 
 	return count;
 }
@@ -199,34 +189,14 @@ static const struct seq_operations nf_fp_smb_seq_ops = {
 	.show	= nf_fp_smb_seq_show,
 };
 
-static const struct seq_operations nf_fp_smb_off_seq_ops = {
-	.start	= seq_start,
-	.next	= seq_next,
-	.stop	= seq_stop,
-	.show	= nf_fp_smb_off_seq_show,
-};
-
 static int nf_fp_smb_seq_open(struct inode *inode, struct file *file)
 {
 	return seq_open(file, &nf_fp_smb_seq_ops);
 }
 
-static int nf_fp_smb_off_seq_open(struct inode *inode, struct file *file)
-{
-	return seq_open(file, &nf_fp_smb_off_seq_ops);
-}
-
 static const struct file_operations nf_fp_smb_fops = {
 	.open		= nf_fp_smb_seq_open,
 	.write		= nf_fp_smb_seq_write,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= seq_release,
-};
-
-static const struct file_operations nf_fp_smb_off_fops = {
-	.open		= nf_fp_smb_off_seq_open,
-	.write		= nf_fp_smb_off_seq_write,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
 	.release	= seq_release,
@@ -240,9 +210,6 @@ int __init netfilter_fp_smb_init(void)
 
 #ifdef CONFIG_PROC_FS
 	if (!proc_create("nf_fp_smb", 0664, proc_net_netfilter, &nf_fp_smb_fops))
-		return -ENOMEM;
-	if (!proc_create("nf_fp_smb_off", 0664,
-			proc_net_netfilter, &nf_fp_smb_off_fops))
 		return -ENOMEM;
 #endif
 
