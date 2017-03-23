@@ -15,7 +15,7 @@
 #define PHOST_AT(idx_)	((__be32 *)nf_fp_smb_hosts + (idx_))
 #define HOST_AT(idx_)	(*(PHOST_AT(idx_)))
 
-static u32 nf_fp_smb_on __read_mostly = 0;
+static u32 nf_fp_smb_on __read_mostly;
 static __be32 nf_fp_smb_hosts[HOSTS_COUNT] __read_mostly;
 
 int nf_fp_smb_hook_in(struct sk_buff *skb)
@@ -39,14 +39,12 @@ int nf_fp_smb_hook_in(struct sk_buff *skb)
 			break;
 		}
 
-		if (HOST_AT(i) == 0) {
+		if (HOST_AT(i) == 0)
 			break;
-		}
 	}
 
-	if (likely(!found)) {
+	if (likely(!found))
 		return 0;
-	}
 
 	tcph = skb_header_pointer(skb, (iph->ihl<<2), sizeof(_hdr), &_hdr);
 	if (!tcph)
@@ -82,14 +80,12 @@ int nf_fp_smb_hook_out(struct sk_buff *skb)
 			break;
 		}
 
-		if (HOST_AT(i) == 0) {
+		if (HOST_AT(i) == 0)
 			break;
-		}
 	}
 
-	if (likely(!found)) {
+	if (likely(!found))
 		return 0;
-	}
 
 	tcph = skb_header_pointer(skb, (iph->ihl<<2), sizeof(_hdr), &_hdr);
 	if (!tcph)
@@ -112,9 +108,8 @@ static int nf_fp_smb_seq_show(struct seq_file *s, void *v)
 
 	seq_printf(s, "%lu\n", nf_fp_smb_on);
 
-	for (i = 0; i < HOSTS_COUNT; ++i) {
+	for (i = 0; i < HOSTS_COUNT; ++i)
 		seq_printf(s, "%pI4\n", PHOST_AT(i));
-	}
 
 	return 0;
 }
@@ -146,9 +141,11 @@ static ssize_t nf_fp_smb_seq_write(struct file *file,
 	if (smb_ip == (u32)-1) {
 		nf_fp_smb_on = 0;
 
+		wmb();
+
 		memset(nf_fp_smb_hosts, 0, HOSTS_COUNT * sizeof(__be32));
 
-		printk(KERN_INFO "disable SMB fastpath\n");
+		printk(KERN_INFO "Disable SMB fastpath\n");
 
 		return count;
 	}
@@ -156,9 +153,12 @@ static ssize_t nf_fp_smb_seq_write(struct file *file,
 	for (i = 0; i < HOSTS_COUNT; ++i) {
 		if (HOST_AT(i) == 0 || HOST_AT(i) == cpu_to_be32(smb_ip)) {
 			HOST_AT(i) = cpu_to_be32(smb_ip);
+
+			wmb();
+
 			nf_fp_smb_on = 1;
 
-			printk(KERN_INFO "enable SMB fastpath for %pI4\n", PHOST_AT(i));
+			printk(KERN_INFO "Enable SMB fastpath for %pI4\n", PHOST_AT(i));
 
 			break;
 		}
@@ -206,6 +206,10 @@ static const struct file_operations nf_fp_smb_fops = {
 
 int __init netfilter_fp_smb_init(void)
 {
+	nf_fp_smb_on = 0;
+
+	mb();
+
 	memset(nf_fp_smb_hosts, 0, HOSTS_COUNT * sizeof(__be32));
 
 #ifdef CONFIG_PROC_FS
