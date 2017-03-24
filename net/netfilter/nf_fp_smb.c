@@ -50,8 +50,8 @@ int nf_fp_smb_hook_in(struct sk_buff *skb)
 	if (!tcph)
 		return 0;
 
-	if (tcph->dest == __constant_htons(445) ||
-	    tcph->dest == __constant_htons(139)) {
+	if (tcph->dest == htons(445) ||
+	    tcph->dest == htons(139)) {
 		skb->nf_fp_cache |= NF_FP_CACHE_SMB;
 		return 1;
 	}
@@ -91,8 +91,8 @@ int nf_fp_smb_hook_out(struct sk_buff *skb)
 	if (!tcph)
 		return 0;
 
-	if (tcph->source == __constant_htons(445) ||
-	    tcph->source == __constant_htons(139)) {
+	if (tcph->source == htons(445) ||
+	    tcph->source == htons(139)) {
 		skb->nf_fp_cache |= NF_FP_CACHE_SMB;
 		return 1;
 	}
@@ -120,6 +120,7 @@ static ssize_t nf_fp_smb_seq_write(struct file *file,
 	char buf[20];
 	u32 in[4], smb_ip = 0;
 	size_t i;
+	long conv = 0;
 
 	if (count > (sizeof(buf) - 1))
 		count = (sizeof(buf) - 1);
@@ -134,18 +135,16 @@ static ssize_t nf_fp_smb_seq_write(struct file *file,
 				return count;
 		}
 		smb_ip = (in[0] << 24) | (in[1] << 16) | (in[2] << 8) | in[3];
-	} else if (sscanf(buf, "%d", &smb_ip) != 1) {
+	} else if (kstrtol(buf, 10, &conv) != 0) {
 		return count;
 	}
 
-	if (smb_ip == (u32)-1) {
+	if (conv != 0 && smb_ip == 0) {
 		nf_fp_smb_on = 0;
-
-		wmb();
 
 		memset(nf_fp_smb_hosts, 0, HOSTS_COUNT * sizeof(__be32));
 
-		printk(KERN_INFO "Disable SMB fastpath\n");
+		pr_info("Disable SMB fastpath\n");
 
 		return count;
 	}
@@ -154,11 +153,9 @@ static ssize_t nf_fp_smb_seq_write(struct file *file,
 		if (HOST_AT(i) == 0 || HOST_AT(i) == cpu_to_be32(smb_ip)) {
 			HOST_AT(i) = cpu_to_be32(smb_ip);
 
-			wmb();
-
 			nf_fp_smb_on = 1;
 
-			printk(KERN_INFO "Enable SMB fastpath for %pI4\n", PHOST_AT(i));
+			pr_info("Enable SMB fastpath for %pI4\n", PHOST_AT(i));
 
 			break;
 		}
@@ -207,8 +204,6 @@ static const struct file_operations nf_fp_smb_fops = {
 int __init netfilter_fp_smb_init(void)
 {
 	nf_fp_smb_on = 0;
-
-	mb();
 
 	memset(nf_fp_smb_hosts, 0, HOSTS_COUNT * sizeof(__be32));
 
