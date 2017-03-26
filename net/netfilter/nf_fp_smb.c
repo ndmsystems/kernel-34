@@ -12,8 +12,8 @@
 #include <net/netfilter/nf_fp_smb.h>
 
 #define HOSTS_COUNT		8
-#define PHOST_AT(idx_)	((__be32 *)nf_fp_smb_hosts + (idx_))
-#define HOST_AT(idx_)	(*(PHOST_AT(idx_)))
+#define PHOST_AT(idx_)		((__be32 *)nf_fp_smb_hosts + (idx_))
+#define HOST_AT(idx_)		(*(PHOST_AT(idx_)))
 
 static u32 nf_fp_smb_on __read_mostly;
 static __be32 nf_fp_smb_hosts[HOSTS_COUNT] __read_mostly;
@@ -46,7 +46,7 @@ int nf_fp_smb_hook_in(struct sk_buff *skb)
 	if (likely(!found))
 		return 0;
 
-	tcph = skb_header_pointer(skb, (iph->ihl<<2), sizeof(_hdr), &_hdr);
+	tcph = skb_header_pointer(skb, (iph->ihl << 2), sizeof(_hdr), &_hdr);
 	if (!tcph)
 		return 0;
 
@@ -87,7 +87,7 @@ int nf_fp_smb_hook_out(struct sk_buff *skb)
 	if (likely(!found))
 		return 0;
 
-	tcph = skb_header_pointer(skb, (iph->ihl<<2), sizeof(_hdr), &_hdr);
+	tcph = skb_header_pointer(skb, (iph->ihl << 2), sizeof(_hdr), &_hdr);
 	if (!tcph)
 		return 0;
 
@@ -115,7 +115,8 @@ static int nf_fp_smb_seq_show(struct seq_file *s, void *v)
 }
 
 static ssize_t nf_fp_smb_seq_write(struct file *file,
-	const char __user *buffer, size_t count, loff_t *ppos)
+				   const char __user *buffer,
+				   size_t count, loff_t *ppos)
 {
 	char buf[20];
 	u32 in[4], smb_ip = 0;
