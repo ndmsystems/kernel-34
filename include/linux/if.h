@@ -81,7 +81,8 @@
 #define IFF_UNICAST_FLT	0x20000		/* Supports unicast filtering	*/
 #define IFF_TEAM_PORT	0x40000		/* device used as team port */
 #define IFF_SUPP_NOFCS	0x80000		/* device supports sending custom FCS */
-
+#define IFF_UBRIDGE		0x100000	/* Ethernet ubridging device */
+#define IFF_UBRIDGE_PORT	0x200000	/* device used as ubridge port */
 
 #define IF_GET_IFACE	0x0001		/* for querying only */
 #define IF_GET_PROTO	0x0002
