@@ -21,7 +21,7 @@ int ubr_update_stats(struct net_device *dev, unsigned long rxbytes,
 	unsigned long rxpackets, unsigned long txbytes, unsigned long txpackets);
 
 static inline struct net_device *ubr_get_by_slave_rcu(
-	struct net_device* slave_dev)
+	struct net_device *slave_dev)
 {
 	struct ubr_private *ubr = NULL;
 

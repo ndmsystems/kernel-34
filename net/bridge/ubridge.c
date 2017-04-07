@@ -7,7 +7,7 @@
  * UBR_UC_SYNC - allow sync unicast list for slave device.
  * Note: usbnet devices usually not implements unicast list.
  */
-//#define UBR_UC_SYNC
+/* #define UBR_UC_SYNC */
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -42,7 +42,8 @@ static LIST_HEAD(ubr_list);
 static int ubr_dev_ioctl(struct net_device *, struct ifreq *, int);
 static int ubr_set_mac_addr_force(struct net_device *dev, void *p);
 
-static inline struct ubr_private *ubr_priv_get_rcu(const struct net_device *dev)
+static inline struct ubr_private *ubr_priv_get_rcu(
+	const struct net_device *dev)
 {
 	return rcu_dereference(dev->rx_handler_data);
 }
@@ -57,7 +58,8 @@ static rx_handler_result_t ubr_handle_frame(struct sk_buff **pskb)
 		return RX_HANDLER_PASS;
 
 #ifdef DEBUG
-	printk(KERN_INFO "%s: packet %s -> %s\n", __func__, ubr->slave_dev->name, ubr->dev->name);
+	pr_info("%s: packet %s -> %s\n",
+		__func__, ubr->slave_dev->name, ubr->dev->name);
 #endif
 
 	ustats = this_cpu_ptr(ubr->stats);
@@ -226,8 +228,7 @@ static void ubr_set_rx_mode(struct net_device *dev)
 	dev_mc_sync(slave_dev, dev);
 }
 
-static const struct net_device_ops ubr_netdev_ops =
-{
+static const struct net_device_ops ubr_netdev_ops = {
 	.ndo_init		 = ubr_init,
 	.ndo_open		 = ubr_open,
 	.ndo_stop		 = ubr_stop,
@@ -274,7 +275,7 @@ static int ubr_free_master(struct net *net, const char *name)
 	rtnl_lock();
 	dev = __dev_get_by_name(net, name);
 	if (dev == NULL)
-		ret =  -ENXIO; 	/* Could not find device */
+		ret =  -ENXIO; /* Could not find device */
 	else if (dev->flags & IFF_UP)
 		/* Not shutdown yet. */
 		ret = -EBUSY;
@@ -285,7 +286,8 @@ static int ubr_free_master(struct net *net, const char *name)
 	return ret;
 }
 
-static int ubr_set_mac_addr(struct net_device *master_dev, struct sockaddr *addr)
+static int ubr_set_mac_addr(
+	struct net_device *master_dev, struct sockaddr *addr)
 {
 	struct sockaddr old_addr;
 	struct vlan_info *vlan_info;
@@ -404,10 +406,11 @@ static int ubr_atto_master(struct net_device *master_dev, int ifindex)
 
 	if (!test_bit(MAC_FORCED, &ubr0->flags)) {
 		struct sockaddr addr;
+
 		memcpy(addr.sa_data, dev1->dev_addr, ETH_ALEN);
 
 		if (ubr_set_mac_addr(master_dev, &addr))
-			printk(KERN_ERR "ubr_atto_master error setting MAC\n");
+			pr_err("ubr_atto_master error setting MAC\n");
 	}
 
 	mac_differ = compare_ether_addr(master_dev->dev_addr, dev1->dev_addr);
@@ -415,9 +418,8 @@ static int ubr_atto_master(struct net_device *master_dev, int ifindex)
 	ubr0->slave_dev = dev1;
 
 	err = netdev_rx_handler_register(dev1, ubr_handle_frame, ubr0);
-	if (err) {
+	if (err)
 		goto out;
-	}
 
 	if (master_dev->flags & IFF_PROMISC || mac_differ)
 		dev_set_promiscuity(dev1, 1);
@@ -474,9 +476,11 @@ static long ubr_show(char *buf, long len)
 		len = SHOW_BUF_MAX_LEN;
 
 	list_for_each_entry(ubr_item, &ubr_list, list) {
-		written += snprintf(buf + written, len - written, "%-16s %02hhx%02hhx%02hhx%02hhx%02hhx%02hhx\t",
-				ubr_item->dev->name, ubr_item->dev->dev_addr[0], ubr_item->dev->dev_addr[1],
-				ubr_item->dev->dev_addr[2], ubr_item->dev->dev_addr[3], ubr_item->dev->dev_addr[4],
+		written += snprintf(buf + written, len - written,
+				"%-16s %02hhx%02hhx%02hhx%02hhx%02hhx%02hhx\t",
+				ubr_item->dev->name, ubr_item->dev->dev_addr[0],
+				ubr_item->dev->dev_addr[1], ubr_item->dev->dev_addr[2],
+				ubr_item->dev->dev_addr[3], ubr_item->dev->dev_addr[4],
 				ubr_item->dev->dev_addr[5]);
 		if (written >= len - 2)
 			break;
@@ -484,7 +488,8 @@ static long ubr_show(char *buf, long len)
 		if (ubr_item->slave_dev == NULL)
 			written += sprintf(buf + written, "-\n");
 		else
-			written += snprintf(buf + written, len - written, "%s\n", ubr_item->slave_dev->name);
+			written += snprintf(buf + written, len - written, "%s\n",
+				ubr_item->slave_dev->name);
 		if (written >= len - 1)
 			break;
 	}
@@ -492,7 +497,8 @@ static long ubr_show(char *buf, long len)
 	return written;
 }
 
-int ubr_ioctl_deviceless_stub(struct net *net, unsigned int cmd, void __user *uarg)
+int ubr_ioctl_deviceless_stub(
+	struct net *net, unsigned int cmd, void __user *uarg)
 {
 	char buf[IFNAMSIZ];
 
@@ -582,9 +588,9 @@ static struct notifier_block ubr_device_notifier = {
 static int __init ubridge_init(void)
 {
 	ubrioctl_set(ubr_ioctl_deviceless_stub);
-	printk(KERN_INFO "ubridge: %s, %s\n", DRV_DESCRIPTION, DRV_VERSION);
+	pr_info("ubridge: %s, %s\n", DRV_DESCRIPTION, DRV_VERSION);
 	if (register_netdevice_notifier(&ubr_device_notifier))
-		printk(KERN_ERR "%s: Error registering notifier\n", __func__);
+		pr_err("%s: Error registering notifier\n", __func__);
 	return 0;
 }
 
@@ -600,7 +606,7 @@ static void __exit ubridge_exit(void)
 	}
 	rtnl_unlock();
 
-	printk(KERN_INFO "ubridge: driver unloaded\n");
+	pr_info("ubridge: driver unloaded\n");
 }
 
 module_init(ubridge_init);
