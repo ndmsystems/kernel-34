@@ -12,7 +12,6 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/list.h>
 #include <linux/miscdevice.h>
 #include <linux/fs.h>
 #include <linux/ctype.h>
@@ -24,7 +23,7 @@
 #include <linux/if_bridge.h>
 #include <linux/netfilter_bridge.h>
 #include <../net/8021q/vlan.h>
-#include "br_private.h"
+#include "ubridge_private.h"
 
 #define MAC_FORCED		0
 
@@ -34,14 +33,6 @@
 							    (i) % VLAN_N_VID)))
 
 static LIST_HEAD(ubr_list);
-
-struct ubr_private {
-	struct net_device		*slave_dev;
-	struct br_cpu_netstats __percpu *stats;
-	struct list_head		list;
-	struct net_device		*dev;
-	unsigned long			flags;
-};
 
 static int ubr_dev_ioctl(struct net_device *, struct ifreq *, int);
 static int ubr_set_mac_addr_force(struct net_device *dev, void *p);
@@ -81,6 +72,28 @@ static rx_handler_result_t ubr_handle_frame(struct sk_buff **pskb)
 
 	return RX_HANDLER_CONSUMED;
 }
+
+int ubr_update_stats(struct net_device *dev, unsigned long rxbytes,
+	unsigned long rxpackets, unsigned long txbytes, unsigned long txpackets)
+{
+	struct ubr_private *ubr = netdev_priv(dev);
+	struct br_cpu_netstats *ustats;
+
+	if (!is_ubridge(dev) || ubr == NULL)
+		return -EINVAL;
+
+	ustats = this_cpu_ptr(ubr->stats);
+
+	u64_stats_update_begin(&ustats->syncp);
+	ustats->rx_packets += rxpackets;
+	ustats->rx_bytes += rxbytes;
+	ustats->tx_packets += txpackets;
+	ustats->tx_bytes += txbytes;
+	u64_stats_update_end(&ustats->syncp);
+
+	return 0;
+}
+EXPORT_SYMBOL(ubr_update_stats);
 
 static int ubr_init(struct net_device *dev)
 {
@@ -329,6 +342,7 @@ static int ubr_alloc_master(const char *name)
 	dev->flags		= IFF_BROADCAST | IFF_MULTICAST;
 	dev->netdev_ops		= &ubr_netdev_ops;
 	dev->destructor		= ubr_dev_free;
+	dev->priv_flags		|= IFF_UBRIDGE;
 
 	err = register_netdev(dev);
 	if (err) {
@@ -386,6 +400,8 @@ static int ubr_atto_master(struct net_device *master_dev, int ifindex)
 		dev_set_promiscuity(dev1, 1);
 
 	netif_carrier_on(master_dev);
+	dev1->priv_flags |= IFF_UBRIDGE_PORT;
+
 	err = 0;
 
 out:
@@ -415,6 +431,8 @@ static int ubr_detach(struct net_device *master_dev, int ifindex)
 
 	if (master_dev->flags & IFF_PROMISC)
 		dev_set_promiscuity(dev1, -1);
+
+	dev1->priv_flags &= ~IFF_UBRIDGE_PORT;
 
 	err = 0;
 
