@@ -106,7 +106,7 @@ static int nf_fp_smb_seq_show(struct seq_file *s, void *v)
 {
 	size_t i;
 
-	seq_printf(s, "%lu\n", nf_fp_smb_on);
+	seq_printf(s, "%lu\n", (unsigned long)nf_fp_smb_on);
 
 	for (i = 0; i < HOSTS_COUNT; ++i)
 		seq_printf(s, "%pI4\n", PHOST_AT(i));
