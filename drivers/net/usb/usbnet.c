@@ -1346,6 +1346,11 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
 #endif
 
 #if IS_ENABLED(CONFIG_FAST_NAT)
+#if defined(SWNAT_KA_CHECK_MARK)
+	if (unlikely(SWNAT_KA_CHECK_MARK(skb))) {
+		goto not_drop;
+	}
+#endif
 	rcu_read_lock();
 	if (!(info->flags & FLAG_MULTI_PACKET) &&
 		 (info->flags & FLAG_ETHER) &&
