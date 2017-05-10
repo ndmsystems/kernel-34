@@ -254,6 +254,9 @@ nfssvc_decode_readargs(struct svc_rqst *rqstp, __be32 *p,
 	len = args->count     = ntohl(*p++);
 	p++; /* totalcount - unused */
 
+	if (!xdr_argsize_check(rqstp, p))
+		return 0;
+
 	if (len > NFSSVC_MAXBLKSIZE_V2)
 		len = NFSSVC_MAXBLKSIZE_V2;
 
@@ -269,7 +272,7 @@ nfssvc_decode_readargs(struct svc_rqst *rqstp, __be32 *p,
 		v++;
 	}
 	args->vlen = v;
-	return xdr_argsize_check(rqstp, p);
+	return 1;
 }
 
 int
@@ -358,9 +361,13 @@ nfssvc_decode_readlinkargs(struct svc_rqst *rqstp, __be32 *p, struct nfsd_readli
 {
 	if (!(p = decode_fh(p, &args->fh)))
 		return 0;
+
+	if (!xdr_argsize_check(rqstp, p))
+		return 0;
+
 	args->buffer = page_address(rqstp->rq_respages[rqstp->rq_resused++]);
 
-	return xdr_argsize_check(rqstp, p);
+	return 1;
 }
 
 int
@@ -396,12 +403,16 @@ nfssvc_decode_readdirargs(struct svc_rqst *rqstp, __be32 *p,
 		return 0;
 	args->cookie = ntohl(*p++);
 	args->count  = ntohl(*p++);
+
+	if (!xdr_argsize_check(rqstp, p))
+		return 0;
+
 	if (args->count > PAGE_SIZE)
 		args->count = PAGE_SIZE;
 
 	args->buffer = page_address(rqstp->rq_respages[rqstp->rq_resused++]);
 
-	return xdr_argsize_check(rqstp, p);
+	return 1;
 }
 
 /*
