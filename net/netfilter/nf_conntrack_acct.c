@@ -203,6 +203,13 @@ static struct nf_hook_ops conntrack_acct_ops[] __read_mostly = {
 		.hooknum	= NF_INET_FORWARD,
 		.priority	= NF_IP_PRI_CONNTRACK_ACCT,
 	},
+	{
+		.hook		= do_ipv4_conntrack_acct,
+		.owner		= THIS_MODULE,
+		.pf			= NFPROTO_IPV4,
+		.hooknum	= NF_INET_LOCAL_OUT,
+		.priority	= NF_IP_PRI_CONNTRACK_ACCT,
+	},
 #ifdef CONFIG_IPV6
 	{
 		.hook		= do_ipv6_conntrack_acct,
@@ -216,6 +223,13 @@ static struct nf_hook_ops conntrack_acct_ops[] __read_mostly = {
 		.owner		= THIS_MODULE,
 		.pf			= NFPROTO_IPV6,
 		.hooknum	= NF_INET_FORWARD,
+		.priority	= NF_IP6_PRI_CONNTRACK_ACCT,
+	},
+	{
+		.hook		= do_ipv6_conntrack_acct,
+		.owner		= THIS_MODULE,
+		.pf			= NFPROTO_IPV6,
+		.hooknum	= NF_INET_LOCAL_OUT,
 		.priority	= NF_IP6_PRI_CONNTRACK_ACCT,
 	},
 #endif
