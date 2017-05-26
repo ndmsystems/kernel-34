@@ -297,9 +297,14 @@ out_kfree:
 out:
 	return res;
 }
-#endif
+#endif /* CONFIG_MTD_NDM_BOOT_UPDATE */
 
 #ifdef CONFIG_MTD_NDM_CONFIG_TRANSITION
+
+#ifdef NAND_BB_MODE_SKIP
+#error "CONFIG_MTD_NDM_CONFIG_TRANSITION and NAND_BB_MODE_SKIP don't work together yet"
+#endif
+
 static int config_find(struct mtd_info *master, u32 *offset)
 {
 	static const u32 TRANSITION_OFFSETS[] = {
@@ -402,7 +407,7 @@ out_kfree:
 out:
 	return;
 }
-#endif
+#endif /* CONFIG_MTD_NDM_CONFIG_TRANSITION */
 
 static inline unsigned part_u_boot_size(struct mtd_info *master)
 {
@@ -448,17 +453,36 @@ static inline unsigned part_config_size(struct mtd_info *master)
 	return size;
 }
 
-static int create_mtd_partitions(struct mtd_info *master,
+#ifdef NAND_BB_MODE_SKIP
+extern int mtk_nand_tmp_parts_set(const char *name, uint32_t off,
+				  uint32_t size);
+extern void mtk_nand_tmp_parts_reset(void);
+#else
+static inline int mtk_nand_tmp_parts_set(const char *name, uint32_t off,
+					 uint32_t size)
+{
+	return 0;
+}
+
+static inline void mtk_nand_tmp_parts_reset(void)
+{
+}
+#endif /* NAND_BB_MODE_SKIP */
+
+static int create_mtd_partitions(struct mtd_info *m,
 				 struct mtd_partition **pparts,
 				 struct mtd_part_parser_data *data)
 {
 	bool use_dump, use_storage;
 	int index, dump_index, part_num, storage_index;
+#ifdef CONFIG_MTD_NDM_BOOT_UPDATE
+	int ret;
+#endif
 	size_t len;
 	uint32_t config_offset, offset, flash_size, flash_size_lim;
 	__le32 magic;
 
-	flash_size = master->size;
+	flash_size = m->size;
 
 	flash_size_lim = CONFIG_MTD_NDM_FLASH_SIZE_LIMIT;
 	if (!flash_size_lim)
@@ -467,11 +491,25 @@ static int create_mtd_partitions(struct mtd_info *master,
 	printk(KERN_INFO "Current flash size = 0x%x\n", flash_size);
 
 	/* U-Boot */
-	ndm_parts[PART_U_BOOT].size = part_u_boot_size(master);
+	ndm_parts[PART_U_BOOT].size = part_u_boot_size(m);
+
+#ifdef CONFIG_MTD_NDM_BOOT_UPDATE
+	ret = mtk_nand_tmp_parts_set(ndm_parts[PART_U_BOOT].name,
+				     ndm_parts[PART_U_BOOT].offset,
+				     ndm_parts[PART_U_BOOT].size);
+	if (ret < 0) {
+		printk("%s: mtk_nand_tmp_parts_set error (%d)\n",
+		       __func__, ret);
+		return ret;
+	}
+	ndm_flash_boot(m, ndm_parts[PART_U_BOOT].offset,
+		       ndm_parts[PART_U_BOOT].size);
+	mtk_nand_tmp_parts_reset();
+#endif
 
 	/* U-Config */
 	ndm_parts[PART_U_CONFIG].offset = ndm_parts[PART_U_BOOT].size;
-	ndm_parts[PART_U_CONFIG].size = part_u_config_size(master);
+	ndm_parts[PART_U_CONFIG].size = part_u_config_size(m);
 
 	/* RF-EEPROM */
 	ndm_parts[PART_RF_EEPROM].offset = ndm_parts[PART_U_CONFIG].offset +
@@ -481,10 +519,10 @@ static int create_mtd_partitions(struct mtd_info *master,
 	 * TODO: Move to separate function.
 	 */
 	for (offset = ndm_parts[PART_RF_EEPROM].offset;
-	     offset < flash_size_lim; offset += master->erasesize) {
+	     offset < flash_size_lim; offset += m->erasesize) {
 		
-		mtd_read(master, offset, sizeof(magic), &len,
-		             (uint8_t *) &magic);
+		mtd_read(m, offset, sizeof(magic), &len,
+		         (uint8_t *) &magic);
 		if (magic == KERNEL_MAGIC){
 			printk(KERN_INFO "Found kernel at offset 0x%x\n",
 			       offset);
@@ -538,7 +576,7 @@ static int create_mtd_partitions(struct mtd_info *master,
 		index++;
 	}
 
-	ndm_parts[PART_CONFIG].size = part_config_size(master);
+	ndm_parts[PART_CONFIG].size = part_config_size(m);
 
 	if (use_dump && !use_storage) {
 		config_offset = ndm_parts[dump_index].offset -
@@ -560,7 +598,7 @@ static int create_mtd_partitions(struct mtd_info *master,
 	/* Config */
 	ndm_parts[PART_CONFIG].offset = config_offset;
 #ifdef CONFIG_MTD_NDM_CONFIG_TRANSITION
-	config_move(master, ndm_parts[PART_CONFIG].offset);
+	config_move(m, ndm_parts[PART_CONFIG].offset);
 #endif
 
 	/* Backup */
@@ -590,11 +628,6 @@ static int create_mtd_partitions(struct mtd_info *master,
 
 	*pparts = kmemdup(ndm_parts, sizeof(struct mtd_partition) * part_num,
 			  GFP_KERNEL);
-
-#ifdef CONFIG_MTD_NDM_BOOT_UPDATE
-	ndm_flash_boot(master, ndm_parts[PART_U_BOOT].offset,
-		       ndm_parts[PART_U_BOOT].size);
-#endif
 
 	return part_num;
 }
