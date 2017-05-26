@@ -437,9 +437,14 @@ out_kfree:
 out:
 	return res;
 }
-#endif
+#endif /* CONFIG_MTD_NDM_BOOT_UPDATE */
 
 #ifdef CONFIG_MTD_NDM_CONFIG_TRANSITION
+
+#ifdef NAND_BB_MODE_SKIP
+#error "CONFIG_MTD_NDM_CONFIG_TRANSITION and NAND_BB_MODE_SKIP don't work together yet"
+#endif
+
 static int config_find(struct mtd_info *master, u32 *offset)
 {
 	static const u32 TRANSITION_OFFSETS[] = {
@@ -542,7 +547,7 @@ out_kfree:
 out:
 	return;
 }
-#endif
+#endif /* CONFIG_MTD_NDM_CONFIG_TRANSITION */
 
 static uint32_t part_rootfs_offset(struct mtd_info *master,
 				   uint32_t begin, uint32_t end)
@@ -566,7 +571,23 @@ static inline int di_image_num_pair_get(int n)
 	return (n == 1) ? 2 : 1;
 }
 
-static int create_mtd_partitions(struct mtd_info *master,
+#ifdef NAND_BB_MODE_SKIP
+extern int mtk_nand_tmp_parts_set(const char *name, uint32_t off,
+				  uint32_t size);
+extern void mtk_nand_tmp_parts_reset(void);
+#else
+static inline int mtk_nand_tmp_parts_set(const char *name, uint32_t off,
+					 uint32_t size)
+{
+	return 0;
+}
+
+static inline void mtk_nand_tmp_parts_reset(void)
+{
+}
+#endif /* NAND_BB_MODE_SKIP */
+
+static int create_mtd_partitions(struct mtd_info *m,
 				 struct mtd_partition **pparts,
 				 struct mtd_part_parser_data *data)
 {
@@ -586,15 +607,24 @@ static int create_mtd_partitions(struct mtd_info *master,
 	if (CONFIG_MTD_NDM_STORAGE_SIZE)
 		use_storage = true;
 
-	flash_size = master->size;
+	flash_size = m->size;
 
 	flash_size_lim = CONFIG_MTD_NDM_FLASH_SIZE_LIMIT;
 	if (!flash_size_lim)
 		flash_size_lim = flash_size;
 
 #ifdef CONFIG_MTD_NDM_BOOT_UPDATE
-	ndm_flash_boot(master, 0, parts_size_default_get(PART_U_BOOT, master));
-#endif
+	ret = mtk_nand_tmp_parts_set("U-Boot", 0,
+				     parts_size_default_get(PART_U_BOOT, m));
+	if (ret < 0) {
+		printk("%s: mtk_nand_tmp_parts_set error (%d)\n",
+		       __func__, ret);
+		return ret;
+	}
+
+	ndm_flash_boot(m, 0, parts_size_default_get(PART_U_BOOT, m));
+	mtk_nand_tmp_parts_reset();
+#endif /* CONFIG_MTD_NDM_BOOT_UPDATE */
 
 #ifdef CONFIG_MTD_NDM_DUAL_IMAGE
 	if (ndmpart_di_is_enabled) {
@@ -605,19 +635,23 @@ static int create_mtd_partitions(struct mtd_info *master,
 			return -EINVAL;
 		}
 
-		ret = u_state_init(master,
+		ret = mtk_nand_tmp_parts_set("U-State", off_si,
+				parts_size_default_get(PART_U_STATE, m));
+		if (ret < 0) {
+			printk("%s: mtk_nand_tmp_parts_set error (%d)\n",
+			       __func__, ret);
+			return ret;
+		}
+
+		ret = u_state_init(m,
 				   off_si,
-				   parts_size_default_get(PART_U_BOOT, master));
+				   parts_size_default_get(PART_U_BOOT, m));
+		mtk_nand_tmp_parts_reset();
 		if (ret < 0)
 			return ret;
 
-		ret = u_state_get(DI_BOOT_ACTIVE, &boot_active);
-		if (ret < 0)
-			return ret;
-
-		ret = u_state_get(DI_BOOT_BACKUP, &boot_backup);
-		if (ret < 0)
-			return ret;
+		u_state_get(DI_BOOT_ACTIVE, &boot_active);
+		u_state_get(DI_BOOT_BACKUP, &boot_backup);
 
 		if (boot_active)
 			ndmpart_image_cur = boot_active;
@@ -627,23 +661,21 @@ static int create_mtd_partitions(struct mtd_info *master,
 		printk(KERN_INFO "di: active = %d, backup = %d, current = %d\n",
 				 boot_active, boot_backup, ndmpart_image_cur);
 	}
-#endif
+#endif /* CONFIG_MTD_NDM_DUAL_IMAGE */
 
 	/* Fill known fields */
-	parts[PART_U_BOOT].size = parts_size_default_get(PART_U_BOOT, master);
+	parts[PART_U_BOOT].size = parts_size_default_get(PART_U_BOOT, m);
 
 	parts[PART_U_CONFIG].offset = parts_offset_end(PART_U_BOOT);
-	parts[PART_U_CONFIG].size = parts_size_default_get(PART_U_CONFIG,
-							   master);
+	parts[PART_U_CONFIG].size = parts_size_default_get(PART_U_CONFIG, m);
 
 	parts[PART_RF_EEPROM].offset = parts_offset_end(PART_U_CONFIG);
-	parts[PART_RF_EEPROM].size = parts_size_default_get(PART_RF_EEPROM,
-							    master);
+	parts[PART_RF_EEPROM].size = parts_size_default_get(PART_RF_EEPROM, m);
 
 	parts[PART_KERNEL_1].offset = parts_offset_end(PART_RF_EEPROM);
 	parts[PART_FIRMWARE_1].offset = parts[PART_KERNEL_1].offset;
 
-	parts[PART_CONFIG_1].size = parts_size_default_get(PART_CONFIG_1, master);
+	parts[PART_CONFIG_1].size = parts_size_default_get(PART_CONFIG_1, m);
 
 	if (use_storage) {
 		parts[PART_STORAGE].skip = false;
@@ -683,7 +715,7 @@ static int create_mtd_partitions(struct mtd_info *master,
 	if (ndmpart_image_cur == DI_IMAGE_FIRST)
 #endif
 	{
-		off = part_rootfs_offset(master,
+		off = part_rootfs_offset(m,
 					 parts[PART_KERNEL_1].offset,
 					 parts[PART_CONFIG_1].offset);
 
@@ -726,8 +758,8 @@ static int create_mtd_partitions(struct mtd_info *master,
 		parts[PART_CONFIG_2].size = parts[PART_CONFIG_1].size;
 
 		if (ndmpart_image_cur == DI_IMAGE_SECOND) {
-			off = part_rootfs_offset(master, parts[PART_FIRMWARE_2].offset,
-							 parts_offset_end(PART_FIRMWARE_2));
+			off = part_rootfs_offset(m, parts[PART_FIRMWARE_2].offset,
+						 parts_offset_end(PART_FIRMWARE_2));
 			if (off) {
 				parts[PART_ROOTFS_2].skip = false;
 				parts[PART_ROOTFS_2].offset = off;
@@ -744,7 +776,7 @@ static int create_mtd_partitions(struct mtd_info *master,
 
 	/* Post actions */
 #ifdef CONFIG_MTD_NDM_CONFIG_TRANSITION
-	config_move(master, parts[PART_CONFIG_1].offset);
+	config_move(m, parts[PART_CONFIG_1].offset);
 #endif
 	ndm_parts_num = parts_num();
 
@@ -966,16 +998,16 @@ static struct di_u_state u_state;
 static struct mtd_info *u_state_master;
 static uint32_t u_state_offset, u_state_size;
 
-static int u_state_init(struct mtd_info *master, uint32_t off, uint32_t size)
+static int u_state_init(struct mtd_info *m, uint32_t off, uint32_t size)
 {
 	int ret;
 	size_t len;
 
-	u_state_master = master;
+	u_state_master = m;
 	u_state_offset = off;
 	u_state_size = size;
 
-	ret = mtd_read(master, off, sizeof(u_state), &len, (void *)&u_state);
+	ret = mtd_read(m, off, sizeof(u_state), &len, (void *)&u_state);
 	if (ret != 0 || len != sizeof(u_state)) {
 		printk("%s: read failed at 0x%012x\n", __func__, off);
 		return -EIO;

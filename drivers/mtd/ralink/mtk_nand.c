@@ -27,7 +27,7 @@
 
 static const char *part_probes[] = { "ndmpart", NULL };
 static struct mtd_partition *mtd_parts;
-int part_num = 0;
+static int part_num;
 
 #if defined (CONFIG_MTD_NDM_DUAL_IMAGE)
 extern int ndmpart_image_cur;
@@ -45,12 +45,15 @@ extern bool ndmpart_di_is_enabled;
 #if defined (SKIP_BAD_BLOCK)
 static uint32_t storage_offset_begin, storage_offset_end;
 static uint32_t firmware_offset_begin, firmware_size;
-static int8_t kernel_idx, rootfs_idx;
+
+static int8_t kernel_idx = -1, rootfs_idx = -1;
 static int shift_on_bbt = 0;
+
 static int is_skip_bad_block(struct mtd_info *mtd, int page);
 extern void nand_bbt_set_bad(struct mtd_info *mtd, int page);
 extern int nand_bbt_get(struct mtd_info *mtd, int page);
 #endif
+
 static int mtk_nand_read_oob_hw(struct mtd_info *mtd, struct nand_chip *chip, int page);
 static int mtk_nand_read_oob_raw(struct mtd_info *mtd, uint8_t * buf, int page_addr, int len);
 
@@ -2267,6 +2270,42 @@ static struct mtd_partition *mtd_part_find_by_name(const char *name, int8_t *idx
 }
 #endif
 
+#if defined (SKIP_BAD_BLOCK)
+int mtk_nand_tmp_parts_set(const char *name, uint32_t off, uint32_t size)
+{
+	struct mtd_partition *p;
+
+	if (name == NULL)
+		return -EINVAL;
+
+	if (mtd_parts || part_num)
+		return -EEXIST;
+
+	p = kzalloc(sizeof(*mtd_parts), GFP_KERNEL);
+	if (p == NULL)
+		return -ENOMEM;
+
+	p->name = (char *)name;
+	p->offset = off;
+	p->size = size;
+
+	mtd_parts = p;
+	part_num = 1;
+
+	return 0;
+}
+
+void mtk_nand_tmp_parts_reset(void)
+{
+	if (mtd_parts == NULL)
+		return;
+
+	kfree(mtd_parts);
+	mtd_parts = NULL;
+	part_num = 0;
+}
+#endif /* SKIP_BAD_BLOCK */
+
 static int mtk_nand_probe(struct platform_device *pdev)
 {
 	struct mtk_nand_host *host;
@@ -2406,11 +2445,10 @@ static int mtk_nand_probe(struct platform_device *pdev)
 #if defined (SKIP_BAD_BLOCK)
 	shift_on_bbt = 1;
 #endif
-
 	/* register the partitions */
 	part_num = parse_mtd_partitions(mtd, part_probes, &mtd_parts, 0);
 	err = -1;
-	if(part_num > 0)
+	if (part_num > 0)
 		err = add_mtd_partitions(mtd, mtd_parts, part_num);
 	else
 		printk("No partitions found on a flash.");
