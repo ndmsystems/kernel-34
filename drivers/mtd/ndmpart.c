@@ -593,8 +593,11 @@ static int create_mtd_partitions(struct mtd_info *m,
 {
 	bool use_dump, use_storage;
 	int i, j;
+#if defined(CONFIG_MTD_NDM_BOOT_UPDATE) || defined(CONFIG_MTD_NDM_DUAL_IMAGE)
+	int ret;
+#endif
 #ifdef CONFIG_MTD_NDM_DUAL_IMAGE
-	int boot_active, boot_backup, ret;
+	int boot_active, boot_backup;
 	uint32_t off_si = 0;
 #endif
 	uint32_t off, flash_size, flash_size_lim;
@@ -614,7 +617,7 @@ static int create_mtd_partitions(struct mtd_info *m,
 		flash_size_lim = flash_size;
 
 #ifdef CONFIG_MTD_NDM_BOOT_UPDATE
-	ret = mtk_nand_tmp_parts_set("U-Boot", 0,
+	ret = mtk_nand_tmp_parts_set(parts[PART_U_BOOT].name, 0,
 				     parts_size_default_get(PART_U_BOOT, m));
 	if (ret < 0) {
 		printk("%s: mtk_nand_tmp_parts_set error (%d)\n",
@@ -635,7 +638,7 @@ static int create_mtd_partitions(struct mtd_info *m,
 			return -EINVAL;
 		}
 
-		ret = mtk_nand_tmp_parts_set("U-State", off_si,
+		ret = mtk_nand_tmp_parts_set(parts[PART_U_STATE].name, off_si,
 				parts_size_default_get(PART_U_STATE, m));
 		if (ret < 0) {
 			printk("%s: mtk_nand_tmp_parts_set error (%d)\n",
