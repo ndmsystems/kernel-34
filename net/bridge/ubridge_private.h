@@ -2,7 +2,9 @@
 #define _BR_UBRIDGE_PRIVATE_H
 
 #include <linux/list.h>
+#include <linux/atomic.h>
 #include <linux/if.h>
+#include <linux/if_ether.h>
 #include <linux/netdevice.h>
 #include "br_private.h"
 

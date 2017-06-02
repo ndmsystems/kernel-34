@@ -1156,6 +1156,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
 		dev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST |
 			TUN_USER_FEATURES;
 		dev->features = dev->hw_features;
+		dev->priv_flags |= IFF_TUNTAP;
 
 		err = register_netdevice(tun->dev);
 		if (err < 0)
@@ -1571,6 +1572,21 @@ static int tun_chr_close(struct inode *inode, struct file *file)
 	kfree(tfile);
 
 	return 0;
+}
+
+bool tun_is_tuntap_type(struct net_device *dev, unsigned int flag)
+{
+	struct tun_struct *tun;
+
+	if (dev == NULL)
+		return false;
+
+	if (!is_tuntap(dev))
+		return false;
+
+	tun = netdev_priv(dev);
+
+	return ((tun->flags & TUN_TYPE_MASK) == flag);
 }
 
 static const struct file_operations tun_fops = {

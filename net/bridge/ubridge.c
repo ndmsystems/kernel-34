@@ -9,6 +9,7 @@
  */
 /* #define UBR_UC_SYNC */
 
+#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -17,18 +18,51 @@
 #include <linux/ctype.h>
 #include <linux/if.h>
 #include <linux/if_ether.h>
+#include <linux/if_tun.h>
+#include <linux/if_arp.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/rtnetlink.h>
 #include <linux/if_bridge.h>
 #include <linux/netfilter_bridge.h>
+#include <net/ip.h>
+#include <net/arp.h>
 #include <../net/8021q/vlan.h>
 #include <net/fast_vpn.h>
 #include "ubridge_private.h"
 
+#if IS_ENABLED(CONFIG_IPV6)
+#include <linux/ipv6.h>
+#include <net/if_inet6.h>
+#endif
+
 #if IS_ENABLED(CONFIG_RA_HW_NAT)
 #include <../ndm/hw_nat/ra_nat.h>
 #endif
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)) && !defined(ether_addr_copy)
+static inline void ether_addr_copy(u8 *dst, const u8 *src)
+{
+#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
+	*(u32 *)dst = *(const u32 *)src;
+	*(u16 *)(dst + 4) = *(const u16 *)(src + 4);
+#else
+	u16 *a = (u16 *)dst;
+	const u16 *b = (const u16 *)src;
+
+	a[0] = b[0];
+	a[1] = b[1];
+	a[2] = b[2];
+#endif
+}
+#endif /* (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)) */
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 0)) && !defined(eth_broadcast_addr)
+static inline void eth_broadcast_addr(u8 *addr)
+{
+	memset(addr, 0xff, ETH_ALEN);
+}
+#endif /* (LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 0)) */
 
 #define MAC_FORCED		0
 
@@ -64,7 +98,7 @@ static rx_handler_result_t ubr_handle_frame(struct sk_buff **pskb)
 
 	ustats = this_cpu_ptr(ubr->stats);
 
-	if (likely( 1
+	if (likely(1
 #if IS_ENABLED(CONFIG_FAST_NAT)
 		&& !SWNAT_KA_CHECK_MARK(skb)
 #endif
@@ -83,6 +117,78 @@ static rx_handler_result_t ubr_handle_frame(struct sk_buff **pskb)
 
 	dst_release(skb_dst(skb));
 	skb_dst_set(skb, NULL);
+
+	if (is_tuntap(ubr->slave_dev) && is_tuntap_tun(ubr->slave_dev)) {
+		struct iphdr *iph;
+		struct ethhdr *eth;
+
+		if (unlikely((skb_headroom(skb) < ETH_HLEN)
+			|| skb_shared(skb)
+			|| skb_cloned(skb))) {
+			struct sk_buff *skb2 = skb_realloc_headroom(skb, ETH_HLEN);
+
+			consume_skb(skb);
+			if (!skb2) {
+				ubr->dev->stats.rx_dropped++;
+
+				return RX_HANDLER_CONSUMED;
+			}
+
+			skb = skb2;
+		}
+
+		iph = (struct iphdr *)skb->data;
+
+		skb_push(skb, ETH_HLEN);
+
+		skb_reset_mac_header(skb);
+		skb_reset_network_header(skb);
+
+		eth = (struct ethhdr *)skb->data;
+
+		ether_addr_copy(eth->h_dest, ubr->dev->dev_addr);
+
+		if (iph->version == 6) {
+#if IS_ENABLED(CONFIG_IPV6)
+			struct ipv6hdr *ip6h = (struct ipv6hdr *)iph;
+
+			if (skb->len < ETH_HLEN + sizeof(struct ipv6hdr)) {
+				kfree_skb(skb);
+				ubr->dev->stats.rx_errors++;
+
+				return RX_HANDLER_CONSUMED;
+			}
+
+			if (ipv6_addr_is_multicast(&ip6h->daddr))
+				ipv6_eth_mc_map(&ip6h->daddr, eth->h_dest);
+
+			eth->h_proto = htons(ETH_P_IPV6);
+#else
+			kfree_skb(skb);
+			ubr->dev->stats.rx_errors++;
+
+			return RX_HANDLER_CONSUMED;
+#endif
+		} else if (iph->version == 4) {
+			if (ipv4_is_lbcast(iph->daddr))
+				eth_broadcast_addr(eth->h_dest);
+			else if (ipv4_is_multicast(iph->daddr))
+				ip_eth_mc_map(iph->daddr, eth->h_dest);
+
+			eth->h_proto = htons(ETH_P_IP);
+		} else {
+			/* Something wierd... */
+
+			consume_skb(skb);
+			ubr->dev->stats.rx_dropped++;
+
+			return RX_HANDLER_CONSUMED;
+		}
+
+		ether_addr_copy(eth->h_source, ubr->dev->dev_addr);
+
+		skb->protocol = eth_type_trans(skb, ubr->dev);
+	}
 
 	netif_receive_skb(skb);
 
@@ -134,6 +240,49 @@ static int ubr_stop(struct net_device *dev)
 	return 0;
 }
 
+static void ubr_send_arp_reply(struct sk_buff *skb,
+			    struct ubr_private *ubr)
+{
+	const struct ethhdr *eth_src = (struct ethhdr *)eth_hdr(skb);
+	const struct arphdr *arph_src =
+		(struct arphdr *)((u8 *)eth_src + ETH_HLEN);
+	struct sk_buff *skb2;
+	u8 *p_src;
+	unsigned int data_len;
+	__be32 source_ip, target_ip;
+
+	data_len = ETH_HLEN + arp_hdr_len(ubr->dev);
+	if (skb->len < data_len) {
+		ubr->dev->stats.tx_errors++;
+		return;
+	}
+
+	p_src = (u8 *)(arph_src + 1);
+	source_ip = *((__be32 *)(p_src + ETH_ALEN));
+	target_ip = *((__be32 *)(p_src + 2 * ETH_ALEN + sizeof(u32)));
+
+	if (arph_src->ar_op != htons(ARPOP_REQUEST) ||
+	    ipv4_is_multicast(target_ip) ||
+	    target_ip == 0)
+		return;
+
+	skb2 = arp_create(ARPOP_REPLY, ETH_P_ARP,
+			  source_ip,	/* Set target IP as source IP address */
+			  ubr->dev,
+			  target_ip,	/* Set sender IP as target IP address */
+			  eth_src->h_source,
+			  NULL,		/* Set sender MAC as interface MAC */
+			  p_src);	/* Set target MAC as source MAC */
+
+	if (skb2 == NULL)
+		return;
+
+	skb_reset_mac_header(skb2);
+	skb_pull_inline(skb2, ETH_HLEN);
+
+	netif_receive_skb(skb2);
+}
+
 static netdev_tx_t ubr_xmit(struct sk_buff *skb,
 			    struct net_device *dev)
 {
@@ -146,9 +295,51 @@ static netdev_tx_t ubr_xmit(struct sk_buff *skb,
 		return -ENOTCONN;
 	}
 
+	if (is_tuntap(slave_dev) && is_tuntap_tun(slave_dev)) {
+		struct ethhdr *eth = (struct ethhdr *)skb->data;
+		unsigned int maclen = 0;
+
+		switch (ntohs(eth->h_proto)) {
+		case ETH_P_IP:
+		case ETH_P_IPV6:
+			maclen = ETH_HLEN;
+			break;
+		case ETH_P_ARP:
+			skb_reset_mac_header(skb);
+			ubr_send_arp_reply(skb, ubr);
+			consume_skb(skb);
+			return NET_XMIT_SUCCESS;
+		default:
+			break;
+		}
+
+		if (maclen == 0) {
+			/* Unsupported protocols, silently send packets to void */
+			consume_skb(skb);
+			dev->stats.tx_dropped++;
+
+			return NET_XMIT_SUCCESS;
+		}
+
+		if (!(dev->flags & IFF_PROMISC) &&
+			!ether_addr_equal(eth->h_dest, dev->dev_addr) &&
+			!is_multicast_ether_addr(eth->h_dest) &&
+			!is_broadcast_ether_addr(eth->h_dest)) {
+			/* Packet is not for us, silently send it to void */
+			consume_skb(skb);
+			dev->stats.tx_dropped++;
+
+			return NET_XMIT_SUCCESS;
+		}
+
+		skb_pull_inline(skb, maclen);
+		skb_reset_mac_header(skb);
+		skb_reset_network_header(skb);
+	}
+
 	ustats = this_cpu_ptr(ubr->stats);
 
-	if (likely( 1
+	if (likely(1
 #if IS_ENABLED(CONFIG_FAST_NAT)
 		&& !SWNAT_KA_CHECK_MARK(skb)
 #endif
@@ -195,6 +386,11 @@ static struct rtnl_link_stats64 *ubr_get_stats64(struct net_device *dev,
 	stats->tx_packets = sum.tx_packets;
 	stats->rx_bytes   = sum.rx_bytes;
 	stats->rx_packets = sum.rx_packets;
+
+	stats->tx_errors  = dev->stats.tx_errors;
+	stats->tx_dropped = dev->stats.tx_dropped;
+	stats->rx_errors  = dev->stats.rx_errors;
+	stats->rx_dropped = dev->stats.rx_dropped;
 
 	return stats;
 }
@@ -292,8 +488,8 @@ static int ubr_set_mac_addr(
 	struct sockaddr old_addr;
 	struct vlan_info *vlan_info;
 
-	memcpy(old_addr.sa_data, master_dev->dev_addr, ETH_ALEN);
-	memcpy(master_dev->dev_addr, addr->sa_data, ETH_ALEN);
+	ether_addr_copy(old_addr.sa_data, master_dev->dev_addr);
+	ether_addr_copy(master_dev->dev_addr, addr->sa_data);
 
 	/* Update all VLAN sub-devices' MAC address */
 	vlan_info = rtnl_dereference(master_dev->vlan_info);
@@ -309,7 +505,7 @@ static int ubr_set_mac_addr(
 			if (compare_ether_addr(old_addr.sa_data, vlan_dev->dev_addr))
 				continue;
 
-			memcpy(vaddr.sa_data, addr->sa_data, ETH_ALEN);
+			ether_addr_copy(vaddr.sa_data, addr->sa_data);
 			vaddr.sa_family = vlan_dev->type;
 
 			err = dev_set_mac_address(vlan_dev, &vaddr);
@@ -389,13 +585,14 @@ static int ubr_atto_master(struct net_device *master_dev, int ifindex)
 {
 	struct net_device *dev1;
 	struct ubr_private *ubr0 = netdev_priv(master_dev);
-	unsigned mac_differ;
+	unsigned mac_differ = 0;
 #ifdef CONFIG_NET_NS
 	struct net *net = master_dev->nd_net;
 #else
 	struct net *net = &init_net;
 #endif
 	int err = -ENODEV;
+	int is_tun = 0;
 
 	if (ubr0->slave_dev != NULL)
 		return -EBUSY;
@@ -404,16 +601,20 @@ static int ubr_atto_master(struct net_device *master_dev, int ifindex)
 	if (!dev1)
 		goto out;
 
-	if (!test_bit(MAC_FORCED, &ubr0->flags)) {
-		struct sockaddr addr;
+	if (is_tuntap(dev1) && is_tuntap_tun(dev1)) {
+		is_tun = 1;
+	} else {
+		if (!test_bit(MAC_FORCED, &ubr0->flags)) {
+			struct sockaddr addr;
 
-		memcpy(addr.sa_data, dev1->dev_addr, ETH_ALEN);
+			ether_addr_copy(addr.sa_data, dev1->dev_addr);
 
-		if (ubr_set_mac_addr(master_dev, &addr))
-			pr_err("ubr_atto_master error setting MAC\n");
+			if (ubr_set_mac_addr(master_dev, &addr))
+				pr_err("ubr_atto_master error setting MAC\n");
+		}
+
+		mac_differ = compare_ether_addr(master_dev->dev_addr, dev1->dev_addr);
 	}
-
-	mac_differ = compare_ether_addr(master_dev->dev_addr, dev1->dev_addr);
 
 	ubr0->slave_dev = dev1;
 
@@ -421,7 +622,7 @@ static int ubr_atto_master(struct net_device *master_dev, int ifindex)
 	if (err)
 		goto out;
 
-	if (master_dev->flags & IFF_PROMISC || mac_differ)
+	if (!is_tun && (master_dev->flags & IFF_PROMISC || mac_differ))
 		dev_set_promiscuity(dev1, 1);
 
 	netif_carrier_on(master_dev);

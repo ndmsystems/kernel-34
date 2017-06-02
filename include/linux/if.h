@@ -83,6 +83,7 @@
 #define IFF_SUPP_NOFCS	0x80000		/* device supports sending custom FCS */
 #define IFF_UBRIDGE		0x100000	/* Ethernet ubridging device */
 #define IFF_UBRIDGE_PORT	0x200000	/* device used as ubridge port */
+#define IFF_TUNTAP		0x400000	/* device is TUN/TAP */
 
 #define IF_GET_IFACE	0x0001		/* for querying only */
 #define IF_GET_PROTO	0x0002

@@ -104,5 +104,12 @@ static inline struct socket *tun_get_socket(struct file *f)
 	return ERR_PTR(-EINVAL);
 }
 #endif /* CONFIG_TUN */
+
+#include <linux/if.h>
+#include <linux/netdevice.h>
+#define is_tuntap(dev)		(dev->priv_flags & IFF_TUNTAP)
+bool tun_is_tuntap_type(struct net_device *dev, unsigned int flag);
+#define is_tuntap_tun(dev)	(tun_is_tuntap_type(dev, TUN_TUN_DEV))
+#define is_tuntap_tap(dev)	(tun_is_tuntap_type(dev, TUN_TAP_DEV))
 #endif /* __KERNEL__ */
 #endif /* __IF_TUN_H */
