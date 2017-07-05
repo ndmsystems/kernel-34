@@ -79,7 +79,12 @@ void __init plat_time_init(void)
 
 	/* setup bus timeout interrupt */
 	tc_setup_bus_timeout_irq();
+#ifdef CONFIG_ECONET_EN75XX_MP
+	VPint(CR_MON_TMR) = 0xcfffffff;
+	VPint(CR_BUSTIMEOUT_SWITCH) = 0xffffffff;
+#else
 //	VPint(CR_MON_TMR) |= ((1<<30) | (0xff));
+#endif
 }
 
 unsigned int get_surfboard_sysclk(void)

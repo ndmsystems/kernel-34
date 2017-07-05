@@ -38,15 +38,15 @@ choice
 	select RALINK_MT7612E
 
 	config FIRST_IF_MT7603E
-	bool "MT7603E"
-	depends on RALINK_MT7621
+	bool "MT7603E/MT7592N"
+	depends on (RALINK_MT7621 || ECONET_EN75XX_MP)
 	select MT_MAC
 	select WIFI_MT_MAC
 	select CHIP_MT7603E
 
 	config FIRST_IF_MT7615E
 	bool "MT7615E"
-	depends on RALINK_MT7621
+	depends on (RALINK_MT7621 || ECONET_EN75XX_MP)
 	select MT_MAC
 	select WIFI_MT_MAC
 	select CHIP_MT7615E

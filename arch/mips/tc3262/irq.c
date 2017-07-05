@@ -56,16 +56,19 @@ static inline void mask_mips_mt_irq(struct irq_data *d)
 static unsigned int mips_mt_cpu_irq_startup(struct irq_data *d)
 {
 	unsigned int vpflags = dvpe();
+	unsigned int reg_imr;
 	int cpu_irq = 0;
 
 	if ((d->irq == SI_SWINT1_INT1) || (d->irq == SI_SWINT_INT1))
 		cpu_irq = 1;
 
-	VPint(CR_INTC_IMR) |= (1u << (d->irq - 1));
+	reg_imr = VPint(CR_INTC_IMR);
+	reg_imr |= (1u << (d->irq - 1));
 	if (d->irq == SI_SWINT_INT0)
-		VPint(CR_INTC_IMR) |= (1u << (SI_SWINT1_INT0 - 1));
+		reg_imr |= (1u << (SI_SWINT1_INT0 - 1));
 	else if (d->irq == SI_SWINT_INT1)
-		VPint(CR_INTC_IMR) |= (1u << (SI_SWINT1_INT1 - 1));
+		reg_imr |= (1u << (SI_SWINT1_INT1 - 1));
+	VPint(CR_INTC_IMR) = reg_imr;
 
 	clear_c0_cause(0x100 << cpu_irq);
 	evpe(vpflags);
@@ -286,13 +289,21 @@ static irqreturn_t tc_watchdog_timer_interrupt(int irq, void *dev_id)
 
 static irqreturn_t tc_bus_timeout_interrupt(int irq, void *dev_id)
 {
-	unsigned int reg;
+	unsigned int addr;
 
+#ifdef CONFIG_ECONET_EN75XX_MP
+	/* write to clear interrupt */
+	VPint(CR_PRATIR) = 1;
+#else
 	/* read to clear interrupt */
-	reg = READ_ONCE(VPint(CR_PRATIR));
+	unsigned int reg = READ_ONCE(VPint(CR_PRATIR));
+#endif
 
-	printk(KERN_WARNING "bus timeout interrupt ERR ADDR=%08lx\n",
-		VPint(CR_ERR_ADDR));
+	addr = VPint(CR_ERR_ADDR);
+	addr &= ~((1 << 30) | (1 << 31));
+
+	printk(KERN_WARNING "bus timeout interrupt ERR ADDR=%08x\n",
+		addr);
 
 	dump_stack();
 

@@ -1,4 +1,4 @@
 config  RALINK_HWCRYPTO
-	depends on (RALINK_MT7621 || RALINK_RT6XXX_MP)
+	depends on (RALINK_MT7621 || RALINK_RT6XXX_MP || ECONET_EN75XX_MP)
 	tristate "HW Crypto Engine support"
 	default m

@@ -145,54 +145,67 @@ typedef unsigned char uint8;            /* 8-bit unsigned integer       */
 #define VPchar			*(volatile unsigned char *)
 #endif
 
-#ifdef CONFIG_CPU_TC3162
-#define TC3162L2		1
-#endif
-
-#define isTC3162L2P2 ((((unsigned char)(VPint(0xbfb0008c)>>12)&0xff)!=0)&&(((VPint(0xbfb00064)&0xffffffff))==0x00000000)?1:0)
-#define isTC3162L3P3 ((((unsigned char)(VPint(0xbfb0008c)>>12)&0xff)==7)&&(((VPint(0xbfb00064)&0xffffffff))==0x00000000)?1:0)
-#define isTC3162L4P4 ((((unsigned char)(VPint(0xbfb0008c)>>12)&0xff)==8)&&(((VPint(0xbfb00064)&0xffffffff))==0x00000000)?1:0)
-#define isTC3162L5P5E2 ((((unsigned char)(VPint(0xbfb0008c)>>12)&0xff)==0xa)&&(((VPint(0xbfb00064)&0xffffffff))==0x00000000)?1:0)
-#define isTC3162L5P5E3 ((((unsigned char)(VPint(0xbfb0008c)>>12)&0xff)==0xb)&&(((VPint(0xbfb00064)&0xffffffff))==0x00000000)?1:0)
-#define isTC3162L5P5 (isTC3162L5P5E2 || isTC3162L5P5E3)
-#define isTC3162U ((((unsigned char)(VPint(0xbfb0008c)>>12)&0xff)==0x10)&&(((VPint(0xbfb00064)&0xffffffff))==0x00000000)?1:0)
-#define isRT63260 ((((unsigned char)(VPint(0xbfb0008c)>>12)&0xff)==0x20)&&(((VPint(0xbfb00064)&0xffffffff))==0x00000000)?1:0)
-
-#define isTC3169 	(((VPint(0xbfb00064)&0xffff0000))==0x00000000)
-#define isTC3182 	(((VPint(0xbfb00064)&0xffff0000))==0x00010000)
-#define isRT65168 	(((VPint(0xbfb00064)&0xffff0000))==0x00020000)
-#define isRT63165 	(((VPint(0xbfb00064)&0xffff0000))==0x00030000)
-#define isRT63365 	(((VPint(0xbfb00064)&0xffff0000))==0x00040000)
+#define isRT63365 		(((VPint(0xbfb00064) & 0xffff0000)) == 0x00040000)
+#define isEN751221 		(((VPint(0xbfb00064) & 0xffff0000)) == 0x00070000)
 #ifdef __BIG_ENDIAN
-#define isRT63368	(isRT63365 ? ((((VPint(0xbfb0008c)>>8) & 0x3) == 0x3) ? 1 : 0): 0)
+#define isRT63368		(isRT63365 ? ((((VPint(0xbfb0008c) >> 8) & 0x3) == 0x3) ? 1 : 0): 0)
 #else
-#define isRT63368	(isRT63365 ? ((((VPint(0xbfb0008c)>>8) & 0x7) == 0x6) ? 1 : 0): 0)
-#endif
-#define isRT62806	(((gswPbusRead(0x7ffc))&0xffff0000)==0x28060000)
-
-#ifdef TC3162L2
-#define RT63260_SYS_HCLK ((12*(((VPint(0xbfb000b0))&0x1ff)+1)/(((VPint(0xbfb000b0)>>9)&0x1f)+1))/5)
-#define TC3162U_SYS_HCLK (3*(((VPint(0xbfb000b0)>>16)&0x1ff)+1)/(((VPint(0xbfb000b0)>>25)&0x1f)+1))
-#define SYS_HCLK        (isRT63260 ? RT63260_SYS_HCLK : (isTC3162U ? TC3162U_SYS_HCLK : 133))
+#define isRT63368		(isRT63365 ? ((((VPint(0xbfb0008c) >> 8) & 0x7) == 0x6) ? 1 : 0): 0)
 #endif
 
-#ifdef CONFIG_MIPS_TC3262
-/* RT63165 ASIC */
-/* FPGA is 25Mhz, ASIC LQFP128 is 166.67Mhz, others are 200Mhz */
-#define RT63165_SYS_HCLK	(VPint(0xbfb0008c)&(1<<31) ? 25 : (VPint(0xbfb0008c)&(1<<9) ? (200) : (16667/100)))
+#define isEN751221FPGA		((VPint(CR_AHB_HWCONF) & (1 << 29)) ? 0 : 1) //used for 7512/7521
+#define isGenernalFPGA		((VPint(CR_AHB_HWCONF) & (1 << 31)) ? 1 : 0) //used for 63365/751020
+#define isFPGA			0 //(isEN751221 ? isEN751221FPGA : isGenernalFPGA)
+
+#define EFUSE_VERIFY_DATA0	(0xBFBF8214)
+#define EFUSE_PKG_MASK		(0x3F)
+#define EFUSE_REMARK_BIT	(1 << 6)
+#define EFUSE_PKG_REMARK_SHITF	7
+
+#define EFUSE_EN7512		(0x4)
+#define EFUSE_EN7513		(0x5)
+#define EFUSE_EN7513G		(0x6)
+
+#define isEN7512		(isEN751221 && \
+				( (VPint(EFUSE_VERIFY_DATA0) & EFUSE_REMARK_BIT)? \
+				(((VPint(EFUSE_VERIFY_DATA0) >> EFUSE_PKG_REMARK_SHITF) & EFUSE_PKG_MASK) == EFUSE_EN7512): \
+				 ((VPint(EFUSE_VERIFY_DATA0) & EFUSE_PKG_MASK) == EFUSE_EN7512)))
+
+#define isEN7513		(isEN751221 && \
+				( (VPint(EFUSE_VERIFY_DATA0) & EFUSE_REMARK_BIT)? \
+				(((VPint(EFUSE_VERIFY_DATA0) >> EFUSE_PKG_REMARK_SHITF) & EFUSE_PKG_MASK) == EFUSE_EN7513): \
+				 ((VPint(EFUSE_VERIFY_DATA0) & EFUSE_PKG_MASK) == EFUSE_EN7513)))
+
+#define isEN7513G		(isEN751221 && \
+				( (VPint(EFUSE_VERIFY_DATA0) & EFUSE_REMARK_BIT)? \
+				(((VPint(EFUSE_VERIFY_DATA0) >> EFUSE_PKG_REMARK_SHITF) & EFUSE_PKG_MASK) == EFUSE_EN7513G): \
+				 ((VPint(EFUSE_VERIFY_DATA0) & EFUSE_PKG_MASK) == EFUSE_EN7513G)))
+
+#define EFUSE_DDR3_BIT		(1 << 23)
+#define EFUSE_DDR3_REMARK_BIT	(1 << 24)
+#define EFUSE_IS_DDR3		( (VPint(EFUSE_VERIFY_DATA0) & EFUSE_REMARK_BIT)? \
+				 ((VPint(EFUSE_VERIFY_DATA0) & EFUSE_DDR3_REMARK_BIT)): \
+				 ((VPint(EFUSE_VERIFY_DATA0) & EFUSE_DDR3_BIT)))
+
+#define REG_SAVE_INFO		0xBFB00284
+#define GET_DRAM_SIZE		 (VPint(REG_SAVE_INFO) & 0xfff)
+#define GET_SYS_CLK		((VPint(REG_SAVE_INFO) & 0x3ff000) >> 12)
+#define GET_IS_FPGA		((VPint(REG_SAVE_INFO) >> 22) & 0x1)
+#define GET_IS_SPI_ECC		((VPint(REG_SAVE_INFO) >> 23) & 0x1)
+
 /* RT63365 ASIC */
 /* FPGA is 25/32Mhz
  * ASIC RT6856/RT63368: DDR(0): 233.33, DDR(1): 175, SDR: 140
  *      RT6855/RT63365: DDR(0): 166.67, DDR(1): 125, SDR: 140 */
 #define RT63365_SYS_HCLK	(VPint(0xbfb0008c)&(1<<31) ? (25) : (VPint(0xbfb0008c)&(1<<9) ? (VPint(0xbfb0008c)&(1<<25) ? (VPint(0xbfb0008c)&(1<<26) ? (175) : (23333/100)) : (140)) : (VPint(0xbfb0008c)&(1<<25) ? (VPint(0xbfb0008c)&(1<<26) ? (125) : (16667/100)) : (140))))
-
-#define SYS_HCLK		(isRT63365 ? RT63365_SYS_HCLK : (isRT63165 ? RT63165_SYS_HCLK : (isRT65168 ? (1024/10) : (isTC3182 ? (1024/10) : (3*((VPint(0xbfb00058)>>16)+1)/(((VPint(0xbfb00058)&0x1f)+1)<<1))))))
-#endif
-
-#define SAR_CLK	(SYS_HCLK)/(4.0)		//more accurate if 4.0 not 4
+#define EN7512_SYS_HCLK		((isFPGA) ? (32) : (GET_SYS_CLK)) //ASIC Clock need Check
+#define SYS_HCLK		(isEN751221 ? EN7512_SYS_HCLK : RT63365_SYS_HCLK)
+#define SAR_CLK			(SYS_HCLK)/(4.0)		//more accurate if 4.0 not 4
 
 /* define CPU timer clock, FPGA is 50Mhz, ASIC is 250Mhz */
-#define CPUTMR_CLK		(VPint(0xbfb0008c)&(1<<31) ? 50	: 250)
+#define	CPUTMR_CLK		(isFPGA ? (50*1000000) : (isEN751221 ? (200*1000000) : (250*1000000)))
+
+#define isMT7530		(((VPint(0xbfb58000 + 0x7ffc) & 0xffff0000)) == 0x75300000)
 
 #define DSPRAM_BASE		0x9c000000
 
@@ -209,9 +222,22 @@ typedef unsigned char uint8;            /* 8-bit unsigned integer       */
 #define tc_outw(offset,val)    	(*(volatile unsigned short *)(offset) = val)
 #define tc_outl(offset,val)    	(*(volatile unsigned long *)(offset) = val)
 
+#ifdef CONFIG_ECONET_EN75XX_MP
+#define IS_SPIFLASH		((~(VPint(0xBFA10114))) & 0x2)
+#define IS_NANDFLASH		   (VPint(0xBFA10114)   & 0x2)
+#else
 #define IS_SPIFLASH				((VPint(CR_AHB_SSR) & (1<<20)) || !(VPint(CR_AHB_HWCONF) & 0x1))
 #define IS_NANDFLASH			(VPint(CR_AHB_HWCONF) & 0x1)
-#define NF_CONNTRACK_BUF_SIZE		4096
+#endif
+
+/*****************************
+ * RBUS CORE Module Registers *
+ *****************************/
+#define ARB_CFG 		 0xBFA00008
+#define ROUND_ROBIN_ENABLE	 (1<<30)
+#define ROUND_ROBIN_DISBALE	~(1<<30)
+
+
 /*****************************
  * DMC Module Registers *
  *****************************/
@@ -277,58 +303,36 @@ typedef unsigned char uint8;            /* 8-bit unsigned integer       */
 #define CR_MAC_MADR  	   	(0x08 | CR_MAC_BASE)// --- MAC Address Register [47:32] ---
 #define CR_MAC_LADR     	(0x0c | CR_MAC_BASE)// --- MAC Address Register [31:0] ---
 #define CR_MAC_EEE		(0x10 | CR_MAC_BASE)
-#if defined(TC3162L2) || defined(CONFIG_MIPS_TC3262)
-// None
-#else
-  #define CR_MAC_MAHT0         (0x10 | CR_MAC_BASE)// --- MAC Hash Table Address Register [31:0] ---
-  #define CR_MAC_MAHT1         (0x14 | CR_MAC_BASE)// --- MAC Hash Table Address Register [31:0] ---
-#endif
 #define CR_MAC_TXPD     	(0x18 | CR_MAC_BASE)// --- Transmit Poll Demand Register ---
 #define CR_MAC_RXPD     	(0x1c | CR_MAC_BASE)// --- Receive Poll Demand Register ---
 #define CR_MAC_TXR_BADR 	(0x20 | CR_MAC_BASE)// --- Transmit Ring Base Address Register ---
 #define CR_MAC_RXR_BADR 	(0x24 | CR_MAC_BASE)// --- Receive Ring Base Address Register ---
 #define CR_MAC_ITC      	(0x28 | CR_MAC_BASE)// --- Interrupt Timer Control Register ---
-#if defined(TC3162L2) || defined(CONFIG_MIPS_TC3262)
-  #define CR_MAC_TXR_SIZE  	   (0x2c | CR_MAC_BASE)// --- Transmit Ring Size Register ---
-  #define CR_MAC_RXR_SIZE      (0x30 | CR_MAC_BASE)// --- Receive Ring Size Register ---
-  #define CR_MAC_RXR_SWIDX     (0x34 | CR_MAC_BASE)// --- Receive Ring Software Index Register ---
-#else
-#define CR_MAC_APTC     	(0x2c | CR_MAC_BASE)// --- Automatic Polling Timer Control Register ---
-#define CR_MAC_DBLAC    	(0x30 | CR_MAC_BASE)// --- DMA Burst Length and Arbitration Control Register ---
-#endif
-#if defined(TC3162L2) || defined(CONFIG_MIPS_TC3262)
-  #define CR_MAC_TXDESP_SIZE   (0x38 | CR_MAC_BASE)// --- Transmit Descriptor Size Register ---
-  #define CR_MAC_RXDESP_SIZE   (0x3c | CR_MAC_BASE)// --- Receive Descriptor Size Register ---
-#else
-  #define CR_MAC_TXDESCP_ADR   (0x38 | CR_MAC_BASE)// --- Current Transmit Descriptor Address Register ---
-  #define CR_MAC_RXDESCP_ADR   (0x3c | CR_MAC_BASE)// --- Current Receive Descriptor Address Register ---
-#endif
-#if defined(TC3162L2) || defined(CONFIG_MIPS_TC3262)
-  #define CR_MAC_PRIORITY_CFG  (0x50 | CR_MAC_BASE)// --- Priority Configuration Register ---
-  #define CR_MAC_VLAN_CFG      (0x54 | CR_MAC_BASE)// --- VLAN Configuration Register ---
-  #define CR_MAC_TOS0_CFG      (0x58 | CR_MAC_BASE)// --- TOS 0 Configuration Register ---
-  #define CR_MAC_TOS1_CFG      (0x5c | CR_MAC_BASE)// --- TOS 1 Configuration Register ---
-  #define CR_MAC_TOS2_CFG      (0x60 | CR_MAC_BASE)// --- TOS 2 Configuration Register ---
-  #define CR_MAC_TOS3_CFG      (0x64 | CR_MAC_BASE)// --- TOS 3 Configuration Register ---
-  #define CR_MAC_TCP_CFG       (0x68 | CR_MAC_BASE)// --- TCP Configuration Register ---
-  #define CR_MAC_SWTAG_CFG     (0x6c | CR_MAC_BASE)// --- Software Tagging Configuration Register ---
-  #define CR_MAC_PMBL_CYC_NUM  (0x70 | CR_MAC_BASE)// --- Preamble Cycle Number Register ---
-  #define CR_MAC_FCTL_CYC_NUM  (0x74 | CR_MAC_BASE)// --- Flow Control Cycle Number Register ---
-  #define CR_MAC_JAM_CYC_NUM   (0x78 | CR_MAC_BASE)// --- JAM Cycle Number Register ---
-  #define CR_MAC_DEFER_VAL     (0x7c | CR_MAC_BASE)// --- Defer Value Register ---
-  #define CR_MAC_RANDOM_POLY   (0x80 | CR_MAC_BASE)// --- Random Polynomial Register ---
-#else
-// None
-#endif
+#define CR_MAC_TXR_SIZE  	   (0x2c | CR_MAC_BASE)// --- Transmit Ring Size Register ---
+#define CR_MAC_RXR_SIZE      (0x30 | CR_MAC_BASE)// --- Receive Ring Size Register ---
+#define CR_MAC_RXR_SWIDX     (0x34 | CR_MAC_BASE)// --- Receive Ring Software Index Register ---
+#define CR_MAC_TXDESP_SIZE   (0x38 | CR_MAC_BASE)// --- Transmit Descriptor Size Register ---
+#define CR_MAC_RXDESP_SIZE   (0x3c | CR_MAC_BASE)// --- Receive Descriptor Size Register ---
+#define CR_MAC_PRIORITY_CFG  (0x50 | CR_MAC_BASE)// --- Priority Configuration Register ---
+#define CR_MAC_VLAN_CFG      (0x54 | CR_MAC_BASE)// --- VLAN Configuration Register ---
+#define CR_MAC_TOS0_CFG      (0x58 | CR_MAC_BASE)// --- TOS 0 Configuration Register ---
+#define CR_MAC_TOS1_CFG      (0x5c | CR_MAC_BASE)// --- TOS 1 Configuration Register ---
+#define CR_MAC_TOS2_CFG      (0x60 | CR_MAC_BASE)// --- TOS 2 Configuration Register ---
+#define CR_MAC_TOS3_CFG      (0x64 | CR_MAC_BASE)// --- TOS 3 Configuration Register ---
+#define CR_MAC_TCP_CFG       (0x68 | CR_MAC_BASE)// --- TCP Configuration Register ---
+#define CR_MAC_SWTAG_CFG     (0x6c | CR_MAC_BASE)// --- Software Tagging Configuration Register ---
+#define CR_MAC_PMBL_CYC_NUM  (0x70 | CR_MAC_BASE)// --- Preamble Cycle Number Register ---
+#define CR_MAC_FCTL_CYC_NUM  (0x74 | CR_MAC_BASE)// --- Flow Control Cycle Number Register ---
+#define CR_MAC_JAM_CYC_NUM   (0x78 | CR_MAC_BASE)// --- JAM Cycle Number Register ---
+#define CR_MAC_DEFER_VAL     (0x7c | CR_MAC_BASE)// --- Defer Value Register ---
+#define CR_MAC_RANDOM_POLY   (0x80 | CR_MAC_BASE)// --- Random Polynomial Register ---
 #define CR_MAC_MACCR    	(0x88 | CR_MAC_BASE)// --- MAC Control Register ---
 #define CR_MAC_MACSR    	(0x8c | CR_MAC_BASE)// --- MAC Status Register ---
 #define CR_MAC_PHYCR    	(0x90 | CR_MAC_BASE)// --- PHY Control Register ---
 #define CR_MAC_PHYWDATA 	(0x94 | CR_MAC_BASE)// --- PHY Write Data Register ---
 #define CR_MAC_FCR      	(0x98 | CR_MAC_BASE)// --- Flow Control Register ---
 #define CR_MAC_BPR      	(0x9c | CR_MAC_BASE)// --- Back Pressure Register ---
-#if defined(TC3162L2) || defined(CONFIG_MIPS_TC3262)
 #define CR_MAC_DESP_IDX        (0xc4 | CR_MAC_BASE)// --- Current Tx/Rx Descriptor Index ---
-#endif
 #define CR_MAC_WOLCR    	(0xa0 | CR_MAC_BASE)// --- Wake-On-LAN Control Register ---
 #define CR_MAC_WOLSR    	(0xa4 | CR_MAC_BASE)// --- Wake-On-LAN Status Register ---
 #define CR_MAC_WFCRC    	(0xa8 | CR_MAC_BASE)// --- Wake-up Frame CRC Register ---
@@ -339,15 +343,9 @@ typedef unsigned char uint8;            /* 8-bit unsigned integer       */
 #define CR_MAC_DMA_FSM  	(0xc8 | CR_MAC_BASE)// --- DMA State Machine
 #define CR_MAC_TM       	(0xcc | CR_MAC_BASE)// --- Test Mode Register ---
 #define CR_MAC_XMPG_CNT 	(0xdc | CR_MAC_BASE)// --- XM and PG Counter Register ---
-#if defined(TC3162L2) || defined(CONFIG_MIPS_TC3262)
 #define CR_MAC_RUNT_TLCC_CNT   (0xe0 | CR_MAC_BASE)// --- Receive Runt and Transmit Late Collision Packet Counter Register ---
 #define CR_MAC_RCRC_RLONG_CNT  (0xe4 | CR_MAC_BASE)// --- Receive CRC Error and Long Packet Counter Register ---
 #define CR_MAC_RLOSS_RCOL_CNT  (0xe8 | CR_MAC_BASE)// --- Receive Packet Loss and Receive Collision Counter Register ---
-#else
-#define CR_MAC_RUNT_LCOL_CNT 	(0xe0 | CR_MAC_BASE)// --- Runt and Late Collision Packet Counter Register ---
-#define CR_MAC_CRC_LONG_CNT   	(0xe4 | CR_MAC_BASE)// --- CRC and Long Packet Counter Register ---
-#define CR_MAC_LOSS_COL_CNT   	(0xe8 | CR_MAC_BASE)// --- Receive Packet Loss and Receive Collision Counter Register ---
-#endif
 #define CR_MAC_BROADCAST_CNT  	(0xec | CR_MAC_BASE)// --- Receive Broadcast Counter Register ---
 #define CR_MAC_MULTICAST_CNT  	(0xf0 | CR_MAC_BASE)// --- Receive Multicast Counter Register ---
 #define CR_MAC_RX_CNT   	(0xf4 | CR_MAC_BASE)// --- Receive Good Packet Counter Register ---
@@ -431,6 +429,30 @@ typedef unsigned char uint8;            /* 8-bit unsigned integer       */
 #define	uartRxIntOff()		VPchar(CR_UART_IER) &= ~IER_RECEIVED_DATA_INTERRUPT_ENABLE
 
 /*************************
+ * UART2 Module Registers *
+ *************************/
+#define	CR_UART2_BASE		0xBFBF0300
+#define	CR_UART2_RBR		(0x00+CR_UART2_BASE+CR_UART_OFFSET)
+#define	CR_UART2_THR		(0x00+CR_UART2_BASE+CR_UART_OFFSET)
+#define	CR_UART2_IER		(0x04+CR_UART2_BASE+CR_UART_OFFSET)
+#define	CR_UART2_IIR		(0x08+CR_UART2_BASE+CR_UART_OFFSET)
+#define	CR_UART2_FCR		(0x08+CR_UART2_BASE+CR_UART_OFFSET)
+#define	CR_UART2_LCR		(0x0c+CR_UART2_BASE+CR_UART_OFFSET)
+#define	CR_UART2_MCR		(0x10+CR_UART2_BASE+CR_UART_OFFSET)
+#define	CR_UART2_LSR		(0x14+CR_UART2_BASE+CR_UART_OFFSET)
+#define	CR_UART2_MSR		(0x18+CR_UART2_BASE+CR_UART_OFFSET)
+#define	CR_UART2_SCR		(0x1c+CR_UART2_BASE+CR_UART_OFFSET)
+#define	CR_UART2_BRDL		(0x00+CR_UART2_BASE+CR_UART_OFFSET)
+#define	CR_UART2_BRDH		(0x04+CR_UART2_BASE+CR_UART_OFFSET)
+#define	CR_UART2_WORDA		(0x20+CR_UART2_BASE+0x00)
+#define	CR_UART2_HWORDA		(0x28+CR_UART2_BASE+0x00)
+#define	CR_UART2_MISCC		(0x24+CR_UART2_BASE+CR_UART_OFFSET)
+#define	CR_UART2_XYD		(0x2c+CR_UART2_BASE)
+
+#define	IIR_INDICATOR2		VPchar(CR_UART2_IIR)
+#define	LSR_INDICATOR2		VPchar(CR_UART2_LSR)
+
+/*************************
  * HSUART Module Registers *
  *************************/
 #define	CR_HSUART_BASE    	0xBFBF0300
@@ -480,7 +502,7 @@ typedef unsigned char uint8;            /* 8-bit unsigned integer       */
 			// --- Interrupt Priority Register 7 ---
 #define CR_INTC_IPR7    (CR_INTC_BASE+0x002c)
 			// --- Interrupt Vector egister ---
-#ifdef CONFIG_MIPS_TC3262
+
 			// --- Interrupt VPE and SRS Register 0 ---
 #define CR_INTC_IVSR0   (CR_INTC_BASE+0x0030)
 			// --- Interrupt VPE and SRS Register 1 ---
@@ -513,11 +535,6 @@ typedef unsigned char uint8;            /* 8-bit unsigned integer       */
 #define CR_INTC_IVSR8   (CR_INTC_BASE+0x0060)
 			// --- Interrupt VPE and SRS Register 9 ---
 #define CR_INTC_IVSR9   (CR_INTC_BASE+0x0064)
-
-#else
-			// --- Interrupt Vector egister ---
-#define CR_INTC_IVR     (CR_INTC_BASE+0x0030)
-#endif
 
 enum
 interrupt_priority
@@ -637,10 +654,12 @@ interrupt_priority
 #define CR_AHB_PCIC	       	(CR_AHB_BASE + 0x88)
 #define CR_AHB_HWCONF       (CR_AHB_BASE + 0x8C)
 #define CR_AHB_SSR       	(CR_AHB_BASE + 0x90)
-#if defined(TC3162L2) || defined(CONFIG_MIPS_TC3262)
 #define CR_IMEM       	(CR_AHB_BASE + 0x9C)
 #define CR_DMEM       	(CR_AHB_BASE + 0xA0)
-#endif
+
+/* RT63365 */
+#define CR_CRCC_REG		(CR_AHB_BASE + 0xA0)
+#define CR_AHB_UHCR		(CR_AHB_BASE + 0xA8)
 #define CR_AHB_ABMR       	(CR_AHB_BASE + 0xB8)
 #define CR_CKGEN_CONF		(CR_AHB_BASE + 0xC0)
 #define CR_PSMCR       		(CR_AHB_BASE + 0xCC)
@@ -654,6 +673,9 @@ interrupt_priority
 #define CR_AHB_CLK			(CR_AHB_BASE + 0x1c0)
 #define CR_CLK_CFG     		(CR_AHB_BASE + 0x82c)
 #define CR_RSTCTRL2    		(CR_AHB_BASE + 0x834)
+#define CR_GPIO_SHR		(CR_AHB_BASE + 0x860)
+
+#define CR_BUSTIMEOUT_SWITCH 	(CR_AHB_BASE + 0x92c)
 
 /*************************************************
  * SRAM/FLASH/ROM Controller Operation Registers *
@@ -761,13 +783,8 @@ interrupt_priority
 #define TSARM_TSTBR				VPint(TSARM_REGISTER_BASE + 0x0008)
 /* ----- Receive Maximum Packet Length register  ----- */
 #define TSARM_RMPLR				VPint(TSARM_REGISTER_BASE + 0x000c)
-#if defined(TC3162L2) || defined(CONFIG_MIPS_TC3262)
-//Transmit Priority 0/1 Data Buffer Control and Status Register
+/* ----- Transmit Priority 0/1 Data Buffer Control and Status Register  ----- */
 #define TSARM_TXDBCSR_P01		VPint(TSARM_REGISTER_BASE + 0x0010)
-#else
-/* ----- TX Data Buffer Control and Status register  ----- */
-#define TSARM_TXDBCSR			VPint(TSARM_REGISTER_BASE + 0x0010)
-#endif
 /* ----- TX OAM Buffer Control and Status register  ----- */
 #define TSARM_TXMBCSR			VPint(TSARM_REGISTER_BASE + 0x0014)
 /* ----- RX Data Buffer Control and Status register  ----- */
@@ -784,46 +801,38 @@ interrupt_priority
 #define TSARM_IRQH				VPint(TSARM_REGISTER_BASE + 0x002c)
 /* ----- Clear IRQ Entry register  ----- */
 #define TSARM_IRQC				VPint(TSARM_REGISTER_BASE + 0x0030)
-#if defined(TC3162L2) || defined(CONFIG_MIPS_TC3262)
 //Traffic Scheduler Line Rate Counter Register
 #define TSARM_TXSLRC			VPint(TSARM_REGISTER_BASE + 0x0034)
 //Transmit Priority 2/3 Data Buffer Control and Status Register
 #define TSARM_TXDBCSR_P23		VPint(TSARM_REGISTER_BASE + 0x0038)
-#endif
 
 /* ----- VC IRQ Mask register  ----- */
 #define TSARM_IRQM_BASE			(TSARM_REGISTER_BASE + 0x0040)
 #define TSARM_IRQM(vc)			VPint(TSARM_IRQM_BASE + (vc * 4))
 #define TSARM_IRQMCC			VPint(TSARM_IRQM_BASE + 0x0040)
-#if defined(TC3162L2) || defined(CONFIG_MIPS_TC3262)
 #define TSARM_IRQ_QUE_THRE		VPint(TSARM_REGISTER_BASE + 0x0084)		//IRQ Queue Threshold Register
 #define TSARM_IRQ_TIMEOUT_CTRL 	VPint(TSARM_REGISTER_BASE + 0x0088)		//IRQ Timeout Control Register
-#endif
 
 /* ----- VC Configuration register  ----- */
 #define TSARM_VCCR_BASE			(TSARM_REGISTER_BASE + 0x0100)
 #define TSARM_VCCR(vc)			VPint(TSARM_VCCR_BASE + (vc * 4))
 #define TSARM_CCCR				VPint(TSARM_VCCR_BASE + 0x0040)
-#if defined(TC3162L2) || defined(CONFIG_MIPS_TC3262)
+
 /* ----- DMA WRR Configuration Register (DMA_WRR_WEIT) (for TC3162L4) ----- */
 #define TSARM_DMAWRRCR			VPint(TSARM_REGISTER_BASE + 0x0150)
-#endif
+
 /* ----- Transmit Buffer Descriptor register  ----- */
 #define TSARM_TXDCBDA_BASE		(TSARM_REGISTER_BASE + 0x0200)
 #define TSARM_TXDCBDA(vc)		VPint(TSARM_TXDCBDA_BASE + (vc * 4))
 #define TSARM_TXMCBDA_BASE		(TSARM_REGISTER_BASE + 0x0240)
 #define TSARM_TXMCBDA(vc)		VPint(TSARM_TXMCBDA_BASE + (vc * 4))
 
-#if defined(TC3162L2) || defined(CONFIG_MIPS_TC3262)
 #define TSARM_CC_TX_BD_BASE				VPint(TSARM_REGISTER_BASE + 0x0228)		//Control Channel Transmit BD Base Address 0x228
 #define TSARM_CC_TX_BD_MNG_BASE			VPint(TSARM_REGISTER_BASE + 0x0268)		//Control Channel Transmit BD Management Base
 #define TSARM_VC_TX_BD_PRIORITY01_BASE		(TSARM_REGISTER_BASE + 0x0280)
 #define TSARM_VC_TX_BD_PRIORITY01(vc)		VPint(TSARM_VC_TX_BD_PRIORITY01_BASE + vc * 4)		//VC0 Transmit BD Data Priority 0/1 Base 280
 #define TSARM_VC_TX_BD_PRIORITY23_BASE		(TSARM_REGISTER_BASE + 0x02c0)
 #define TSARM_VC_TX_BD_PRIORITY23(vc)		VPint(TSARM_VC_TX_BD_PRIORITY23_BASE + vc * 4)		//VC0 Transmit BD Data Priority 0/1 Base 280
-#else
-#define TSARM_TXCCBDA			VPint(TSARM_REGISTER_BASE + 0x0280)
-#endif
 
 /* ----- Receive Buffer Descriptor register  ----- */
 #define TSARM_RXDCBDA_BASE		(TSARM_REGISTER_BASE + 0x0300)
@@ -831,14 +840,10 @@ interrupt_priority
 #define TSARM_RXMCBDA_BASE		(TSARM_REGISTER_BASE + 0x0340)
 #define TSARM_RXMCBDA(vc)		VPint(TSARM_RXMCBDA_BASE + (vc * 4))
 
-#if defined(TC3162L2) || defined(CONFIG_MIPS_TC3262)
 #define TSARM_CC_RX_BD_BASE			VPint(TSARM_REGISTER_BASE + 0x328)		//Control Channel Receive BD Base Address	0x328
 #define TSARM_CC_RX_BD_MNG_BASE		VPint(TSARM_REGISTER_BASE + 0x368)		//Control Channel Receive BD Management Base	0x368
 #define TSARM_VC_RX_DATA_BASE				(TSARM_REGISTER_BASE + 0x380)
 #define TSARM_VC_RX_DATA(vc)			VPint(TSARM_VC_RX_DATA_BASE + vc * 4)	//VC0 Receive BD Data Base	0x380
-#else
-#define TSARM_RXCCBDA			VPint(TSARM_REGISTER_BASE + 0x0380)
-#endif
 
 /* ----- Traffic Scheduler register  ----- */
 #define TSARM_PCR_BASE			(TSARM_REGISTER_BASE + 0x0400)
@@ -848,17 +853,11 @@ interrupt_priority
 #define TSARM_MBSTP_BASE		(TSARM_REGISTER_BASE + 0x0480)
 #define TSARM_MBSTP(vc)			VPint(TSARM_MBSTP_BASE + (vc * 4))
 
-#if defined(TC3162L2) || defined(CONFIG_MIPS_TC3262)
 #define TSARM_MAX_FRAME_SIZE_BASE	(TSARM_REGISTER_BASE + 0x04c0)
 #define TSARM_MAX_FRAME_SIZE(vc)		VPint(TSARM_MAX_FRAME_SIZE_BASE + (vc * 4))
 /* define for TC3162L4 */
 #define TSARM_TRAFFIC_SHAPER_WEIGHT_BASE (TSARM_REGISTER_BASE + 0x0500)
 #define TSARM_TRAFFIC_SHAPER_WEIGHT(vc)     VPint(TSARM_TRAFFIC_SHAPER_WEIGHT_BASE + (vc * 4))
-#else
-/* ----- Receive Timeout register  ----- */
-#define TSARM_RTOCNT_BASE		(TSARM_REGISTER_BASE + 0x0500)
-#define TSARM_RTOCNT(vc)		VPint(TSARM_RTOCNT_BASE + (vc * 4))
-#endif
 
 /* ----- TX Statistic Counter register  ----- */
 #define TSARM_TDCNT_BASE		(TSARM_REGISTER_BASE + 0x0600)
@@ -871,7 +870,6 @@ interrupt_priority
 #define TSARM_RDCNTCC			VPint(TSARM_RDCNT_BASE + 0x0040)
 #define TSARM_MISCNT			VPint(TSARM_RDCNT_BASE + 0x0044)
 
-#if defined(TC3162L2) || defined(CONFIG_MIPS_TC3262)
 #define TSARM_MPOA_GCR				VPint(TSARM_REGISTER_BASE + 0x0800)			//MPOA global control register
 #define TSARM_VC_MPOA_CTRL_BASE			(TSARM_REGISTER_BASE + 0x0810)			//VC0 ~9  MPOA Control register
 #define TSARM_VC_MPOA_CTRL(vc)			VPint(TSARM_VC_MPOA_CTRL_BASE + vc * 4)
@@ -887,7 +885,6 @@ interrupt_priority
 #define TSARM_MPOA_HFIV41				VPint(TSARM_REGISTER_BASE + 0x0880)			//MPOA header Field4 Insertion Value1
 #define TSARM_MPOA_HFIV42				VPint(TSARM_REGISTER_BASE + 0x0884)			//MPOA header Field4 Insertion Value2
 #define TSARM_MPOA_HFIV43				VPint(TSARM_REGISTER_BASE + 0x0888)			//MPOA header Field4 Insertion Value2
-#endif
 
 /**************************
  * USB Module Registers *

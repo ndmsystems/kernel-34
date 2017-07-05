@@ -29,6 +29,11 @@ void stop_adsl_dmt(void)
 }
 #endif
 
+#ifdef CONFIG_RALINK_VDSL
+vdsldev_ops *vdsl_dev_ops = NULL;
+EXPORT_SYMBOL(vdsl_dev_ops);
+#endif
+
 static void hw_reset(void)
 {
 #ifdef CONFIG_TC3162_ADSL

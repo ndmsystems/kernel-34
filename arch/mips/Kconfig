@@ -46,6 +46,8 @@ config RALINK_RT3883_MP
 	bool
 config RALINK_RT6XXX_MP
 	bool
+config ECONET_EN75XX_MP
+	bool
 config MIPS_TC3262
 	bool
 	select DMA_NONCOHERENT
@@ -151,6 +153,14 @@ config RALINK_RT63365
 	select SYS_SUPPORTS_BIG_ENDIAN
 	help
 	  Ralink evaluation board based on RT63365/8
+
+config ECONET_EN7512
+	bool "EcoNET EN7512/3 board"
+	select MIPS_TC3262
+	select ECONET_EN75XX_MP
+	select SYS_SUPPORTS_BIG_ENDIAN
+	help
+	  EcoNET evaluation board based on EN7512/3
 
 config RALINK_MT7620
 	bool "Ralink MT7620 board"
