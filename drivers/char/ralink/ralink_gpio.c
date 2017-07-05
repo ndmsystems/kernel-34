@@ -1441,13 +1441,13 @@ ralink_gpio_int_enabled(u32 is_enabled)
 {
 	if (is_enabled) {
 		ralink_gpio_irq_clear();
-#if defined (CONFIG_RALINK_RT6XXX_MP)
+#if defined(CONFIG_MIPS_TC3262)
 		tc_enable_irq(RALINK_INTCTL_PIO);
 #else
 		*(volatile u32 *)(RALINK_INTENA) = cpu_to_le32(RALINK_INTCTL_PIO);
 #endif
 	} else {
-#if defined (CONFIG_RALINK_RT6XXX_MP)
+#if defined(CONFIG_MIPS_TC3262)
 		tc_disable_irq(RALINK_INTCTL_PIO);
 #else
 		*(volatile u32 *)(RALINK_INTDIS) = cpu_to_le32(RALINK_INTCTL_PIO);
