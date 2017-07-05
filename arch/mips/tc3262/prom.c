@@ -15,6 +15,7 @@
 #include <asm/traps.h>
 
 #include <asm/mips-boards/prom.h>
+#include <asm/rt2880/rt_mmap.h>
 #include <asm/tc3162/tc3162.h>
 
 extern struct plat_smp_ops msmtc_smp_ops;
@@ -157,6 +158,17 @@ static inline void tc_ahb_setup(void)
 	VPint(CR_AHB_AACS) = 0xffff;
 }
 
+static inline void tc_usb_setup(void)
+{
+#if !IS_ENABLED(CONFIG_USB)
+#ifdef CONFIG_ECONET_EN75XX_MP
+	/* disable both ports UPHY */
+	VPint(RALINK_XHCI_UPHY_BASE + 0x081C) = 0xC0241580;
+	VPint(RALINK_XHCI_UPHY_BASE + 0x101C) = 0xC0241580;
+#endif
+#endif
+}
+
 #ifdef CONFIG_ECONET_EN75XX_MP
 
 #define VECTORSPACING 0x100	/* for EI/VI mode */
@@ -229,6 +241,7 @@ void __init prom_init(void)
 	tc_mips_setup();
 	tc_uart_setup();
 	tc_ahb_setup();
+	tc_usb_setup();
 
 	hw_conf = VPint(CR_AHB_HWCONF);
 

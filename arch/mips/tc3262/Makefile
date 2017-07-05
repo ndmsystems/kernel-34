@@ -6,6 +6,7 @@ obj-$(CONFIG_PCI) += pci_en75xx.o
 else
 obj-$(CONFIG_PCI) += pci.o
 endif
+obj-$(CONFIG_MTK_XHCI) += dev-xhci.o uphy.o
 obj-$(CONFIG_RT3XXX_EHCI_OHCI) += dev-ehci_ohci.o
 obj-$(CONFIG_RALINK_TIMER_WDG) += rt_timer_wdg.o
 obj-$(CONFIG_MIPS_MT_SMP) += malta-smp.o
