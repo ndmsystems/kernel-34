@@ -48,7 +48,7 @@
 #include <asm/io.h>
 #include <asm/tc3162/tc3162.h>
 
-#include "../nand_bmt.h"
+#include "../rt6xxx_bmt.h"
 #include "spi_controller.h"
 #include "spi_nand_flash.h"
 
