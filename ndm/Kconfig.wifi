@@ -96,6 +96,11 @@ choice
 	select RTMP_MAC
 	select RALINK_RT5592
 
+	config SECOND_IF_MT7610E
+	bool "MT7610E"
+	select RLT_MAC
+	select RALINK_MT7610E
+
 	config SECOND_IF_MT7612E
 	bool "MT7612E"
 	select RLT_MAC
@@ -152,6 +157,7 @@ config RT_SECOND_CARD
 	depends on ! SECOND_IF_NONE
 	default 3593 if SECOND_IF_RT3593
 	default 5592 if SECOND_IF_RT5592
+	default 7610 if SECOND_IF_MT7610E
 	default 7612 if SECOND_IF_MT7612E
 	default 7615 if SECOND_IF_MT7615E
 
@@ -205,6 +211,10 @@ config RALINK_RT6352
 	bool
 	select RTMP_RBUS_SUPPORT
 
+config RALINK_MT7610E
+	bool
+	select RTMP_PCI_SUPPORT
+
 config RALINK_MT7612E
 	bool
 	select RTMP_PCI_SUPPORT
@@ -235,6 +245,10 @@ endmenu
 #source "ndm/mt7603_ap/Kconfig"
 #source "ndm/mt7603/Kconfig"
 #endmenu
+
+menu "MediaTek MT7610E PCIe Wireless driver"
+source "ndm/mt7610_ap/Kconfig"
+endmenu
 
 menu "MediaTek MT7615E PCIe Wireless driver"
 source "ndm/mt7615_ap/Kconfig"
