@@ -59,10 +59,11 @@ struct pptp_addr {
 /************************************************************************
  * Protocols supported by AF_PPPOX
  */
-#define PX_PROTO_OE    0 /* Currently just PPPoE */
-#define PX_PROTO_OL2TP 1 /* Now L2TP also */
-#define PX_PROTO_PPTP  2
-#define PX_MAX_PROTO   3
+#define PX_PROTO_OE         0 /* Currently just PPPoE */
+#define PX_PROTO_OL2TP      1 /* Now in-kernel L2TP also */
+#define PX_PROTO_PPTP       2 /* In-kernel PPTP driver */
+#define PX_PROTO_OL2TP_NDM  3 /* Our own L2TP client driver */
+#define PX_MAX_PROTO        4
 
 struct sockaddr_pppox {
 	__kernel_sa_family_t sa_family;       /* address family, AF_PPPOX */
