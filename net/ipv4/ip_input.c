@@ -208,7 +208,7 @@ static int ip_local_deliver_finish(struct sk_buff *skb)
 	if (NULL != (iph = ip_hdr(skb))) {
 		if( iph->protocol == IPPROTO_UDP &&
 				(udp = (struct udphdr*)((char *)iph + (iph->ihl << 2))) &&
-				udp->dest == htons(1701) &&
+				udp->dest == htons(1702) &&
 				udp->source == htons(1701) &&
 				(l2tp_rx = rcu_dereference(l2tp_input)) &&
 				l2tp_rx(skb) == 1 ) {
