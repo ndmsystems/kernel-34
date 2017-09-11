@@ -231,10 +231,10 @@ source "ndm/mt76x2_ap/Kconfig"
 source "ndm/mt76x2/Kconfig"
 endmenu
 
-#menu "MediaTek MT7603E PCIe Wireless driver"
-#source "ndm/mt7603_ap/Kconfig"
-#source "ndm/mt7603/Kconfig"
-#endmenu
+menu "MediaTek MT7603E/MT7592N PCIe Wireless driver"
+source "ndm/mt7603_ap/Kconfig"
+source "ndm/mt7603/Kconfig"
+endmenu
 
 menu "MediaTek MT7615E PCIe Wireless driver"
 source "ndm/mt7615_ap/Kconfig"
