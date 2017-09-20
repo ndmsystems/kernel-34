@@ -146,7 +146,10 @@ typedef unsigned char uint8;            /* 8-bit unsigned integer       */
 #endif
 
 #define isRT63365 		(((VPint(0xbfb00064) & 0xffff0000)) == 0x00040000)
-#define isEN751221 		(((VPint(0xbfb00064) & 0xffff0000)) == 0x00070000)
+#define isEN7526c		(((VPint(0xbfb00064) & 0xffff0000)) == 0x00080000)
+#define isEN751221		((((VPint(0xbfb00064) & 0xffff0000)) == 0x00070000) || isEN7526c)
+#define isEN751627		(((VPint(0xbfb00064) & 0xffff0000)) == 0x00090000)
+
 #ifdef __BIG_ENDIAN
 #define isRT63368		(isRT63365 ? ((((VPint(0xbfb0008c) >> 8) & 0x3) == 0x3) ? 1 : 0): 0)
 #else
@@ -155,7 +158,8 @@ typedef unsigned char uint8;            /* 8-bit unsigned integer       */
 
 #define isEN751221FPGA		((VPint(CR_AHB_HWCONF) & (1 << 29)) ? 0 : 1) //used for 7512/7521
 #define isGenernalFPGA		((VPint(CR_AHB_HWCONF) & (1 << 31)) ? 1 : 0) //used for 63365/751020
-#define isFPGA			0 //(isEN751221 ? isEN751221FPGA : isGenernalFPGA)
+#define isGenernalFPGA_2	(((VPint(CR_AHB_SSTR) & 0x1) == 0) ? 1 : 0) //used for EN7526c and later version
+#define isFPGA			0 //(isEN7526c ? isGenernalFPGA_2 : (isEN751221 ? isEN751221FPGA : isGenernalFPGA))
 
 #define EFUSE_VERIFY_DATA0	(0xBFBF8214)
 #define EFUSE_PKG_MASK		(0x3F)
@@ -203,7 +207,7 @@ typedef unsigned char uint8;            /* 8-bit unsigned integer       */
 #define SAR_CLK			(SYS_HCLK)/(4.0)		//more accurate if 4.0 not 4
 
 /* define CPU timer clock, FPGA is 50Mhz, ASIC is 250Mhz */
-#define	CPUTMR_CLK		(isFPGA ? (50*1000000) : (isEN751221 ? (200*1000000) : (250*1000000)))
+#define	CPUTMR_CLK		(isFPGA ? (50*1000000) : ((isEN751221 || isEN751627) ? (200*1000000) : (250*1000000)))
 
 #define isMT7530		(((VPint(0xbfb58000 + 0x7ffc) & 0xffff0000)) == 0x75300000)
 
@@ -654,6 +658,7 @@ interrupt_priority
 #define CR_AHB_PCIC	       	(CR_AHB_BASE + 0x88)
 #define CR_AHB_HWCONF       (CR_AHB_BASE + 0x8C)
 #define CR_AHB_SSR       	(CR_AHB_BASE + 0x90)
+#define CR_AHB_SSTR			(CR_AHB_BASE + 0x9C)
 #define CR_IMEM       	(CR_AHB_BASE + 0x9C)
 #define CR_DMEM       	(CR_AHB_BASE + 0xA0)
 
