@@ -145,7 +145,19 @@ typedef unsigned char uint8;            /* 8-bit unsigned integer       */
 #define VPchar			*(volatile unsigned char *)
 #endif
 
+static inline uint32 regRead32(uint32 reg)
+{
+	return VPint(reg);
+}
+
+static inline void regWrite32(uint32 reg, uint32 val)
+{
+	VPint(reg) = val;
+}
+
 #define isRT63365 		(((VPint(0xbfb00064) & 0xffff0000)) == 0x00040000)
+#define isMT751020		(((VPint(0xbfb00064) & 0xffff0000)) == 0x00050000)
+#define isMT7505		(((VPint(0xbfb00064) & 0xffff0000)) == 0x00060000)
 #define isEN7526c		(((VPint(0xbfb00064) & 0xffff0000)) == 0x00080000)
 #define isEN751221		((((VPint(0xbfb00064) & 0xffff0000)) == 0x00070000) || isEN7526c)
 #define isEN751627		(((VPint(0xbfb00064) & 0xffff0000)) == 0x00090000)
