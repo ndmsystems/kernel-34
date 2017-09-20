@@ -51,14 +51,6 @@
 
 /* MACRO DECLARATIONS ---------------------------------------------------------------- */
 
-#ifndef isEN7526c
-#define isEN7526c 0
-#endif
-
-#ifndef isEN751627
-#define isEN751627 0
-#endif
-
 /* TYPE DECLARATIONS ----------------------------------------------------------------- */
 typedef enum{
 	SPI_CONTROLLER_SPEED_SINGLE =0,
