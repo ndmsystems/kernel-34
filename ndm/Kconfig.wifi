@@ -209,6 +209,10 @@ config RALINK_MT7612E
 	bool
 	select RTMP_PCI_SUPPORT
 
+config CHIP_MT7603E
+	bool
+	select RTMP_PCI_SUPPORT
+
 config CHIP_MT7615E
 	bool
 	select RTMP_PCI_SUPPORT
