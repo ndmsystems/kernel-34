@@ -2258,6 +2258,7 @@ static int packet_snd(struct socket *sock,
 	unsigned short gso_type = 0;
 	int hlen, tlen;
 	int extra_len = 0;
+	bool has_vnet_hdr = false;
 
 	/*
 	 *	Get and verify the address.
@@ -2289,6 +2290,7 @@ static int packet_snd(struct socket *sock,
 		reserve = dev->hard_header_len;
 	if (po->has_vnet_hdr) {
 		vnet_hdr_len = sizeof(vnet_hdr);
+		has_vnet_hdr = true;
 
 		err = -EINVAL;
 		if (len < vnet_hdr_len)
@@ -2397,7 +2399,7 @@ static int packet_snd(struct socket *sock,
 	skb->ndm_mark = sk->sk_ndm_mark;
 #endif
 
-	if (po->has_vnet_hdr) {
+	if (has_vnet_hdr) {
 		if (vnet_hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
 			if (!skb_partial_csum_set(skb, vnet_hdr.csum_start,
 						  vnet_hdr.csum_offset)) {
