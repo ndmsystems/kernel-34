@@ -97,6 +97,20 @@
 #define SURFBOARDINT_PCIE1		24	/* PCIe1 */
 #define SURFBOARDINT_CRYPTO		29	/* CryptoEngine */
 
+#elif defined(CONFIG_ECONET_EN75XX_MP)
+
+#define SURFBOARDINT_GPIO		11	/* GPIO */
+#define SURFBOARDINT_PCM		12	/* PCM */
+#define SURFBOARDINT_DMA		15	/* DMA */
+#define SURFBOARDINT_I2S 		35	/* I2S */
+#define SURFBOARDINT_ESW		16	/* ESW */
+#define SURFBOARDINT_USB		18	/* USB */
+#define SURFBOARDINT_FE			22	/* Frame Engine */
+#define SURFBOARDINT_QDMA		23	/* QDMA */
+#define SURFBOARDINT_PCIE0		24	/* PCIe0 */
+#define SURFBOARDINT_PCIE1		25	/* PCIe1 */
+#define SURFBOARDINT_CRYPTO		29	/* CryptoEngine */
+
 #else
 
 #define MIPS_INTC_CHAIN_HW0		(MIPS_CPU_IRQ_BASE + 2)		/* Chain IP2 */
@@ -165,7 +179,7 @@
  * Surfboard registers are memory mapped on 32-bit aligned boundaries and
  * only word access are allowed.
  */
-#if defined (CONFIG_RALINK_RT6XXX_MP)
+#if defined(CONFIG_MIPS_TC3262)
 extern void tc_enable_irq(unsigned int irq);
 extern void tc_disable_irq(unsigned int irq);
 #elif defined (CONFIG_RALINK_MT7621) || defined (CONFIG_RALINK_MT7628)

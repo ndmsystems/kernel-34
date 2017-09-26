@@ -5,7 +5,7 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 
-#ifdef RALINK_NAND_BMT
+#if defined(RALINK_NAND_BMT) || defined(TCSUPPORT_NAND_BMT)
 
 #include "rt6xxx_bmt.h"
 
@@ -53,16 +53,21 @@ static char MAIN_SIGNATURE[] = "BMT";
 #define SIGNATURE_SIZE		(3)
 
 #define MAX_DAT_SIZE		0x1000
-#define MAX_OOB_SIZE		0x80
+#define MAX_OOB_SIZE		0x100
 #define MAX_RAW_BBT_SIZE	65536
 
 static u8 need_write_bmt_to_nand = 0;
 static u8 need_write_bbt_to_nand = 0;
 
-static struct ra_nand_chip *nand_chip_bmt = NULL;
-
+#if defined(CONFIG_ECONET_EN75XX_MP)
+static struct nand_chip *nand_chip_bmt;
+#define BLOCK_SIZE_BMT		(1u << nand_chip_bmt->phys_erase_shift)
+#define PAGE_SIZE_BMT		(1u << nand_chip_bmt->page_shift)
+#else
+static struct ra_nand_chip *nand_chip_bmt;
 #define BLOCK_SIZE_BMT		(1u << nand_chip_bmt->flash->erase_shift)
 #define PAGE_SIZE_BMT		(1u << nand_chip_bmt->flash->page_shift)
+#endif
 
 #define OFFSET(block)		((block) * BLOCK_SIZE_BMT)
 #define PAGE_ADDR(block)	((block) * BLOCK_SIZE_BMT / PAGE_SIZE_BMT)
@@ -84,9 +89,11 @@ static int oob_bad_index_offset = OOB_INDEX_OFFSET;	// bad index offset in oob
 
 static u32 bmt_block_index = 0;		// bmt block index
 static bmt_struct bmt;			// dynamic created global bmt table
+static phys_bmt_struct phys_bmt_table;	// global physical bmt table
 
 static u32 bbt_block_index = 0;		// bbt block index
 static init_bbt_struct init_bbt;	// dynamic created global bbt table
+static init_table_struct init_bbt_table;	// global init bbt table
 static u16 pBbt[MAX_RAW_BBT_SIZE];	// raw badblock table
 
 static u8 dat_buf[MAX_DAT_SIZE];
@@ -101,27 +108,47 @@ static bool pool_erased;
 
 static inline int nand_read_page_bmt(u32 page, u8 *dat, u8 *oob)
 {
+#if defined(CONFIG_ECONET_EN75XX_MP)
+	return en7512_nand_exec_read_page(page, dat, oob);
+#else
 	return mt6573_nand_exec_read_page(nand_chip_bmt, page, PAGE_SIZE_BMT, dat, oob);
+#endif
 }
 
 static inline int nand_block_bad_bmt(u32 offset, u32 bmt_block)
 {
+#if defined(CONFIG_ECONET_EN75XX_MP)
+	return en7512_nand_check_block_bad(offset, bmt_block);
+#else
 	return mt6573_nand_block_bad_hw(nand_chip_bmt, offset, bmt_block);
+#endif
 }
 
 static inline int nand_erase_bmt(u32 offset)
 {
+#if defined(CONFIG_ECONET_EN75XX_MP)
+	return en7512_nand_erase(offset);
+#else
 	return mt6573_nand_erase_hw(nand_chip_bmt, offset / PAGE_SIZE_BMT);
+#endif
 }
 
 static inline int mark_block_bad_bmt(u32 offset, u32 bmt_block)
 {
+#if defined(CONFIG_ECONET_EN75XX_MP)
+	return en7512_nand_mark_badblock(offset, bmt_block);
+#else
 	return mt6573_nand_block_markbad_hw(nand_chip_bmt, offset, bmt_block);
+#endif
 }
 
 static inline int nand_write_page_bmt(u32 page, u8 *dat, u8 *oob)
 {
+#if defined(CONFIG_ECONET_EN75XX_MP)
+	return en7512_nand_exec_write_page(page, dat, oob);
+#else
 	return mt6573_nand_exec_write_page(nand_chip_bmt, page, PAGE_SIZE_BMT, dat, oob);
+#endif
 }
 
 /***************************************************************
@@ -265,50 +292,47 @@ static bool valid_bbt_data(init_table_struct *bbt_table)
 	return true;
 }
 
-static phys_bmt_struct fnbb_phys_bmt;
-
 static void fill_nand_bmt_buffer(bmt_struct *bmt, u8 *dat, u8 *oob)
 {
+	phys_bmt_struct *phys_bmt = &phys_bmt_table;
+
 	dump_bmt_info(bmt);
 
 	/* fill phys_bmt_struct structure with bmt_struct */
-	memset(&fnbb_phys_bmt, 0xFF, sizeof(fnbb_phys_bmt));
+	memset(phys_bmt, 0xFF, sizeof(phys_bmt_struct));
 
-	memcpy(fnbb_phys_bmt.header.signature, MAIN_SIGNATURE, SIGNATURE_SIZE);
-	fnbb_phys_bmt.header.version = BMT_VERSION;
-	fnbb_phys_bmt.header.mapped_count = bmt->mapped_count;
-	memcpy(fnbb_phys_bmt.table, bmt->table, sizeof(bmt_entry) * bmt_block_count);
+	memcpy(phys_bmt->header.signature, MAIN_SIGNATURE, SIGNATURE_SIZE);
+	phys_bmt->header.version = BMT_VERSION;
+	phys_bmt->header.mapped_count = bmt->mapped_count;
+	memcpy(phys_bmt->table, bmt->table, sizeof(bmt_entry) * bmt_block_count);
 
-	fnbb_phys_bmt.header.checksum = cal_bmt_checksum(&fnbb_phys_bmt, bmt_block_count);
+	phys_bmt->header.checksum = cal_bmt_checksum(phys_bmt, bmt_block_count);
 
-	memcpy(dat + MAIN_SIGNATURE_OFFSET, &fnbb_phys_bmt, sizeof(fnbb_phys_bmt));
+	memcpy(dat + MAIN_SIGNATURE_OFFSET, phys_bmt, sizeof(phys_bmt_struct));
 }
-
-static init_table_struct fnbb_init_table;
 
 static void fill_nand_bbt_buffer(init_bbt_struct *bbt, u8 *dat, u8 *oob)
 {
-	memset(&fnbb_init_table, 0xFF, sizeof(fnbb_init_table));
+	init_table_struct *init_bbt = &init_bbt_table;
 
-	memcpy(fnbb_init_table.header.signature, BBT_SIGNATURE, BBT_SIGNATURE_SIZE);
+	memset(init_bbt, 0xFF, sizeof(init_table_struct));
 
-	fnbb_init_table.header.version = BBT_VERSION;
-	fnbb_init_table.header.badblock_count = bbt->badblock_count;
+	memcpy(init_bbt->header.signature, BBT_SIGNATURE, BBT_SIGNATURE_SIZE);
+	init_bbt->header.version = BBT_VERSION;
+	init_bbt->header.badblock_count = bbt->badblock_count;
+	memcpy(init_bbt->badblock_table, bbt->badblock_table, sizeof(bbt->badblock_table));
 
-	memcpy(fnbb_init_table.badblock_table, bbt->badblock_table, sizeof(bbt->badblock_table));
+	init_bbt->header.checksum = cal_bbt_checksum(init_bbt);
 
-	fnbb_init_table.header.checksum = cal_bbt_checksum(&fnbb_init_table);
-
-	memcpy(dat + BBT_SIGNATURE_OFFSET, &fnbb_init_table, sizeof(fnbb_init_table));
+	memcpy(dat + BBT_SIGNATURE_OFFSET, init_bbt, sizeof(init_table_struct));
 }
-
-static phys_bmt_struct lbd_phys_table;
 
 /* return valid index if found BMT, else return 0 */
 static int load_bmt_data(int start, int pool_size)
 {
-	int bmt_index = start + pool_size - 1;	// find from the end
 	int i;
+	int bmt_index = start + pool_size - 1;	// find from the end
+	phys_bmt_struct *phys_table = &phys_bmt_table;
 
 	MSG("begin to search BMT from block %d \n", bmt_index);
 
@@ -329,15 +353,15 @@ static int load_bmt_data(int start, int pool_size)
 
 		MSG("Match bmt signature @ block: %d\n", bmt_index);
 
-		memcpy(&lbd_phys_table, dat_buf + MAIN_SIGNATURE_OFFSET, sizeof(lbd_phys_table));
+		memcpy(phys_table, dat_buf + MAIN_SIGNATURE_OFFSET, sizeof(phys_bmt_struct));
 
-		if (!valid_bmt_data(&lbd_phys_table)) {
+		if (!valid_bmt_data(phys_table)) {
 			MSG("BMT data is not correct: %d\n", bmt_index);
 			continue;
 		} else {
-			bmt.mapped_count = lbd_phys_table.header.mapped_count;
-			bmt.version = lbd_phys_table.header.version;
-			memcpy(bmt.table, lbd_phys_table.table, bmt.mapped_count * sizeof(bmt_entry));
+			bmt.mapped_count = phys_table->header.mapped_count;
+			bmt.version = phys_table->header.version;
+			memcpy(bmt.table, phys_table->table, bmt.mapped_count * sizeof(bmt_entry));
 
 			MSG("bmt found at block: %d, mapped block: %d\n", bmt_index, bmt.mapped_count);
 
@@ -357,13 +381,12 @@ static int load_bmt_data(int start, int pool_size)
 	return 0;
 }
 
-static init_table_struct lbd_init_table;
-
 static int load_bbt_data(int start, int pool_size, init_bbt_struct *init_bbt)
 {
 	int i;
 	int ret = 0;
 	int bbt_index = start;
+	init_table_struct *init_table = &init_bbt_table;
 
 	for (; bbt_index < (start + pool_size); bbt_index++) {
 		if (nand_block_bad_bmt(OFFSET(bbt_index), BAD_BLOCK_RAW) ||
@@ -382,15 +405,15 @@ static int load_bbt_data(int start, int pool_size, init_bbt_struct *init_bbt)
 
 		MSG("Match bbt signature \n");
 
-		memcpy(&lbd_init_table, dat_buf + BBT_SIGNATURE_OFFSET, sizeof(lbd_init_table));
+		memcpy(init_table, dat_buf + BBT_SIGNATURE_OFFSET, sizeof(init_table_struct));
 
-		if (!valid_bbt_data(&lbd_init_table)) {
+		if (!valid_bbt_data(init_table)) {
 			MSG("BBT data is not correct \n");
 			continue;
 		} else {
-			init_bbt->badblock_count = lbd_init_table.header.badblock_count;
-			init_bbt->version = lbd_init_table.header.version;
-			memcpy(init_bbt->badblock_table, lbd_init_table.badblock_table, (init_bbt->badblock_count) * 2);
+			init_bbt->badblock_count = init_table->header.badblock_count;
+			init_bbt->version = init_table->header.version;
+			memcpy(init_bbt->badblock_table, init_table->badblock_table, init_bbt->badblock_count * 2);
 
 			printk(KERN_INFO "BBT found, bad block count: %d\n", init_bbt->badblock_count);
 
@@ -493,7 +516,6 @@ static int find_available_block(bool start_from_end)
 	return 0;
 }
 
-
 static unsigned short get_bad_index_from_oob(u8 *oob_buf)
 {
 	unsigned short index;
@@ -535,9 +557,16 @@ static int migrate_from_bad(int offset, u8 *write_dat, u8 *write_oob)
 		}
 	}
 
+	memset(oob_buf, 0xFF, sizeof(oob_buf));
+
 	{
-		memset(oob_buf, 0xFF, sizeof(oob_buf));
+#if defined(CONFIG_ECONET_EN75XX_MP)
+		struct en75xx_spinand_host *host = (struct en75xx_spinand_host *)nand_chip_bmt->priv;
+
+		memcpy(oob_buf, write_oob, host->mtd.oobsize);
+#else
 		memcpy(oob_buf, write_oob, 1u << nand_chip_bmt->flash->oob_shift);
+#endif
 
 		if (error_block < system_block_count) {
 			/* if error_block is already a mapped block, original mapping index is in OOB */
@@ -726,9 +755,13 @@ init_bbt_struct* reconstruct_bbt(init_bbt_struct* init_bbt)
 * Return: 
 *   NULL for failure, and a bmt struct for success
 *******************************************************************/
+#if defined(CONFIG_ECONET_EN75XX_MP)
+bmt_struct *init_bmt(struct nand_chip *chip, int size)
+#else
 bmt_struct *init_bmt(struct ra_nand_chip *ra, int size)
+#endif
 {
-	if (size > 0 && size < MAX_BMT_SIZE) {
+	if (size > 0 && size <= MAX_BMT_SIZE) {
 		MSG("Init bmt table, size: %d\n", size);
 		bmt_block_count = size;
 	} else {
@@ -736,8 +769,13 @@ bmt_struct *init_bmt(struct ra_nand_chip *ra, int size)
 		return NULL;
 	}
 
+#if defined(CONFIG_ECONET_EN75XX_MP)
+	nand_chip_bmt = chip;
+	total_block_count = chip->chipsize >> chip->phys_erase_shift;
+#else
 	nand_chip_bmt = ra;
 	total_block_count = (1u << ra->flash->chip_shift) / (1u << ra->flash->erase_shift);
+#endif
 	system_block_count = total_block_count - bmt_block_count;
 
 	page_per_block = BLOCK_SIZE_BMT / PAGE_SIZE_BMT;
@@ -837,7 +875,11 @@ int create_badblock_table_by_bbt(void)
 			pBbt[k]++;
 	}
 
+#if defined(CONFIG_ECONET_EN75XX_MP)
+	nand_logic_size = (system_block_count - init_bbt.badblock_count) * (1u << nand_chip_bmt->phys_erase_shift);
+#else
 	nand_logic_size = (system_block_count - init_bbt.badblock_count) * (1u << nand_chip_bmt->flash->erase_shift);
+#endif
 
 	return 0;
 }
@@ -970,4 +1012,4 @@ int block_is_in_bmt_region(int index)
 	return 0;
 }
 
-#endif /* RALINK_NAND_BMT */
+#endif /* RALINK_NAND_BMT || TCSUPPORT_NAND_BMT */

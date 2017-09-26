@@ -10,6 +10,14 @@
 
 #include <asm-generic/vmlinux.lds.h>
 
+#ifdef CONFIG_TC3262_IMEM
+#ifdef CONFIG_ECONET_EN7512
+#define TC3262_IMEM_SIZE 65536
+#else
+#define TC3262_IMEM_SIZE 32768
+#endif
+#endif
+
 #undef mips
 #define mips mips
 OUTPUT_ARCH(mips)
@@ -68,7 +76,7 @@ SECTIONS
 	__imem = . ;
 	.imem_text : { *(.imem_text) }
 	_imem_end = .;
-	_etext = (__imem + 32768) > . ? (__imem + 32768) : .;
+	_etext = (__imem + TC3262_IMEM_SIZE) > . ? (__imem + TC3262_IMEM_SIZE) : .;
 	. = _etext;
 #else
 	_etext = .;	/* End of text section */

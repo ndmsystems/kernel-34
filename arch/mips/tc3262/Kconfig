@@ -1,18 +1,26 @@
 
-if RALINK_RT6XXX_MP
+if (RALINK_RT6XXX_MP || ECONET_EN75XX_MP)
 
 config PCIE_PORT1
 	bool "Second PCIe port support"
-	default y
+	default n
 
 endif
 
 #--------------------------
 
-if RALINK_RT63365
+if (RALINK_RT63365 || ECONET_EN7512)
 
 config TC3162_ADSL
 	bool "Enable ADSL support"
+	default n
+
+endif
+
+if ECONET_EN7512
+
+config RALINK_VDSL
+	bool "Enable VDSL support"
 	default n
 
 endif

@@ -1,10 +1,10 @@
 config  RA_HW_NAT
 	tristate "Ralink/MTK HW NAT (** Work At Module Mode ONLY **)"
-	depends on (RALINK_RT6XXX_MP || RALINK_MT7620 || RALINK_MT7621 || ARCH_MT7623)
+	depends on !(RALINK_RT5350 || RALINK_MT7628)
 
 config  HNAT_V2
 	bool
-	default y if (RALINK_MT7620 || RALINK_MT7621 || ARCH_MT7623)
+	default y if (RALINK_MT7620 || RALINK_MT7621 || ARCH_MT7623 || ECONET_EN75XX_MP)
 	depends on RA_HW_NAT
 
 config  HNAT_ENHANCED
@@ -307,7 +307,7 @@ config  RA_HW_NAT_ACL2UP_HELPER
 
 config  RA_HW_NAT_PREBIND
 	bool "Pre-bind support"
-	depends on RA_HW_NAT && (RALINK_MT7621 || ARCH_MT7623)
+	depends on RA_HW_NAT && (RALINK_MT7621 || ARCH_MT7623 || ECONET_EN75XX_MP)
 
 config  RA_HW_NAT_PBND_RD_PRD
 	int "Check interval in pause state (us) Max:65535"
@@ -328,7 +328,7 @@ config  RA_HW_NAT_IPV6
 
 config  RA_HW_NAT_QDMA
 	bool "Flow out to QDMA (HW QoS)"
-	depends on RA_HW_NAT && (RALINK_MT7621 || ARCH_MT7623)
+	depends on RA_HW_NAT && (RALINK_MT7621 || ARCH_MT7623 || ECONET_EN75XX_MP)
 	default n
 	help
 	  HW QoS concurrent with HNAT

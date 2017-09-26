@@ -52,7 +52,11 @@ enum interrupt_source
 	SI_TIMER1_INT,		//29
 	SI_TIMER_INT,		//30
 	SWR_INT,		//31	IPL4
-	BUS_TOUT_INT		//32
+	BUS_TOUT_INT,		//32
+	RESERVE_A_INT,		//33
+	RESERVE_B_INT,		//34
+	RESERVE_C_INT,		//35
+	AUTO_MANUAL_INT		//36
 };
 
 #endif /* _TC3262_INT_SOURCE_H_ */

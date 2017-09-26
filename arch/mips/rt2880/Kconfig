@@ -143,7 +143,7 @@ config  RALINK_MT7621_PLL900
 
 config  RALINK_SYSTICK_COUNTER
 	bool "Use 50KHz SoC Systick Counter (Independent from CPU frequency)"
-	depends on !(CEVT_GIC || RALINK_RT3052 || RALINK_RT3883 || RALINK_RT6XXX_MP)
+	depends on !(CEVT_GIC || RALINK_RT3052 || RALINK_RT3883 || RALINK_RT6XXX_MP || ECONET_EN75XX_MP)
 	select GENERIC_CLOCKEVENTS_BROADCAST if MIPS_GIC_IPI
 	default n
 
@@ -184,7 +184,7 @@ config RT2880_DRAM_256M
 
 config RT2880_DRAM_512M
 	bool "512M (448M + 64M Highmem)"
-	depends on RALINK_MT7621
+	depends on (RALINK_MT7621 || ECONET_EN7512)
 	select LONG_CALLS
 
 endchoice
@@ -222,7 +222,7 @@ config  RALINK_UART_BRATE
 config  RALINK_TIMER_DFS
 	tristate "Ralink DFS Timer"
 	default n
-	depends on !RALINK_RT6XXX_MP
+	depends on !(RALINK_RT6XXX_MP || ECONET_EN75XX_MP)
 
 config  RALINK_TIMER_WDG
 	tristate "Ralink WatchDog Timer"
@@ -231,7 +231,7 @@ config  RALINK_TIMER_WDG
 config  RALINK_TIMER_WDG_RESET_OUTPUT
 	bool "Ralink WatchDog Reset Output GPIO Pin"
 	depends on RALINK_TIMER_WDG
-	depends on !RALINK_RT6XXX_MP
+	depends on !(RALINK_RT6XXX_MP || ECONET_EN75XX_MP)
 	default n
 
 config  RALINK_TIMER_WDG_REBOOT_DELAY

@@ -80,6 +80,10 @@
 #define RALINK_PCI1_STATUS		*(volatile u32 *)(RALINK_PCI_BASE + RT6855_PCIE1_OFFSET + 0x0050)
 #define RALINK_PCI1_ECRC		*(volatile u32 *)(RALINK_PCI_BASE + RT6855_PCIE1_OFFSET + 0x0064)
 
+#elif defined(CONFIG_ECONET_EN75XX_MP)
+
+/* pci_en75xx.c */
+
 #elif defined (CONFIG_RALINK_MT7620) || defined (CONFIG_RALINK_MT7628)
 
 #define RT6855_PCIE0_OFFSET	0x2000

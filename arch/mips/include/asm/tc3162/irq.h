@@ -11,6 +11,8 @@
 #define MIPS_CPU_IRQ_BASE	0
 #define NR_IRQS			41	/* 1 offset + 40 TC */
 
+#include <asm/rt2880/surfboardint.h>
+
 #include_next <irq.h>
 
 #endif

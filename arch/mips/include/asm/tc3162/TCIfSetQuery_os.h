@@ -221,6 +221,12 @@
 #define ME_CMD_ADSL2					0x09
 #define ME_CMD_ADSL2PLUS				0x0A
 #define ME_CMD_VDSL2					0x0B
+//Sam 20140305
+#define ME_CMD_GVECTOR					0x0C
+#define ME_CMD_GVECTOR_GINP				0x0D
+#define ME_CMD_VDSL2_GINP				0x0E
+#define ME_CMD_ADSL2_GINP				0x0F
+#define ME_CMD_ADSL2PLUS_GINP				0x10
 
 //xzwang
 #define ME_CMD_ADSL_ANSI				0x05

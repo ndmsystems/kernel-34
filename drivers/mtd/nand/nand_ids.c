@@ -25,7 +25,7 @@
  * extended chip ID.
  */
 struct nand_flash_dev nand_flash_ids[] = {
-#if !defined (CONFIG_MTD_NAND_MTK)
+#if !defined(CONFIG_MTD_NAND_MTK) && !defined(CONFIG_MTD_SPINAND_ECONET)
 	LEGACY_ID_NAND("NAND 4MiB 5V 8-bit",   0x6B, 4, 0x2000, SP_OPTIONS),
 	LEGACY_ID_NAND("NAND 4MiB 3,3V 8-bit", 0xE3, 4, 0x2000, SP_OPTIONS),
 	LEGACY_ID_NAND("NAND 4MiB 3,3V 8-bit", 0xE5, 4, 0x2000, SP_OPTIONS),
@@ -58,6 +58,7 @@ struct nand_flash_dev nand_flash_ids[] = {
 	LEGACY_ID_NAND("NAND 256MiB 3,3V 8-bit", 0x71, 256, 0x4000, SP_OPTIONS),
 #endif
 
+#if !defined(CONFIG_MTD_SPINAND_ECONET)
 	/*
 	 * These are the new chips with large page size. Their page size and
 	 * eraseblock size are determined from the extended ID bytes.
@@ -135,6 +136,7 @@ struct nand_flash_dev nand_flash_ids[] = {
 	EXTENDED_ID_NAND("NAND 64GiB 3,3V 8-bit",  0x3E, 65536, LP_OPTIONS),
 	EXTENDED_ID_NAND("NAND 64GiB 1,8V 16-bit", 0x2E, 65536, LP_OPTIONS16),
 	EXTENDED_ID_NAND("NAND 64GiB 3,3V 16-bit", 0x4E, 65536, LP_OPTIONS16),
+#endif
 
 	{NULL}
 };
@@ -152,8 +154,15 @@ struct nand_manufacturers nand_manuf_ids[] = {
 	{NAND_MFR_AMD, "AMD/Spansion"},
 	{NAND_MFR_MACRONIX, "Macronix"},
 	{NAND_MFR_EON, "Eon/Zentel/ESMT"},
+
 	/* custom codes */
-	{0xc8, "ESMT"},
+	{0xC8, "ESMT/Zentel/GD"},
+	{0xEF, "Winbond"},
+	{0xD5, "Etron"},
+	{0x9B, "ATO"},
+	{0xC9, "Heyang"},
+	{0xA1, "XtX/FM"},
+
 	{0x0, "Unknown"}
 };
 

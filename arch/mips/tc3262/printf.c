@@ -4,6 +4,7 @@
 #include <linux/string.h>
 #include <linux/delay.h>
 #include <linux/err.h>
+#include <linux/export.h>
 
 #include <asm/tc3162/tc3162.h>
 
@@ -46,4 +47,4 @@ void prom_printf(const char *fmt, ...)
 
 	uart_write_buf(ppbuf, i);
 }
-
+EXPORT_SYMBOL(prom_printf);

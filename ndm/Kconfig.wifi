@@ -38,15 +38,15 @@ choice
 	select RALINK_MT7612E
 
 	config FIRST_IF_MT7603E
-	bool "MT7603E"
-	depends on RALINK_MT7621
+	bool "MT7603E/MT7592N"
+	depends on (RALINK_MT7621 || ECONET_EN75XX_MP)
 	select MT_MAC
 	select WIFI_MT_MAC
 	select CHIP_MT7603E
 
 	config FIRST_IF_MT7615E
 	bool "MT7615E"
-	depends on RALINK_MT7621
+	depends on (RALINK_MT7621 || ECONET_EN75XX_MP)
 	select MT_MAC
 	select WIFI_MT_MAC
 	select CHIP_MT7615E
@@ -219,6 +219,10 @@ config RALINK_MT7612E
 	bool
 	select RTMP_PCI_SUPPORT
 
+config CHIP_MT7603E
+	bool
+	select RTMP_PCI_SUPPORT
+
 config CHIP_MT7615E
 	bool
 	select RTMP_PCI_SUPPORT
@@ -241,10 +245,10 @@ source "ndm/mt76x2_ap/Kconfig"
 source "ndm/mt76x2/Kconfig"
 endmenu
 
-#menu "MediaTek MT7603E PCIe Wireless driver"
-#source "ndm/mt7603_ap/Kconfig"
-#source "ndm/mt7603/Kconfig"
-#endmenu
+menu "MediaTek MT7603E/MT7592N PCIe Wireless driver"
+source "ndm/mt7603_ap/Kconfig"
+source "ndm/mt7603/Kconfig"
+endmenu
 
 menu "MediaTek MT7610E PCIe Wireless driver"
 source "ndm/mt7610_ap/Kconfig"

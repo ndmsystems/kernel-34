@@ -2134,7 +2134,11 @@ static int nand_do_write_ops(struct mtd_info *mtd, loff_t to,
 		return 0;
 
 	/* Reject writes, which are not page aligned */
+#ifdef CONFIG_MTD_SPINAND_ECONET
+	if (NOTALIGNED(to)) {
+#else
 	if (NOTALIGNED(to) || NOTALIGNED(ops->len)) {
+#endif
 		pr_notice("%s: attempt to write non page aligned data\n",
 			   __func__);
 		return -EINVAL;

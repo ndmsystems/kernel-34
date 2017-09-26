@@ -9,10 +9,13 @@
 #include <asm/addrspace.h>
 #include <asm/bootinfo.h>
 #include <asm/smp-ops.h>
+#include <asm/cacheflush.h>
 #include <asm/mipsmtregs.h>
 #include <asm/cpu.h>
+#include <asm/traps.h>
 
 #include <asm/mips-boards/prom.h>
+#include <asm/rt2880/rt_mmap.h>
 #include <asm/tc3162/tc3162.h>
 
 extern struct plat_smp_ops msmtc_smp_ops;
@@ -61,10 +64,20 @@ char *prom_getenv(char *envname)
 const char *get_system_type(void)
 {
 #ifdef __BIG_ENDIAN
+#ifdef CONFIG_ECONET_EN75XX_MP
+	if (isEN7513G)
+		return "EcoNet EN7513G SoC";
+	if (isEN7513)
+		return "EcoNet EN7513 SoC";
+	if (isEN7512)
+		return "EcoNet EN7512 SoC";
+	return "EcoNet SoC";
+#else
 	if (isRT63368)
 		return "Ralink RT63368 SoC";
 	else
 		return "Ralink RT63365 SoC";
+#endif
 #else
 	if (isRT63368)
 		return "Ralink RT6856 SoC";
@@ -131,7 +144,7 @@ static inline void tc_uart_setup(void)
 
 static inline void tc_ahb_setup(void)
 {
-#ifdef CONFIG_RALINK_RT63365
+#if defined(CONFIG_RALINK_RT63365) || defined(CONFIG_ECONET_EN7512)
 	/* assert DMT reset */
 	VPint(CR_AHB_DMTCR) = 0x1;
 	udelay(100);
@@ -145,13 +158,70 @@ static inline void tc_ahb_setup(void)
 	VPint(CR_AHB_AACS) = 0xffff;
 }
 
+static inline void tc_usb_setup(void)
+{
+#if !IS_ENABLED(CONFIG_USB)
+#ifdef CONFIG_ECONET_EN75XX_MP
+	/* disable both ports UPHY */
+	VPint(RALINK_XHCI_UPHY_BASE + 0x081C) = 0xC0241580;
+	VPint(RALINK_XHCI_UPHY_BASE + 0x101C) = 0xC0241580;
+#endif
+#endif
+}
+
+#ifdef CONFIG_ECONET_EN75XX_MP
+
+#define VECTORSPACING 0x100	/* for EI/VI mode */
+
+void __init mips_nmi_setup(void)
+{
+	void *base;
+	extern char except_vec_nmi;
+
+	base = cpu_has_veic ?
+		(void *)(ebase + 0x200 + VECTORSPACING * 64) :
+		(void *)(ebase + 0x380);
+
+	printk("NMI base is %p\n", base);
+
+	/*
+	 * Fill the NMI_Handler address in a register, which is a R/W register
+	 * start.S will read it, then jump to NMI_Handler address
+	 */
+	VPint(0xbfb00244) = (unsigned int)base;
+
+	memcpy(base, &except_vec_nmi, 0x80);
+	flush_icache_range((unsigned long)base, (unsigned long)base + 0x80);
+}
+
+static inline void cpu_dma_round_robin(int mode)
+{
+	unsigned int reg_arb;
+
+	reg_arb = VPint(ARB_CFG);
+
+	if (mode == ENABLE)
+		reg_arb |= ROUND_ROBIN_ENABLE;
+	else
+		reg_arb &= ROUND_ROBIN_DISBALE;
+
+	VPint(ARB_CFG) = reg_arb;
+}
+#endif
+
 void __init prom_init(void)
 {
 	unsigned long memsize;
-	unsigned int hw_conf, bus_freq, cpu_freq, cpu_ratio;
+	unsigned int bus_freq, cpu_freq, cpu_ratio;
 	const char *ram_type = "SDRAM";
+	unsigned int hw_conf;
 
-	if (!isRT63365) {
+#ifdef CONFIG_ECONET_EN75XX_MP
+	if (!isEN751221)
+#else
+	if (!isRT63365)
+#endif
+	{
 		/* Unsupported hardware */
 		BUG();
 	}
@@ -171,9 +241,26 @@ void __init prom_init(void)
 	tc_mips_setup();
 	tc_uart_setup();
 	tc_ahb_setup();
+	tc_usb_setup();
 
 	hw_conf = VPint(CR_AHB_HWCONF);
 
+#ifdef CONFIG_ECONET_EN75XX_MP
+	memsize = GET_DRAM_SIZE;
+
+	if (memsize == 512)
+		memsize = 440;
+
+	memsize = memsize << 20;
+	if (isEN7512) {
+		/* embedded DRAM (QFP) */
+		ram_type = (EFUSE_IS_DDR3) ? "DDR3" : "DDR2";
+	} else {
+		/* external DRAM (BGA) */
+		ram_type = (hw_conf & (1 << 4)) ? "DDR2" : "DDR3";
+	}
+	cpu_ratio = 4;
+#else
 	/* DDR */
 	if (hw_conf & (1<<25)) {
 		ram_type = (hw_conf & (1<<24)) ? "DDR2" : "DDR";
@@ -182,9 +269,9 @@ void __init prom_init(void)
 	/* SDRAM */
 	} else {
 		unsigned int sdram_cfg1, col, row;
-		
+
 		cpu_ratio = 4;
-		
+
 		/* calculate SDRAM size */
 		sdram_cfg1 = VPint(0xbfb20004);
 		row = 11 + ((sdram_cfg1>>16) & 0x3);
@@ -192,8 +279,9 @@ void __init prom_init(void)
 		/* 4 bands and 16 bit width */
 		memsize = (1 << row) * (1 << col) * 4 * 2;
 	}
+#endif
 
-	add_memory_region(0, memsize, BOOT_MEM_RAM);
+	add_memory_region(0 + 0x20000, memsize - 0x20000, BOOT_MEM_RAM);
 
 	bus_freq = SYS_HCLK;
 	cpu_freq = bus_freq * cpu_ratio;
@@ -212,6 +300,10 @@ void __init prom_init(void)
 		cpu_freq,
 		bus_freq);
 
+#ifdef CONFIG_ECONET_EN75XX_MP
+	board_nmi_handler_setup = mips_nmi_setup;
+	cpu_dma_round_robin(ENABLE);
+#endif
 #ifdef CONFIG_MIPS_MT_SMP
 	register_vsmp_smp_ops();
 #endif

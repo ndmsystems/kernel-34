@@ -23,6 +23,11 @@ choice
 		bool "NAND Flash"
 		depends on !(RALINK_RT3352 || RALINK_RT5350 || RALINK_MT7621 || RALINK_MT7628)
 
+	config MTD_SPINAND_ECONET
+		bool "SPI NAND Flash"
+		depends on ECONET_EN75XX_MP
+		select MTD_NAND
+
 	config MTD_NAND_MTK
 		bool "NAND Flash"
 		depends on (RALINK_MT7621)

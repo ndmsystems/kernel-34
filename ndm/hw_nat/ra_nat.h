@@ -24,11 +24,19 @@ typedef struct {
 	uint32_t CRSN:5;
 	uint32_t SPORT:3;
 	uint32_t ALG:10;
-#elif defined(CONFIG_RALINK_MT7621) || defined(CONFIG_ARCH_MT7623)
+#elif defined(CONFIG_RALINK_MT7621) || defined(CONFIG_ARCH_MT7623) || \
+      defined(CONFIG_ECONET_EN75XX_MP)
+#ifdef __BIG_ENDIAN
+	uint32_t ALG:9;
+	uint32_t SPORT:4;
+	uint32_t CRSN:5;
+	uint32_t FOE_Entry:14;
+#else
 	uint32_t FOE_Entry:14;
 	uint32_t CRSN:5;
 	uint32_t SPORT:4;
 	uint32_t ALG:9;
+#endif
 #else
 #ifdef __BIG_ENDIAN
 	uint32_t RESV2:4;
