@@ -296,7 +296,9 @@ static irqreturn_t tc_bus_timeout_interrupt(int irq, void *dev_id)
 	VPint(CR_PRATIR) = 1;
 #else
 	/* read to clear interrupt */
-	unsigned int reg = READ_ONCE(VPint(CR_PRATIR));
+	unsigned int reg;
+
+	reg = READ_ONCE(VPint(CR_PRATIR));
 #endif
 
 	addr = VPint(CR_ERR_ADDR);
