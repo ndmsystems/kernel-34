@@ -161,6 +161,24 @@ static inline void regWrite32(uint32 reg, uint32 val)
 #define isEN7526c		(((VPint(0xbfb00064) & 0xffff0000)) == 0x00080000)
 #define isEN751221		((((VPint(0xbfb00064) & 0xffff0000)) == 0x00070000) || isEN7526c)
 #define isEN751627		(((VPint(0xbfb00064) & 0xffff0000)) == 0x00090000)
+/* Support old xDSL chips */
+#define isTC3162L2P2		((((unsigned char)(VPint(0xbfb0008c)>>12)&0xff)!=0)&&(((VPint(0xbfb00064)&0xffffffff))==0x00000000)?1:0)
+#define isTC3162L3P3		((((unsigned char)(VPint(0xbfb0008c)>>12)&0xff)==7)&&(((VPint(0xbfb00064)&0xffffffff))==0x00000000)?1:0)
+#define isTC3162L4P4		((((unsigned char)(VPint(0xbfb0008c)>>12)&0xff)==8)&&(((VPint(0xbfb00064)&0xffffffff))==0x00000000)?1:0)
+#define isTC3162L5P5E2		((((unsigned char)(VPint(0xbfb0008c)>>12)&0xff)==0xa)&&(((VPint(0xbfb00064)&0xffffffff))==0x00000000)?1:0)
+#define isTC3162L5P5E3		((((unsigned char)(VPint(0xbfb0008c)>>12)&0xff)==0xb)&&(((VPint(0xbfb00064)&0xffffffff))==0x00000000)?1:0)
+#define isTC3162L5P5		(isTC3162L5P5E2 || isTC3162L5P5E3)
+#define isTC3162U		((((unsigned char)(VPint(0xbfb0008c)>>12)&0xff)==0x10)&&(((VPint(0xbfb00064)&0xffffffff))==0x00000000)?1:0)
+#define isRT63260		((((unsigned char)(VPint(0xbfb0008c)>>12)&0xff)==0x20)&&(((VPint(0xbfb00064)&0xffffffff))==0x00000000)?1:0)
+#define isTC3169		(((VPint(0xbfb00064)&0xffff0000))==0x00000000)
+#define isTC3182		(((VPint(0xbfb00064)&0xffff0000))==0x00010000)
+#define isRT65168		(((VPint(0xbfb00064)&0xffff0000))==0x00020000)
+#define isRT63165		(((VPint(0xbfb00064)&0xffff0000))==0x00030000)
+#define RT63165_SYS_HCLK	(VPint(0xbfb0008c)&(1<<31) ? 25 : (VPint(0xbfb0008c)&(1<<9) ? (200) : (16667/100)))
+#define RT63260_SYS_HCLK	((12*(((VPint(0xbfb000b0))&0x1ff)+1)/(((VPint(0xbfb000b0)>>9)&0x1f)+1))/5)
+#define TC3162U_SYS_HCLK	(3*(((VPint(0xbfb000b0)>>16)&0x1ff)+1)/(((VPint(0xbfb000b0)>>25)&0x1f)+1))
+#define CPUTMR_CLK_OLD		(VPint(0xbfb0008c)&(1<<31) ? 50 : 250)
+/* */
 
 #ifdef __BIG_ENDIAN
 #define isRT63368		(isRT63365 ? ((((VPint(0xbfb0008c) >> 8) & 0x3) == 0x3) ? 1 : 0): 0)
@@ -216,6 +234,7 @@ static inline void regWrite32(uint32 reg, uint32 val)
 #define RT63365_SYS_HCLK	(VPint(0xbfb0008c)&(1<<31) ? (25) : (VPint(0xbfb0008c)&(1<<9) ? (VPint(0xbfb0008c)&(1<<25) ? (VPint(0xbfb0008c)&(1<<26) ? (175) : (23333/100)) : (140)) : (VPint(0xbfb0008c)&(1<<25) ? (VPint(0xbfb0008c)&(1<<26) ? (125) : (16667/100)) : (140))))
 #define EN7512_SYS_HCLK		((isFPGA) ? (32) : (GET_SYS_CLK)) //ASIC Clock need Check
 #define SYS_HCLK		(isEN751221 ? EN7512_SYS_HCLK : RT63365_SYS_HCLK)
+#define SYS_HCLK_OLD		(isRT63365 ? RT63365_SYS_HCLK : (isRT63165 ? RT63165_SYS_HCLK : (isRT65168 ? (1024/10) : (isTC3182 ? (1024/10) : (3*((VPint(0xbfb00058)>>16)+1)/(((VPint(0xbfb00058)&0x1f)+1
 #define SAR_CLK			(SYS_HCLK)/(4.0)		//more accurate if 4.0 not 4
 
 /* define CPU timer clock, FPGA is 50Mhz, ASIC is 250Mhz */
