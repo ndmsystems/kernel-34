@@ -234,7 +234,7 @@ static inline void regWrite32(uint32 reg, uint32 val)
 #define RT63365_SYS_HCLK	(VPint(0xbfb0008c)&(1<<31) ? (25) : (VPint(0xbfb0008c)&(1<<9) ? (VPint(0xbfb0008c)&(1<<25) ? (VPint(0xbfb0008c)&(1<<26) ? (175) : (23333/100)) : (140)) : (VPint(0xbfb0008c)&(1<<25) ? (VPint(0xbfb0008c)&(1<<26) ? (125) : (16667/100)) : (140))))
 #define EN7512_SYS_HCLK		((isFPGA) ? (32) : (GET_SYS_CLK)) //ASIC Clock need Check
 #define SYS_HCLK		(isEN751221 ? EN7512_SYS_HCLK : RT63365_SYS_HCLK)
-#define SYS_HCLK_OLD		(isRT63365 ? RT63365_SYS_HCLK : (isRT63165 ? RT63165_SYS_HCLK : (isRT65168 ? (1024/10) : (isTC3182 ? (1024/10) : (3*((VPint(0xbfb00058)>>16)+1)/(((VPint(0xbfb00058)&0x1f)+1
+#define SYS_HCLK_OLD		(isRT63365 ? RT63365_SYS_HCLK : (isRT63165 ? RT63165_SYS_HCLK : (isRT65168 ? (1024/10) : (isTC3182 ? (1024/10) : (3*((VPint(0xbfb00058)>>16)+1)/(((VPint(0xbfb00058)&0x1f)+1)<<1))))))
 #define SAR_CLK			(SYS_HCLK)/(4.0)		//more accurate if 4.0 not 4
 
 /* define CPU timer clock, FPGA is 50Mhz, ASIC is 250Mhz */
