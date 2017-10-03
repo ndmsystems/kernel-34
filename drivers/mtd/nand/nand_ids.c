@@ -161,7 +161,7 @@ struct nand_manufacturers nand_manuf_ids[] = {
 	{0xD5, "Etron"},
 	{0x9B, "ATO"},
 	{0xC9, "Heyang"},
-	{0xA1, "XtX/FM"},
+	{0xA1, "PN/FM"},
 
 	{0x0, "Unknown"}
 };
