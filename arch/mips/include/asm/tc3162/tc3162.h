@@ -684,6 +684,8 @@ interrupt_priority
 #define CR_PRATIR      		(CR_AHB_BASE + 0x58)
 #define CR_MON_TMR     		(CR_AHB_BASE + 0x60)
 
+#define CR_AHB_RSTCR		(CR_AHB_BASE + 0x40)
+
 #define CR_AHB_PMCR       	(CR_AHB_BASE + 0x80)
 #define CR_AHB_DMTCR       	(CR_AHB_BASE + 0x84)
 #define CR_AHB_PCIC	       	(CR_AHB_BASE + 0x88)

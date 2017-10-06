@@ -15,8 +15,6 @@ struct sk_buff;
 #include <asm/tc3162/TCIfSetQuery_os.h>
 #endif
 
-void (*back_to_prom)(void) = (void (*)(void))0xbfc00000;
-
 #ifdef CONFIG_TC3162_ADSL
 adsldev_ops *adsl_dev_ops = NULL;
 EXPORT_SYMBOL(adsl_dev_ops);
@@ -29,7 +27,7 @@ void stop_adsl_dmt(void)
 }
 #endif
 
-static void hw_reset(void)
+static inline void hw_uninit(void)
 {
 #ifdef CONFIG_TC3162_ADSL
 	/* stop adsl */
@@ -45,7 +43,7 @@ static void hw_reset(void)
 
 	/* reset USB */
 	/* reset USB DMA */
-	VPint(CR_USB_SYS_CTRL_REG) |= (1 << 31);
+	VPint(CR_USB_SYS_CTRL_REG) |= (1U << 31);
 	/* reset USB SIE */
 	VPint(CR_USB_DEV_CTRL_REG) |= (1 << 30);
 	mdelay(5);
@@ -53,35 +51,45 @@ static void hw_reset(void)
 	/* restore USB SIE */
 	VPint(CR_USB_DEV_CTRL_REG) &= ~(1 << 30);
 	mdelay(5);
-	VPint(CR_USB_SYS_CTRL_REG) &= ~(1 << 31);
+	VPint(CR_USB_SYS_CTRL_REG) &= ~(1U << 31);
+}
 
-	/* watchdog reset 100ms */
-	tc_timer_set(TC_TIMER_WDG, 10 * TIMERTICKS_10MS, ENABLE,
-		     TIMER_TOGGLEMODE, TIMER_HALTDISABLE);
-	tc_timer_wdg(ENABLE, ENABLE);
+static void hw_reset(bool do_reboot)
+{
+	hw_uninit();
 
-	while (1);
+#ifdef CONFIG_ECONET_EN75XX_MP
+	if (do_reboot) {
+		/* system software reset */
+		VPint(CR_AHB_RSTCR) |= (1U << 31);
+	} else
+#endif
+	{
+		/* watchdog reset 100ms */
+		tc_timer_set(TC_TIMER_WDG, 10 * TIMERTICKS_10MS, ENABLE,
+			     TIMER_TOGGLEMODE, TIMER_HALTDISABLE);
+		tc_timer_wdg(ENABLE, ENABLE);
+
+		while (1);
+	}
 }
 
 static void tc_machine_restart(char *command)
 {
 	printk(KERN_WARNING "Machine restart ... \n");
-	hw_reset();
-	back_to_prom();
+	hw_reset(true);
 }
 
 static void tc_machine_halt(void)
 {
 	printk(KERN_WARNING "Machine halted ... \n");
-	hw_reset();
-	while (1);
+	hw_reset(false);
 }
 
 static void tc_machine_power_off(void)
 {
 	printk(KERN_WARNING "Machine poweroff ... \n");
-	hw_reset();
-	while (1);
+	hw_reset(false);
 }
 
 static int tc_panic_event(struct notifier_block *this,
