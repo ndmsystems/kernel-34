@@ -577,8 +577,8 @@ einval:	li	v0, -ENOSYS
 	sys	sys_dup3		3
 	sys	sys_pipe2		2
 	sys	sys_inotify_init1	1
-	sys	sys_preadv		6	/* 4330 */
-	sys	sys_pwritev		6
+	sys	sys_preadv		5	/* 4330 */
+	sys	sys_pwritev		5
 	sys	sys_rt_tgsigqueueinfo	4
 	sys	sys_perf_event_open	5
 	sys	sys_accept4		4
