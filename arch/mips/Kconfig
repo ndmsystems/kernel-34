@@ -204,6 +204,7 @@ config RALINK_MT7628
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select CSRC_R4K
 	select CEVT_R4K
+	select CPU_MIPSR2_IRQ_VI
 	select SYS_HAS_EARLY_PRINTK
 	help
 	  Ralink evaluation board based on MT7628
