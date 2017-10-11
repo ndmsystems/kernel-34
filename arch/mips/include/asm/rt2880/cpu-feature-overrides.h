@@ -35,7 +35,7 @@
 #define cpu_has_llsc			1
 #define cpu_has_inclusive_pcaches	0
 #define cpu_has_prefetch		1
-//#define cpu_has_vint			1 // do not override, depend from CONFIG_CPU_MIPSR2_IRQ_VI
+#define cpu_has_vint			1
 #define cpu_has_veic			0
 #define cpu_has_userlocal		1
 

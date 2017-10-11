@@ -41,6 +41,7 @@
 #include <linux/slab.h>
 #include <linux/interrupt.h>
 
+#include <asm/setup.h>
 #include <asm/irq_cpu.h>
 #include <asm/mipsregs.h>
 
@@ -99,6 +100,47 @@ static void ralink_intc_handler(unsigned int irq, struct irq_desc *desc)
 	generic_handle_irq(MIPS_INTC_IRQ_BASE + __ffs(int_status));
 }
 
+static void dispatch_mips_line_timer(void)
+{
+	do_IRQ(SURFBOARDINT_MIPS_TIMER);
+}
+
+static void dispatch_mips_line_wlan(void)
+{
+	do_IRQ(SURFBOARDINT_WLAN);
+}
+
+static void dispatch_mips_line_fe(void)
+{
+	do_IRQ(SURFBOARDINT_FE);
+}
+
+static void dispatch_mips_line_pci(void)
+{
+#if defined (CONFIG_RALINK_RT3883)
+#if defined (CONFIG_PCI_ONLY) || defined (CONFIG_PCIE_PCI_CONCURRENT)
+	unsigned int pci_status = RALINK_PCI_PCIINT_ADDR;
+
+	if (pci_status & 0x040000)
+		do_IRQ(SURFBOARDINT_PCI0);
+	else if (pci_status & 0x080000)
+		do_IRQ(SURFBOARDINT_PCI1);
+	else
+#endif
+#endif
+		do_IRQ(SURFBOARDINT_PCIE0);
+}
+
+static void dispatch_mips_chain_hw1(void)
+{
+	do_IRQ(MIPS_INTC_CHAIN_HW1);
+}
+
+static void dispatch_mips_chain_hw0(void)
+{
+	do_IRQ(MIPS_INTC_CHAIN_HW0);
+}
+
 unsigned int __cpuinit get_c0_compare_int(void)
 {
 	return SURFBOARDINT_MIPS_TIMER;
@@ -134,6 +176,16 @@ void __init arch_init_irq(void)
 #endif
 	int_type |= RALINK_INTCTL_DMA;
 	*(volatile u32 *)(RALINK_INTTYPE) = int_type;
+
+	if (cpu_has_vint) {
+		pr_info("Setting up vectored interrupts\n");
+		set_vi_handler(SURFBOARDINT_MIPS_TIMER, dispatch_mips_line_timer);
+		set_vi_handler(SURFBOARDINT_WLAN,	dispatch_mips_line_wlan);
+		set_vi_handler(SURFBOARDINT_FE,		dispatch_mips_line_fe);
+		set_vi_handler(SURFBOARDINT_PCIE0,	dispatch_mips_line_pci);
+		set_vi_handler(MIPS_INTC_CHAIN_HW1,	dispatch_mips_chain_hw1);
+		set_vi_handler(MIPS_INTC_CHAIN_HW0,	dispatch_mips_chain_hw0);
+	}
 
 	for (i = 0; i < INTC_NUM_INTRS; i++) {
 		irq_set_chip_and_handler(MIPS_INTC_IRQ_BASE + i,
