@@ -147,7 +147,6 @@
 
 extern int (*ipv6_pthrough)(struct sk_buff *skb);
 extern int (*pppoe_pthrough)(struct sk_buff *skb);
-extern int (*vpn_pthrough)(struct sk_buff *skb);
 
 /* Instead of increasing this, you should create a hash table. */
 #define MAX_GRO_SKBS 8
@@ -3416,12 +3415,6 @@ another_round:
 	}
 
 	if ((pppoehook = rcu_dereference(pppoe_pthrough)) && pppoehook(skb)) {
-		ret = NET_RX_SUCCESS;
-		goto out;
-	}
-
-	if ((vpnhook = rcu_dereference(vpn_pthrough)) &&
-			vpnhook(skb) == FAST_VPN_RES_OK) {
 		ret = NET_RX_SUCCESS;
 		goto out;
 	}
