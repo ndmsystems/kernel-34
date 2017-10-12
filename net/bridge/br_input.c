@@ -55,7 +55,7 @@ static inline int br_pass_frame_up(struct sk_buff *skb)
 		u64_stats_update_end(&brstats->syncp);
 	}
 
-	if (skb->pkt_type == PACKET_MULTICAST)
+	if (skb->pkt_type == PACKET_MULTICAST) {
 		typeof(igmpsn_hook) igmpsn;
 
 		igmpsn = rcu_dereference(igmpsn_hook);
