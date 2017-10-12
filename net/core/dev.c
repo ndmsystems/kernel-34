@@ -3373,9 +3373,8 @@ static int __netif_receive_skb(struct sk_buff *skb)
 	struct net_device *orig_dev;
 	struct net_device *null_or_dev;
 	bool deliver_exact = false;
-	int (*ipv6hook)(struct sk_buff *skb);
-	int (*pppoehook)(struct sk_buff *skb);
-	int (*vpnhook)(struct sk_buff *skb);
+	typeof(ipv6_pthrough) ipv6_pt;
+	typeof(pppoe_pthrough) pppoe_pt;
 	int ret = NET_RX_DROP;
 	__be16 type;
 
@@ -3407,16 +3406,6 @@ another_round:
 		skb = vlan_untag(skb);
 		if (unlikely(!skb))
 			goto out;
-	}
-
-	if ((ipv6hook = rcu_dereference(ipv6_pthrough)) && ipv6hook(skb)) {
-		ret = NET_RX_SUCCESS;
-		goto out;
-	}
-
-	if ((pppoehook = rcu_dereference(pppoe_pthrough)) && pppoehook(skb)) {
-		ret = NET_RX_SUCCESS;
-		goto out;
 	}
 
 #ifdef CONFIG_NET_CLS_ACT
@@ -3480,6 +3469,22 @@ ncls:
 	null_or_dev = deliver_exact ? skb->dev : NULL;
 
 	type = skb->protocol;
+
+	ipv6_pt = rcu_dereference(ipv6_pthrough);
+	if (ipv6_pt && (type == htons(ETH_P_IPV6)) &&
+	    ipv6_pt(skb)) {
+		ret = NET_RX_SUCCESS;
+		goto out;
+	}
+
+	pppoe_pt = rcu_dereference(pppoe_pthrough);
+	if (pppoe_pt && (type == htons(ETH_P_PPP_SES) ||
+			 type == htons(ETH_P_PPP_DISC)) &&
+	    pppoe_pt(skb)) {
+		ret = NET_RX_SUCCESS;
+		goto out;
+	}
+
 	list_for_each_entry_rcu(ptype,
 			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
 		if (ptype->type == type &&
