@@ -24,6 +24,8 @@
 #include <../ndm/hw_nat/ra_nat.h>
 #endif
 
+extern int (*igmpsn_hook)(struct sk_buff *skb);
+
 /* Bridge group multicast address 802.1d (pg 51). */
 const u8 br_group_address[ETH_ALEN] = { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x00 };
 
@@ -51,6 +53,14 @@ static inline int br_pass_frame_up(struct sk_buff *skb)
 		brstats->rx_packets++;
 		brstats->rx_bytes += skb->len;
 		u64_stats_update_end(&brstats->syncp);
+	}
+
+	if (skb->pkt_type == PACKET_MULTICAST)
+		typeof(igmpsn_hook) igmpsn;
+
+		igmpsn = rcu_dereference(igmpsn_hook);
+		if (igmpsn)
+			igmpsn(skb);
 	}
 
 	indev = skb->dev;

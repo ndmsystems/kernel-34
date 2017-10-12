@@ -147,6 +147,7 @@
 
 extern int (*ipv6_pthrough)(struct sk_buff *skb);
 extern int (*pppoe_pthrough)(struct sk_buff *skb);
+extern int (*igmpsn_hook)(struct sk_buff *skb);
 
 /* Instead of increasing this, you should create a hash table. */
 #define MAX_GRO_SKBS 8
@@ -3460,6 +3461,16 @@ ncls:
 		default:
 			BUG();
 		}
+	}
+
+	/* exclude bridge interface, second call in br_pass_frame_up() */
+	if (skb->pkt_type == PACKET_MULTICAST &&
+	    !(skb->dev->priv_flags & IFF_EBRIDGE)) {
+		typeof(igmpsn_hook) igmpsn;
+
+		igmpsn = rcu_dereference(igmpsn_hook);
+		if (igmpsn)
+			igmpsn(skb);
 	}
 
 	if (vlan_tx_nonzero_tag_present(skb))
