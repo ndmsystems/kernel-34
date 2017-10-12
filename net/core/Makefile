@@ -3,13 +3,17 @@
 #
 
 obj-y := sock.o request_sock.o skbuff.o iovec.o datagram.o stream.o scm.o \
-	 gen_stats.o gen_estimator.o net_namespace.o secure_seq.o eth_switch_hooks.o \
-	 ntc_shaper_hooks.o
+	 gen_stats.o gen_estimator.o net_namespace.o secure_seq.o
 
 obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
 
+obj-y += ntc_shaper_hooks.o
+obj-y += ndm_hooks.o
+
 obj-y		     += dev.o dev_addr_lists.o dst.o netevent.o \
-			neighbour.o rtnetlink.o utils.o link_watch.o filter.o ndm_hooks.o
+			neighbour.o rtnetlink.o utils.o link_watch.o filter.o
+
+obj-y += eth_switch_hooks.o
 
 obj-$(CONFIG_SOCK_DIAG) += sock_diag.o
 obj-$(CONFIG_ETHTOOL) += ethtool.o
