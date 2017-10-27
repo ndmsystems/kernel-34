@@ -47,7 +47,7 @@ MODULE_PARM_DESC(sip_direct_signalling, "expect incoming calls from registrar "
 					"only (default 1)");
 
 static int sip_direct_media __read_mostly = 1;
-module_param(sip_direct_media, int, S_IRUSR | S_IWUSR);
+module_param(sip_direct_media, int, 0600);
 MODULE_PARM_DESC(sip_direct_media, "Expect Media streams between signalling "
 				   "endpoints only (default 1)");
 
@@ -852,9 +852,8 @@ static int set_expected_rtp_rtcp(struct sk_buff *skb, unsigned int dataoff,
 	if (sip_direct_media) {
 		if (!nf_inet_addr_cmp(daddr, &ct->tuplehash[dir].tuple.src.u3))
 			return NF_ACCEPT;
+		saddr = &ct->tuplehash[!dir].tuple.src.u3;
 	}
-
-	saddr = &ct->tuplehash[!dir].tuple.src.u3;
 
 	/* We need to check whether the registration exists before attempting
 	 * to register it since we can see the same media description multiple
