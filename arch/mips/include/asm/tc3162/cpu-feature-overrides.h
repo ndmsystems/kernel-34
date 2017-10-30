@@ -14,8 +14,10 @@
 #define __ASM_MACH_MIPS_TC3262_CPU_FEATURE_OVERRIDES_H
 
 /*
- * WARNING: this option checked only with
- * RT6855A/RT6856 and RT63365/RT63368 CPU
+ * WARNING: this option checked only with SoC:
+ * RT6855A/RT6856,
+ * RT63365/RT63368,
+ * EN7512/EN7513
  */
 
 /* CPU options */

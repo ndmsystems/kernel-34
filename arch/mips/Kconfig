@@ -48,6 +48,7 @@ config RALINK_RT6XXX_MP
 	bool
 config ECONET_EN75XX_MP
 	bool
+
 config MIPS_TC3262
 	bool
 	select DMA_NONCOHERENT
@@ -159,6 +160,7 @@ config ECONET_EN7512
 	select MIPS_TC3262
 	select ECONET_EN75XX_MP
 	select SYS_SUPPORTS_BIG_ENDIAN
+	select SYS_SUPPORTS_HIGHMEM
 	help
 	  EcoNET evaluation board based on EN7512/3
 

@@ -246,12 +246,7 @@ void __init prom_init(void)
 	hw_conf = VPint(CR_AHB_HWCONF);
 
 #ifdef CONFIG_ECONET_EN75XX_MP
-	memsize = GET_DRAM_SIZE;
-
-	if (memsize == 512)
-		memsize = 440;
-
-	memsize = memsize << 20;
+	memsize = (GET_DRAM_SIZE) << 20;
 	if (isEN7512) {
 		/* embedded DRAM (QFP) */
 		ram_type = (EFUSE_IS_DDR3) ? "DDR3" : "DDR2";
@@ -281,7 +276,18 @@ void __init prom_init(void)
 	}
 #endif
 
-	add_memory_region(0 + 0x20000, memsize - 0x20000, BOOT_MEM_RAM);
+	if (memsize > 0x1c000000) {
+		/* 1. Normal region 0..448MB */
+		add_memory_region(0x20000, 0x1c000000 - 0x20000, BOOT_MEM_RAM);
+#ifdef CONFIG_HIGHMEM
+#ifdef CONFIG_ECONET_EN7512
+		/* 2. Highmem region 0x40000000..0x44000000 */
+		add_memory_region(EN7512_HIGHMEM_START, (memsize - 0x1c000000),
+			BOOT_MEM_RAM);
+#endif
+#endif
+	} else
+		add_memory_region(0x20000, memsize - 0x20000, BOOT_MEM_RAM);
 
 	bus_freq = SYS_HCLK;
 	cpu_freq = bus_freq * cpu_ratio;
