@@ -144,16 +144,6 @@ static inline void tc_uart_setup(void)
 
 static inline void tc_ahb_setup(void)
 {
-#if defined(CONFIG_RALINK_RT63365) || defined(CONFIG_ECONET_EN7512)
-	/* assert DMT reset */
-	VPint(CR_AHB_DMTCR) = 0x1;
-	udelay(100);
-
-#ifndef CONFIG_TC3162_ADSL
-	/* disable DMT clock to power save */
-	VPint(CR_AHB_DMTCR) = 0x3;
-#endif
-#endif
 	/* setup bus timeout value */
 	VPint(CR_AHB_AACS) = 0xffff;
 }
@@ -166,6 +156,45 @@ static inline void tc_usb_setup(void)
 	VPint(RALINK_XHCI_UPHY_BASE + 0x081C) = 0xC0241580;
 	VPint(RALINK_XHCI_UPHY_BASE + 0x101C) = 0xC0241580;
 #endif
+#endif
+}
+
+static inline void tc_dmt_setup(void)
+{
+#if defined(CONFIG_RALINK_RT63365) || defined(CONFIG_ECONET_EN7512)
+	/* assert DMT reset */
+	VPint(CR_AHB_DMTCR) = 0x1;
+
+#ifndef CONFIG_TC3162_ADSL
+	udelay(100);
+
+	/* disable DMT clock to power save */
+	VPint(CR_AHB_DMTCR) = 0x3;
+#endif
+#endif
+}
+
+static inline void tc_fe_setup(void)
+{
+#ifdef CONFIG_ECONET_EN75XX_MP
+	unsigned int reg_val;
+
+	reg_val = VPint(CR_AHB_BASE + 0x834);
+
+	/* check GSW not in reset state */
+	if (!(reg_val & (1U << 23))) {
+		/* disable GSW P6 link */
+		VPint(RALINK_ETH_SW_BASE + 0x3600) = 0x8000;
+	}
+
+	/* assert FE, QDMA2, QDMA1 reset */
+	reg_val |=  ((1U << 21) | (1U << 2) | (1U << 1));
+	VPint(CR_AHB_BASE + 0x834) = reg_val;
+	udelay(100);
+
+	/* de-assert FE, QDMA2, QDMA1 reset */
+	reg_val &= ~((1U << 21) | (1U << 2) | (1U << 1));
+	VPint(CR_AHB_BASE + 0x834) = reg_val;
 #endif
 }
 
@@ -242,6 +271,8 @@ void __init prom_init(void)
 	tc_uart_setup();
 	tc_ahb_setup();
 	tc_usb_setup();
+	tc_dmt_setup();
+	tc_fe_setup();
 
 	hw_conf = VPint(CR_AHB_HWCONF);
 
