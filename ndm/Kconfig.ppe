@@ -12,20 +12,6 @@ config  HNAT_ENHANCED
 	default y
 	depends on RA_HW_NAT
 
-config  RA_HW_NAT_LAN_VLANID
-	int "VLAN ID of LAN Ports"
-	depends on RA_HW_NAT
-	default 1
-	help
-	  please choose any one of your LAN side VLAN IDs if you use different VLAN ID for each LAN port
-
-config  RA_HW_NAT_WAN_VLANID
-	int "VLAN ID of WAN Ports"
-	depends on RA_HW_NAT
-	default 2
-	help
-	  please choose any one of your WAN side VLAN IDs if you use different VLAN ID for each WAN port
-
 config  RA_HW_NAT_BINDING_THRESHOLD
 	int "Binding Threshold (Unit:Packet Per Second)"
 	depends on RA_HW_NAT
