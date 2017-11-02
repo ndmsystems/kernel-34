@@ -205,6 +205,23 @@ struct gmac_info {
 	};
 } __attribute__ ((packed));
 
+#elif defined(CONFIG_RALINK_MT7621) || defined(CONFIG_ARCH_MT7623)
+
+/* gmac_info fields */
+struct gmac_info {
+	union {
+		struct {
+			/* assume LE for all mt762x */
+			uint32_t gmac_id:	2;	/* 0: external (WiFi), 1: GDM1, 2: GDM2 */
+			uint32_t queue_id:	4;	/* QDMA QoS queue (0..15) */
+			uint32_t hwfq:		1;	/* send via QDMA HWFQ */
+			uint32_t is_wan:	1;	/* assume upstream path */
+			uint32_t resv:		24;
+		} bits;
+		uint32_t word;
+	};
+} __attribute__ ((packed));
+
 #else
 
 /* assume gmac_info == gmac_id for compat */
