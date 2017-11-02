@@ -312,6 +312,20 @@ config  RA_HW_NAT_IPV6
 	help
 	  IPv6 routing accelerated by HNAT
 
+config  RA_HW_NAT_ADSL
+	bool "ADSL/ADSL2 Acceleration"
+	depends on RA_HW_NAT && ECONET_EN75XX_MP && TC3162_ADSL
+	default n
+	help
+	  ADSL/ADSL2 accelerated by HNAT
+
+config  RA_HW_NAT_VDSL
+	bool "VDSL/VDSL2 Acceleration"
+	depends on RA_HW_NAT && ECONET_EN75XX_MP && RALINK_VDSL
+	default y
+	help
+	  VDSL/VDSL2 accelerated by HNAT
+
 config  RA_HW_NAT_QDMA
 	bool "Flow out to QDMA (HW QoS)"
 	depends on RA_HW_NAT && (RALINK_MT7621 || ARCH_MT7623 || ECONET_EN75XX_MP)

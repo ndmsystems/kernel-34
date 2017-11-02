@@ -81,9 +81,6 @@ typedef struct {
 #define FOE_MAGIC_PPE_DWORD		0x3fff7276UL	/* HNAT_V1: FVLD=0, HNAT_V2: FOE_Entry=0x3fff */
 #endif
 
-/* gmac_no for EXTIF offload (ra_sw_nat_hook_tx) */
-#define GMAC_ID_MAGIC_EXTIF		0
-
 /* choose one of them to keep HNAT related information in somewhere. */
 //#define HNAT_USE_HEADROOM
 //#define HNAT_USE_TAILROOM
@@ -176,8 +173,46 @@ typedef struct {
 
 //////////////////////////////////////////////////////////////////////
 
+/* gmac_id */
+#define GMAC_ID_MAGIC_EXTIF		0
+#define GMAC_ID_GDM1			1
+#define GMAC_ID_GDM2			2
+
+#if defined(CONFIG_ECONET_EN75XX_MP)
+
+/* gmac_type */
+#define GMAC_TYPE_ETH			0
+#define GMAC_TYPE_ATM			1
+#define GMAC_TYPE_PTM			2
+
+/* gmac_info fields */
+struct gmac_info {
+	union {
+		struct {
+			/* assume BE for all en75xx */
+			uint32_t resv:		1;
+			uint32_t atm_pppoa:	1;	/* ATM PPPoA incap */
+			uint32_t atm_ipoa:	1;	/* ATM IPoA incap */
+			uint32_t atm_mux_vc:	1;	/* ATM VC mux mode */
+			uint32_t stag:		12;	/* ATM CLP/UU/XOA to PPE stag */
+			uint32_t hwfq:		1;	/* send via QDMA HWFQ */
+			uint32_t queue_id:	3;	/* QDMA QoS queue (0..7) */
+			uint32_t channel_id:	8;	/* QDMA virtual channel */
+			uint32_t gmac_type:	2;	/* 0: ETH, 1: ATM, 2: PTM */
+			uint32_t gmac_id:	2;	/* 0: external (WiFi), 1: GDM1, 2: GDM2 */
+		} bits;
+		uint32_t word;
+	};
+} __attribute__ ((packed));
+
+#else
+
+/* assume gmac_info == gmac_id for compat */
+
+#endif
+
 extern int (*ra_sw_nat_hook_rx)(struct sk_buff *skb);
-extern int (*ra_sw_nat_hook_tx)(struct sk_buff *skb, int gmac_no);
+extern int (*ra_sw_nat_hook_tx)(struct sk_buff *skb, int gmac_info);
 extern void (*ppe_dev_register_hook)(struct net_device *dev);
 extern void (*ppe_dev_unregister_hook)(struct net_device *dev);
 extern void (*ppe_enable_hook)(int do_ppe_enable);
