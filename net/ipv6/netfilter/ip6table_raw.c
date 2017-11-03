@@ -8,6 +8,7 @@
 #include <linux/slab.h>
 
 #define RAW_VALID_HOOKS ((1 << NF_INET_PRE_ROUTING) | (1 << NF_INET_LOCAL_OUT))
+#define RAW_VALID_HOOKS_OUT ((1 << NF_INET_POST_ROUTING))
 
 static const struct xt_table packet_raw = {
 	.name = "raw",
@@ -15,6 +16,14 @@ static const struct xt_table packet_raw = {
 	.me = THIS_MODULE,
 	.af = NFPROTO_IPV6,
 	.priority = NF_IP6_PRI_RAW,
+};
+
+static const struct xt_table packet_raw_out = {
+	.name = "raw_out",
+	.valid_hooks = RAW_VALID_HOOKS_OUT,
+	.me = THIS_MODULE,
+	.af = NFPROTO_IPV6,
+	.priority = NF_IP6_PRI_RAW_OUT,
 };
 
 /* The work comes in here from netfilter.c. */
@@ -28,7 +37,18 @@ ip6table_raw_hook(unsigned int hook, struct sk_buff *skb,
 	return ip6t_do_table(skb, hook, in, out, net->ipv6.ip6table_raw);
 }
 
+static unsigned int
+ip6table_raw_out_hook(unsigned int hook, struct sk_buff *skb,
+		  const struct net_device *in, const struct net_device *out,
+		  int (*okfn)(struct sk_buff *))
+{
+	const struct net *net = dev_net((in != NULL) ? in : out);
+
+	return ip6t_do_table(skb, hook, in, out, net->ipv6.ip6table_raw_out);
+}
+
 static struct nf_hook_ops *rawtable_ops __read_mostly;
+static struct nf_hook_ops *rawtable_out_ops __read_mostly;
 
 static int __net_init ip6table_raw_net_init(struct net *net)
 {
@@ -42,11 +62,25 @@ static int __net_init ip6table_raw_net_init(struct net *net)
 	kfree(repl);
 	if (IS_ERR(net->ipv6.ip6table_raw))
 		return PTR_ERR(net->ipv6.ip6table_raw);
+
+	repl = ip6t_alloc_initial_table(&packet_raw_out);
+	if (repl == NULL) {
+		ip6t_unregister_table(net, net->ipv6.ip6table_raw);
+		return -ENOMEM;
+	}
+	net->ipv6.ip6table_raw_out =
+		ip6t_register_table(net, &packet_raw_out, repl);
+	kfree(repl);
+	if (IS_ERR(net->ipv6.ip6table_raw_out)) {
+		ip6t_unregister_table(net, net->ipv6.ip6table_raw);
+		return PTR_ERR(net->ipv6.ip6table_raw_out);
+	}
 	return 0;
 }
 
 static void __net_exit ip6table_raw_net_exit(struct net *net)
 {
+	ip6t_unregister_table(net, net->ipv6.ip6table_raw_out);
 	ip6t_unregister_table(net, net->ipv6.ip6table_raw);
 }
 
@@ -70,8 +104,16 @@ static int __init ip6table_raw_init(void)
 		goto cleanup_table;
 	}
 
+	rawtable_out_ops = xt_hook_link(&packet_raw_out, ip6table_raw_out_hook);
+	if (IS_ERR(rawtable_out_ops)) {
+		ret = PTR_ERR(rawtable_out_ops);
+		goto unregister_raw;
+	}
+
 	return ret;
 
+unregister_raw:
+	xt_hook_unlink(&packet_raw, rawtable_ops);
  cleanup_table:
 	unregister_pernet_subsys(&ip6table_raw_net_ops);
 	return ret;
@@ -79,6 +121,7 @@ static int __init ip6table_raw_init(void)
 
 static void __exit ip6table_raw_fini(void)
 {
+	xt_hook_unlink(&packet_raw_out, rawtable_out_ops);
 	xt_hook_unlink(&packet_raw, rawtable_ops);
 	unregister_pernet_subsys(&ip6table_raw_net_ops);
 }
