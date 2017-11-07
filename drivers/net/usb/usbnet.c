@@ -1334,31 +1334,32 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
 	typeof(prebind_from_usb_mac) swnat_prebind_hook;
 #endif
 
-	if (skb)
+	if (skb) {
 		skb_tx_timestamp(skb);
 
 #if IS_ENABLED(CONFIG_RA_HW_NAT) && defined(CONFIG_RA_HW_NAT_NIC_USB)
-	if ((ra_sw_nat_hook_tx != NULL) && !(info->flags & FLAG_MULTI_PACKET)) {
-		ra_sw_nat_hook_tx(skb, 0);
-	}
+		if ((ra_sw_nat_hook_tx != NULL) && !(info->flags & FLAG_MULTI_PACKET)) {
+			ra_sw_nat_hook_tx(skb, 0);
+		}
 #endif
 
 #if IS_ENABLED(CONFIG_FAST_NAT)
 #if defined(SWNAT_KA_CHECK_MARK)
-	if (unlikely(SWNAT_KA_CHECK_MARK(skb))) {
-		goto not_drop;
-	}
+		if (unlikely(SWNAT_KA_CHECK_MARK(skb))) {
+			goto not_drop;
+		}
 #endif
-	rcu_read_lock();
-	if (!(info->flags & FLAG_MULTI_PACKET) &&
-		 (info->flags & FLAG_ETHER) &&
-		 (SWNAT_PPP_CHECK_MARK(skb) || SWNAT_FNAT_CHECK_MARK(skb)) &&
-		 (NULL != (swnat_prebind_hook =
-				rcu_dereference(prebind_from_usb_mac)))) {
-			swnat_prebind_hook(skb);
-	}
-	rcu_read_unlock();
+		rcu_read_lock();
+		if (!(info->flags & FLAG_MULTI_PACKET) &&
+			 (info->flags & FLAG_ETHER) &&
+			 (SWNAT_PPP_CHECK_MARK(skb) || SWNAT_FNAT_CHECK_MARK(skb)) &&
+			 (NULL != (swnat_prebind_hook =
+					rcu_dereference(prebind_from_usb_mac)))) {
+				swnat_prebind_hook(skb);
+		}
+		rcu_read_unlock();
 #endif
+	}
 
 	// some devices want funky USB-level framing, for
 	// win32 driver (usually) and/or hardware quirks
