@@ -23,6 +23,7 @@
 #include <linux/ipv6.h>
 #include <net/ip6_checksum.h>
 #include <linux/usb/cdc.h>
+#include <net/fast_vpn.h>
 
 /* Version Information */
 /* Information for net-next */
@@ -654,6 +655,69 @@ static unsigned int agg_buf_sz = 16384;
 
 #define RTL_LIMITED_TSO_SIZE	(agg_buf_sz - sizeof(struct tx_desc) - \
 				 VLAN_ETH_HLEN - VLAN_HLEN)
+
+#if IS_ENABLED(CONFIG_FAST_NAT)
+extern int (*go_swnat)(struct sk_buff *skb, u8 origin);
+extern void (*prebind_from_raeth)(struct sk_buff *skb);
+
+static inline bool __attribute__((hot, always_inline))
+rtl_swnat_rx(struct sk_buff *skb)
+{
+	int rx_done = 0;
+	int (*swnat)(struct sk_buff *skb, u8 origin);
+
+	rcu_read_lock();
+
+	swnat = rcu_dereference(go_swnat);
+	if (likely(swnat != NULL))
+		rx_done = swnat(skb, SWNAT_ORIGIN_RAETH);
+
+	rcu_read_unlock();
+
+	return !!rx_done;
+}
+
+static inline bool __attribute__((hot, always_inline))
+rtl_swnat_tx(struct sk_buff *skb)
+{
+#if defined(SWNAT_KA_CHECK_MARK)
+	if (unlikely(SWNAT_KA_CHECK_MARK(skb))) {
+		consume_skb(skb);
+
+		return true;
+	}
+#endif
+
+	if (unlikely(SWNAT_PPP_CHECK_MARK(skb) ||
+			SWNAT_FNAT_CHECK_MARK(skb))) {
+		void (*swnat_prebind)(struct sk_buff *skb);
+
+		rcu_read_lock();
+
+		swnat_prebind = rcu_dereference(prebind_from_raeth);
+		if (likely(swnat_prebind != NULL))
+			swnat_prebind(skb);
+
+		rcu_read_unlock();
+
+		return false;
+	}
+
+	return false;
+}
+#else /* IS_ENABLED(CONFIG_FAST_NAT) */
+static inline bool
+rtl_swnat_rx(struct sk_buff *skb)
+{
+	return false;
+}
+
+static inline bool
+rtl_swnat_tx(struct sk_buff *skb)
+{
+	return false;
+}
+#endif /* IS_ENABLED(CONFIG_FAST_NAT) */
 
 static
 int get_registers(struct r8152 *tp, u16 value, u16 index, u16 size, void *data)
@@ -1690,7 +1754,8 @@ static int rx_bottom(struct r8152 *tp, int budget)
 				break;
 
 			pkt_len = skb->len;
-			napi_gro_receive(&tp->napi, skb);
+			if (unlikely(!rtl_swnat_rx(skb)))
+				napi_gro_receive(&tp->napi, skb);
 			work_done++;
 			stats->rx_packets++;
 			stats->rx_bytes += pkt_len;
@@ -1752,7 +1817,8 @@ static int rx_bottom(struct r8152 *tp, int budget)
 			skb->protocol = eth_type_trans(skb, netdev);
 			rtl_rx_vlan_tag(rx_desc, skb);
 			if (work_done < budget) {
-				napi_gro_receive(&tp->napi, skb);
+				if (unlikely(!rtl_swnat_rx(skb)))
+					napi_gro_receive(&tp->napi, skb);
 				work_done++;
 				stats->rx_packets++;
 				stats->rx_bytes += pkt_len;
@@ -1986,6 +2052,9 @@ static netdev_tx_t rtl8152_start_xmit(struct sk_buff *skb,
 				      struct net_device *netdev)
 {
 	struct r8152 *tp = netdev_priv(netdev);
+
+	if (unlikely(rtl_swnat_tx(skb)))
+		return NETDEV_TX_OK;
 
 	skb_tx_timestamp(skb);
 
