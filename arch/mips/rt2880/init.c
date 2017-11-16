@@ -56,11 +56,14 @@
 
 #define RALINK_CLKCFG1		*(volatile u32 *)(RALINK_SYSCTL_BASE + 0x30)
 #define RALINK_RSTCTRL		*(volatile u32 *)(RALINK_SYSCTL_BASE + 0x34)
+#define RALINK_RSTSTAT		*(volatile u32 *)(RALINK_SYSCTL_BASE + 0x38)
 
 u32 mips_cpu_feq;
 u32 surfboard_sysclk;
 u32 ralink_asic_rev_id;
-EXPORT_SYMBOL(ralink_asic_rev_id);
+
+int soc_power_status;
+EXPORT_SYMBOL(soc_power_status);
 
 #ifdef CONFIG_UBOOT_CMDLINE
 /* Environment variable */
@@ -106,27 +109,26 @@ char *prom_getenv(char *envname)
 	return NULL;
 }
 
-static inline unsigned char str2hexnum(unsigned char c)
+static inline void prom_show_pstat(void)
 {
-	if (c >= '0' && c <= '9')
-		return c - '0';
-	if (c >= 'a' && c <= 'f')
-		return c - 'a' + 10;
-	return 0; /* foo */
-}
+	char *s;
 
-static inline void str2eaddr(unsigned char *ea, unsigned char *str)
-{
-	int i;
+	s = prom_getenv("pstat");
+	if (!s)
+		return;
 
-	for (i = 0; i < 6; i++) {
-		unsigned char num;
+	soc_power_status = (int)simple_strtoul(s, NULL, 0);
 
-		if((*str == '.') || (*str == ':'))
-			str++;
-		num = str2hexnum(*str++) << 4;
-		num |= (str2hexnum(*str++));
-		ea[i] = num;
+	switch (soc_power_status) {
+	case 3:
+		printk(KERN_WARNING "SoC power status: %s\n", "Watchdog reset occured");
+		break;
+	case 2:
+		printk(KERN_INFO "SoC power status: %s\n", "Soft reset occured");
+		break;
+	case 1:
+		printk(KERN_INFO "SoC power status: %s\n", "Hard reset occured");
+		break;
 	}
 }
 
@@ -687,9 +689,7 @@ static void prom_init_sysclk(void)
 	(*((volatile u32 *)(RALINK_RBUS_MATRIXCTL_BASE + 0x0))) = reg;
 
 	/* MIPS reset apply to Andes */
-	reg = (*((volatile u32 *)(RALINK_SYSCTL_BASE + 0x38)));
-	reg |= 0x200;
-	(*((volatile u32 *)(RALINK_SYSCTL_BASE + 0x38))) = reg;
+	RALINK_RSTSTAT |= (1U << 9);
 #else
 	surfboard_sysclk = mips_cpu_feq/3;
 #endif
@@ -721,7 +721,7 @@ static void prom_init_sysclk(void)
 
 	/* enable cpu sleep mode for power saving */
 #if defined (CONFIG_RALINK_SYSTICK_COUNTER) && defined (CONFIG_RALINK_CPUSLEEP)
-	printk("CPU sleep mode: ON\n");
+	printk(KERN_INFO "CPU sleep mode: ON\n");
 #if defined (CONFIG_RALINK_MT7621)
 	reg = (*((volatile u32 *)(RALINK_RBUS_MATRIXCTL_BASE + 0x14)));
 	reg |= 0xC0000000;
@@ -865,6 +865,8 @@ void __init prom_init(void)
 	prom_init_spdif();		/* SPDIF power saving */
 	prom_meminit();
 	prom_init_irq();
+
+	prom_show_pstat();
 
 	prom_printf("\nLINUX started...\n");
 }
