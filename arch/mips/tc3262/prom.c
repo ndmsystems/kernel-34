@@ -1,6 +1,7 @@
 #include <linux/kernel.h>
 #include <linux/version.h>
 #include <linux/init.h>
+#include <linux/module.h>
 #include <linux/string.h>
 #include <linux/delay.h>
 #include <linux/err.h>
@@ -19,6 +20,9 @@ extern struct plat_smp_ops msmtc_smp_ops;
 
 unsigned int surfboard_sysclk;
 unsigned int tc_mips_cpu_freq;
+
+int soc_power_status;
+EXPORT_SYMBOL(soc_power_status);
 
 #ifdef CONFIG_UBOOT_CMDLINE
 int prom_argc;
@@ -71,6 +75,29 @@ const char *get_system_type(void)
 	else
 		return "Ralink RT6855A SoC";
 #endif
+}
+
+static inline void prom_show_pstat(void)
+{
+	char *s;
+
+	s = prom_getenv("pstat");
+	if (!s)
+		return;
+
+	soc_power_status = (int)simple_strtoul(s, NULL, 0);
+
+	switch (soc_power_status) {
+	case 3:
+		printk(KERN_WARNING "SoC power status: %s\n", "Watchdog reset occured");
+		break;
+	case 2:
+		printk(KERN_INFO "SoC power status: %s\n", "Soft reset occured");
+		break;
+	case 1:
+		printk(KERN_INFO "SoC power status: %s\n", "Hard reset occured");
+		break;
+	}
 }
 
 static inline void tc_mips_setup(void)
@@ -218,6 +245,8 @@ void __init prom_init(void)
 #ifdef CONFIG_MIPS_MT_SMTC
 	register_smp_ops(&msmtc_smp_ops);
 #endif
+
+	prom_show_pstat();
 }
 
 void __init prom_free_prom_memory(void)
