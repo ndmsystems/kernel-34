@@ -3405,6 +3405,9 @@ int xhci_queue_bulk_tx(struct xhci_hcd *xhci, gfp_t mem_flags,
 	bool zero_length_needed;
 	int start_cycle;
 	u32 field, length_field;
+#if defined (CONFIG_MTK_XHCI)
+	int max_packet;
+#endif
 	int running_total, trb_buff_len, ret;
 	unsigned int total_packet_count;
 	u64 addr;
@@ -3432,6 +3435,22 @@ int xhci_queue_bulk_tx(struct xhci_hcd *xhci, gfp_t mem_flags,
 		num_trbs++;
 		running_total += TRB_MAX_BUFF_SIZE;
 	}
+
+#if defined (CONFIG_MTK_XHCI)
+	switch (urb->dev->speed) {
+		case USB_SPEED_SUPER:
+			max_packet = usb_endpoint_maxp(&urb->ep->desc);
+			break;
+		case USB_SPEED_HIGH:
+		case USB_SPEED_FULL:
+		case USB_SPEED_LOW:
+		case USB_SPEED_WIRELESS:
+		case USB_SPEED_UNKNOWN:
+		default:
+			max_packet = GET_MAX_PACKET(usb_endpoint_maxp(&urb->ep->desc));
+			break;
+	}
+#endif
 
 	ret = prepare_transfer(xhci, xhci->devs[slot_id],
 			ep_index, urb->stream_id,
