@@ -1021,6 +1021,8 @@ static int proc_resetep(struct dev_state *ps, void __user *arg)
 	return 0;
 }
 
+extern int _usb_clear_halt(struct usb_device *dev, int pipe);
+
 static int proc_clearhalt(struct dev_state *ps, void __user *arg)
 {
 	unsigned int ep;
@@ -1040,7 +1042,7 @@ static int proc_clearhalt(struct dev_state *ps, void __user *arg)
 	else
 		pipe = usb_sndbulkpipe(ps->dev, ep & 0x7f);
 
-	return usb_clear_halt(ps->dev, pipe);
+	return _usb_clear_halt(ps->dev, pipe);
 }
 
 static int proc_getdriver(struct dev_state *ps, void __user *arg)
