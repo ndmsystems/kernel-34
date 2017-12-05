@@ -8,15 +8,26 @@
 #include <linux/netfilter.h>
 #include <linux/tcp.h>
 #include <linux/ip.h>
+#include <linux/inet.h>
 
 #include <net/netfilter/nf_fp_smb.h>
 
 #define HOSTS_COUNT		8
-#define PHOST_AT(idx_)		((__be32 *)nf_fp_smb_hosts + (idx_))
+#define PHOST_AT(idx_)		((__be32 *)&entries[idx_].nf_fp_smb_host)
+#define PMASK_AT(idx_)		((__be32 *)&entries[idx_].nf_fp_smb_mask)
+#define PSUBN_AT(idx_)		((__be32 *)&entries[idx_].nf_fp_smb_subn)
 #define HOST_AT(idx_)		(*(PHOST_AT(idx_)))
+#define MASK_AT(idx_)		(*(PMASK_AT(idx_)))
+#define SUBN_AT(idx_)		(*(PSUBN_AT(idx_)))
+
+struct nf_fp_smb_entry {
+	__be32	nf_fp_smb_host;
+	__be32	nf_fp_smb_mask;
+	__be32	nf_fp_smb_subn;
+};
 
 static u32 nf_fp_smb_on __read_mostly;
-static __be32 nf_fp_smb_hosts[HOSTS_COUNT] __read_mostly;
+static struct nf_fp_smb_entry entries[HOSTS_COUNT] __read_mostly;
 
 int nf_fp_smb_hook_in(struct sk_buff *skb)
 {
@@ -34,6 +45,9 @@ int nf_fp_smb_hook_in(struct sk_buff *skb)
 
 	for (i = 0; i < HOSTS_COUNT; ++i) {
 		if (iph->daddr == HOST_AT(i)) {
+			if ((iph->saddr & MASK_AT(i)) != SUBN_AT(i))
+				return 0;
+
 			found = 1;
 
 			break;
@@ -75,6 +89,9 @@ int nf_fp_smb_hook_out(struct sk_buff *skb)
 
 	for (i = 0; i < HOSTS_COUNT; ++i) {
 		if (iph->saddr == HOST_AT(i)) {
+			if ((iph->daddr & MASK_AT(i)) != SUBN_AT(i))
+				return 0;
+
 			found = 1;
 
 			break;
@@ -109,7 +126,7 @@ static int nf_fp_smb_seq_show(struct seq_file *s, void *v)
 	seq_printf(s, "%lu\n", (unsigned long)nf_fp_smb_on);
 
 	for (i = 0; i < HOSTS_COUNT; ++i)
-		seq_printf(s, "%pI4\n", PHOST_AT(i));
+		seq_printf(s, "%pI4/%pI4\n", PHOST_AT(i), PMASK_AT(i));
 
 	return 0;
 }
@@ -118,8 +135,8 @@ static ssize_t nf_fp_smb_seq_write(struct file *file,
 				   const char __user *buffer,
 				   size_t count, loff_t *ppos)
 {
-	char buf[20];
-	u32 in[4], smb_ip = 0;
+	char buf[INET_ADDRSTRLEN*2+2];
+	u32 in[8], smb_ip = 0, mask;
 	size_t i;
 	long conv = 0;
 
@@ -130,12 +147,14 @@ static ssize_t nf_fp_smb_seq_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (sscanf(buf, "%d.%d.%d.%d", &in[0], &in[1], &in[2], &in[3]) == 4) {
-		for (i = 0; i < 4; i++) {
+	if (sscanf(buf, "%d.%d.%d.%d/%d.%d.%d.%d", &in[0], &in[1], &in[2], &in[3],
+			&in[4], &in[5], &in[6], &in[7]) == 8) {
+		for (i = 0; i < 8; i++) {
 			if (in[i] > 255)
 				return count;
 		}
 		smb_ip = (in[0] << 24) | (in[1] << 16) | (in[2] << 8) | in[3];
+		mask = (in[4] << 24) | (in[5] << 16) | (in[6] << 8) | in[7];
 	} else if (kstrtol(buf, 10, &conv) != 0) {
 		return count;
 	}
@@ -143,7 +162,7 @@ static ssize_t nf_fp_smb_seq_write(struct file *file,
 	if (conv != 0 && smb_ip == 0) {
 		nf_fp_smb_on = 0;
 
-		memset(nf_fp_smb_hosts, 0, HOSTS_COUNT * sizeof(__be32));
+		memset(entries, 0, sizeof(entries));
 
 		pr_info("Disable SMB fastpath\n");
 
@@ -153,10 +172,13 @@ static ssize_t nf_fp_smb_seq_write(struct file *file,
 	for (i = 0; i < HOSTS_COUNT; ++i) {
 		if (HOST_AT(i) == 0 || HOST_AT(i) == cpu_to_be32(smb_ip)) {
 			HOST_AT(i) = cpu_to_be32(smb_ip);
+			MASK_AT(i) = cpu_to_be32(mask);
+			SUBN_AT(i) = cpu_to_be32(smb_ip & mask);
 
 			nf_fp_smb_on = 1;
 
-			pr_info("Enable SMB fastpath for %pI4\n", PHOST_AT(i));
+			pr_info("Enable SMB fastpath for %pI4/%pI4\n",
+				PHOST_AT(i), PMASK_AT(i));
 
 			break;
 		}
@@ -206,7 +228,7 @@ int __init netfilter_fp_smb_init(void)
 {
 	nf_fp_smb_on = 0;
 
-	memset(nf_fp_smb_hosts, 0, HOSTS_COUNT * sizeof(__be32));
+	memset(entries, 0, sizeof(entries));
 
 #ifdef CONFIG_PROC_FS
 	if (!proc_create("nf_fp_smb", 0664, proc_net_netfilter, &nf_fp_smb_fops))
