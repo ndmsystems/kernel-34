@@ -15,12 +15,15 @@
 #define HOSTS_COUNT		8
 #define PHOST_AT(idx_)		((__be32 *)&entries[idx_].nf_fp_smb_host)
 #define PMASK_AT(idx_)		((__be32 *)&entries[idx_].nf_fp_smb_mask)
+#define PSUBN_AT(idx_)		((__be32 *)&entries[idx_].nf_fp_smb_subn)
 #define HOST_AT(idx_)		(*(PHOST_AT(idx_)))
 #define MASK_AT(idx_)		(*(PMASK_AT(idx_)))
+#define SUBN_AT(idx_)		(*(PSUBN_AT(idx_)))
 
 struct nf_fp_smb_entry {
 	__be32	nf_fp_smb_host;
 	__be32	nf_fp_smb_mask;
+	__be32	nf_fp_smb_subn;
 };
 
 static u32 nf_fp_smb_on __read_mostly;
@@ -42,8 +45,10 @@ int nf_fp_smb_hook_in(struct sk_buff *skb)
 
 	for (i = 0; i < HOSTS_COUNT; ++i) {
 		if (iph->daddr == HOST_AT(i)) {
-			if ((iph->saddr & MASK_AT(i)) == (HOST_AT(i) & MASK_AT(i)))
-				found = 1;
+			if ((iph->saddr & MASK_AT(i)) != SUBN_AT(i))
+				return 0;
+
+			found = 1;
 
 			break;
 		}
@@ -84,8 +89,10 @@ int nf_fp_smb_hook_out(struct sk_buff *skb)
 
 	for (i = 0; i < HOSTS_COUNT; ++i) {
 		if (iph->saddr == HOST_AT(i)) {
-			if ((iph->daddr & MASK_AT(i)) == (HOST_AT(i) & MASK_AT(i)))
-				found = 1;
+			if ((iph->daddr & MASK_AT(i)) != SUBN_AT(i))
+				return 0;
+
+			found = 1;
 
 			break;
 		}
@@ -166,6 +173,7 @@ static ssize_t nf_fp_smb_seq_write(struct file *file,
 		if (HOST_AT(i) == 0 || HOST_AT(i) == cpu_to_be32(smb_ip)) {
 			HOST_AT(i) = cpu_to_be32(smb_ip);
 			MASK_AT(i) = cpu_to_be32(mask);
+			SUBN_AT(i) = cpu_to_be32(smb_ip & mask);
 
 			nf_fp_smb_on = 1;
 
