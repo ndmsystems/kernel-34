@@ -550,12 +550,12 @@ out:
 #endif /* CONFIG_MTD_NDM_CONFIG_TRANSITION */
 
 static uint32_t part_rootfs_offset(struct mtd_info *master,
-				   uint32_t begin, uint32_t end)
+				   uint32_t begin, uint32_t size)
 {
 	size_t len;
 	uint32_t off, magic;
 
-	for (off = begin; off < end; off += master->erasesize) {
+	for (off = begin; off < begin + size; off += master->erasesize) {
 		mtd_read(master, off, sizeof(magic), &len,
 			(uint8_t *)&magic);
 		if (le32_to_cpu(magic) == ROOTFS_MAGIC ||
@@ -718,9 +718,21 @@ static int create_mtd_partitions(struct mtd_info *m,
 	if (ndmpart_image_cur == DI_IMAGE_FIRST)
 #endif
 	{
-		off = part_rootfs_offset(m,
-					 parts[PART_KERNEL_1].offset,
-					 parts[PART_CONFIG_1].offset);
+		uint32_t s_beg, s_size;
+
+		s_beg = parts[PART_FIRMWARE_1].offset + m->erasesize;
+		s_size = parts[PART_FIRMWARE_1].size;
+
+		ret = mtk_nand_tmp_parts_set(parts[PART_ROOTFS_1].name,
+					     s_beg, s_size);
+		if (ret < 0) {
+			printk("%s: mtk_nand_tmp_parts_set error (%d)\n",
+			       __func__, ret);
+			return ret;
+		}
+
+		off = part_rootfs_offset(m, s_beg, s_size);
+		mtk_nand_tmp_parts_reset();
 
 		if (off) {
 			parts[PART_ROOTFS_1].skip = false;
@@ -761,8 +773,22 @@ static int create_mtd_partitions(struct mtd_info *m,
 		parts[PART_CONFIG_2].size = parts[PART_CONFIG_1].size;
 
 		if (ndmpart_image_cur == DI_IMAGE_SECOND) {
-			off = part_rootfs_offset(m, parts[PART_FIRMWARE_2].offset,
-						 parts_offset_end(PART_FIRMWARE_2));
+			uint32_t s_beg, s_size;
+
+			s_beg = parts[PART_FIRMWARE_2].offset + m->erasesize;
+			s_size = parts[PART_FIRMWARE_2].size;
+
+			ret = mtk_nand_tmp_parts_set(parts[PART_ROOTFS_2].name,
+						     s_beg, s_size);
+			if (ret < 0) {
+				printk("%s: mtk_nand_tmp_parts_set error (%d)\n",
+				       __func__, ret);
+				return ret;
+			}
+
+			off = part_rootfs_offset(m, s_beg, s_size);
+			mtk_nand_tmp_parts_reset();
+
 			if (off) {
 				parts[PART_ROOTFS_2].skip = false;
 				parts[PART_ROOTFS_2].offset = off;
