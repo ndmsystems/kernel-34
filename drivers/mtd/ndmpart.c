@@ -595,10 +595,7 @@ static int create_mtd_partitions(struct mtd_info *m,
 				 struct mtd_part_parser_data *data)
 {
 	bool use_dump, use_storage;
-	int i, j;
-#if defined(CONFIG_MTD_NDM_BOOT_UPDATE) || defined(CONFIG_MTD_NDM_DUAL_IMAGE)
-	int ret;
-#endif
+	int i, j, ret;
 #ifdef CONFIG_MTD_NDM_DUAL_IMAGE
 	int boot_active, boot_backup;
 	uint32_t off_si = 0;
