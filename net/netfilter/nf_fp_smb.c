@@ -136,7 +136,7 @@ static ssize_t nf_fp_smb_seq_write(struct file *file,
 				   size_t count, loff_t *ppos)
 {
 	char buf[INET_ADDRSTRLEN*2+2];
-	u32 in[8], smb_ip = 0, mask;
+	u32 in[8], smb_ip = 0, mask = 0;
 	size_t i;
 	long conv = 0;
 
