@@ -281,12 +281,29 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 	hdr->call_id     = htons(opt->dst_addr.call_id);
 
 	hdr->flags      |= PPTP_GRE_FLAG_S;
+
+#if IS_ENABLED(CONFIG_FAST_NAT)
+	if (likely(!SWNAT_KA_CHECK_MARK(skb))) {
+		hdr->seq     = htonl(++opt->seq_sent);
+	} else {
+		hdr->seq     = htonl(opt->seq_sent);
+	}
+#else
 	hdr->seq         = htonl(++opt->seq_sent);
+#endif
+
 	if (opt->ack_sent != seq_recv)	{
 		/* send ack with this message */
 		hdr->ver |= PPTP_GRE_FLAG_A;
 		hdr->ack  = htonl(seq_recv);
+
+#if IS_ENABLED(CONFIG_FAST_NAT)
+		if (likely(!SWNAT_KA_CHECK_MARK(skb))) {
+			opt->ack_sent = seq_recv;
+		}
+#else
 		opt->ack_sent = seq_recv;
+#endif
 	}
 
 	spin_unlock(&opt->seq_ack_lock);
@@ -330,11 +347,11 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 
 #if IS_ENABLED(CONFIG_FAST_NAT)
 	rcu_read_lock();
-	if (SWNAT_PPP_CHECK_MARK(skb)) {
+	if (!SWNAT_KA_CHECK_MARK(skb) && SWNAT_PPP_CHECK_MARK(skb)) {
 		/* We already have PPP encap, do skip it */
 		SWNAT_FNAT_RESET_MARK(skb);
 		SWNAT_PPP_RESET_MARK(skb);
-	} else if (SWNAT_FNAT_CHECK_MARK(skb) &&
+	} else if (!SWNAT_KA_CHECK_MARK(skb) && SWNAT_FNAT_CHECK_MARK(skb) &&
 		(NULL != (swnat_prebind = rcu_dereference(prebind_from_pptptx)))) {
 
 		sock_hold(sk);
@@ -390,11 +407,21 @@ static int pptp_rcv_core(struct sock *sk, struct sk_buff *skb)
 
 		ack = ntohl(ack);
 
+#if IS_ENABLED(CONFIG_FAST_NAT)
+		if (likely(!SWNAT_KA_CHECK_MARK(skb))) {
+			if (ack > opt->ack_recv)
+				opt->ack_recv = ack;
+			/* also handle sequence number wrap-around  */
+			if (WRAPPED(ack, opt->ack_recv))
+				opt->ack_recv = ack;
+		}
+#else
 		if (ack > opt->ack_recv)
 			opt->ack_recv = ack;
 		/* also handle sequence number wrap-around  */
 		if (WRAPPED(ack, opt->ack_recv))
 			opt->ack_recv = ack;
+#endif
 	} else {
 		headersize -= sizeof(header->ack);
 	}
@@ -418,7 +445,11 @@ static int pptp_rcv_core(struct sock *sk, struct sk_buff *skb)
 	payload = skb->data + headersize;
 
 	/* check for echo-request and perform fast-reply */
-	if( (opt->src_addr.magic_num != 0) &&
+	if( 
+#if IS_ENABLED(CONFIG_FAST_NAT)
+		!SWNAT_KA_CHECK_MARK(skb) &&
+#endif
+		(opt->src_addr.magic_num != 0) &&
 		(payload[0] == PPP_ALLSTATIONS) &&
 		(payload[1] == PPP_UI) && 
 		(PPP_PROTOCOL(payload) == PPP_LCP) &&
@@ -457,7 +488,13 @@ static int pptp_rcv_core(struct sock *sk, struct sk_buff *skb)
 				((payload[4] == PPP_LCP_ECHOREQ) || (payload[4] == PPP_LCP_ECHOREP)))
 			goto allow_packet;
 	} else {
+#if IS_ENABLED(CONFIG_FAST_NAT)
+		if (likely(!SWNAT_KA_CHECK_MARK(skb))) {
+			opt->seq_recv = seq;
+		}
+#else
 		opt->seq_recv = seq;
+#endif
 allow_packet:
 		skb_pull(skb, headersize);
 

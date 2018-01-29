@@ -65,6 +65,12 @@ do { \
 #define SWNAT_KA_CHECK_MARK(skb_) \
 	((skb_)->cb[SWNAT_CB_OFFSET] == SWNAT_KA_MARK)
 
+#define SWNAT_KA_RESET_MARK(skb_) \
+do { \
+	(skb_)->cb[SWNAT_CB_OFFSET] = 0; \
+} while (0);
+
+
 /* End of KA mark */
 
 /* List of new MC streams */
