@@ -256,7 +256,7 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 	hdr->seq         = htonl(++opt->seq_sent);
 #endif
 
-	if (opt->ack_sent != seq_recv)	{
+	if (opt->ack_sent != seq_recv) {
 		/* send ack with this message */
 		hdr->gre_hd.flags |= GRE_ACK;
 		hdr->ack = htonl(seq_recv);
@@ -421,7 +421,9 @@ static int pptp_rcv_core(struct sock *sk, struct sk_buff *skb)
 	{
 		unsigned int magic = opt->src_addr.magic_num;
 
-		opt->seq_recv = seq;
+		if (likely(seq > opt->seq_recv)) {
+			opt->seq_recv = seq;
+		}
 
 		spin_unlock(&opt->seq_ack_lock);
 
@@ -446,18 +448,20 @@ static int pptp_rcv_core(struct sock *sk, struct sk_buff *skb)
 #endif
 
 	/* check for expected sequence number */
-	if (seq < opt->seq_recv + 1 || WRAPPED(opt->seq_recv, seq)) {
+	if (unlikely((seq + MISSING_WINDOW) < (opt->seq_recv + 1) || WRAPPED(opt->seq_recv, seq))) {
 		if ((payload[0] == PPP_ALLSTATIONS) && (payload[1] == PPP_UI) &&
 				(PPP_PROTOCOL(payload) == PPP_LCP) &&
 				((payload[4] == PPP_LCP_ECHOREQ) || (payload[4] == PPP_LCP_ECHOREP)))
 			goto allow_packet;
 	} else {
 #if IS_ENABLED(CONFIG_FAST_NAT)
-		if (likely(!SWNAT_KA_CHECK_MARK(skb))) {
+		if (likely(!SWNAT_KA_CHECK_MARK(skb) && seq > opt->seq_recv)) {
 			opt->seq_recv = seq;
 		}
 #else
-		opt->seq_recv = seq;
+		if (likely(seq > opt->seq_recv)) {
+			opt->seq_recv = seq;
+		}
 #endif
 allow_packet:
 		skb_pull(skb, headersize);
