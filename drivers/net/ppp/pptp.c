@@ -33,6 +33,7 @@
 #include <linux/netfilter_ipv4.h>
 #include <linux/rcupdate.h>
 #include <linux/spinlock.h>
+#include <linux/pkt_sched.h>
 
 #include <net/sock.h>
 #include <net/protocol.h>
@@ -290,11 +291,14 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 	else
 		iph->frag_off	=	0;
 	iph->protocol = IPPROTO_GRE;
-	iph->tos      = 0;
+	iph->tos      = (islcp ? 0xc0 : 0); /* DSCP CS6 */
 	iph->daddr    = fl4.daddr;
 	iph->saddr    = fl4.saddr;
 	iph->ttl      = ip4_dst_hoplimit(&rt->dst);
 	iph->tot_len  = htons(skb->len);
+
+	if (islcp)
+		skb->priority = TC_PRIO_CONTROL;
 
 	skb_dst_drop(skb);
 	skb_dst_set(skb, &rt->dst);
