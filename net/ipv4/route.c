@@ -1996,7 +1996,7 @@ static struct rtable *rt_dst_alloc(struct net_device *dev,
 }
 
 /* called in rcu_read_lock() section */
-static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 				u8 tos, struct net_device *dev, int our)
 {
 	unsigned int hash;
@@ -2074,7 +2074,7 @@ e_inval:
 e_err:
 	return err;
 }
-
+EXPORT_SYMBOL(ip_route_input_mc);
 
 static void ip_handle_martian_source(struct net_device *dev,
 				     struct in_device *in_dev,
