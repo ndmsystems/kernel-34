@@ -146,7 +146,7 @@ struct nf_conn {
 #if IS_ENABLED(CONFIG_FAST_NAT)
 	/* fast nat ext */
 	u_int8_t fast_ext;
-	u_int8_t fast_nat_binded;
+	u_int8_t fast_bind_reached;
 #endif
 
 	/* Extensions */

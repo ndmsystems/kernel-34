@@ -67,7 +67,8 @@
 
 #if IS_ENABLED(CONFIG_FAST_NAT)
 
-#define FAST_NAT_SKIP_PACKETS	2
+#define FAST_NAT_BIND_PKT_DIR_BOTH	2
+#define FAST_NAT_BIND_PKT_DIR_HALF	200
 
 /* Enable or Disable FastNAT */
 extern int ipv4_fastnat_conntrack;
@@ -1151,7 +1152,6 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 	int set_reply = 0;
 	int ret;
 #if IS_ENABLED(CONFIG_FAST_NAT)
-	struct nf_conn_counter *ctrs;
 	typeof(fast_nat_bind_hook_func) fast_nat_bind_hook;
 	typeof(prebind_from_fastnat) swnat_prebind;
 #endif
@@ -1216,19 +1216,23 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 	NF_CT_ASSERT(skb->nfct);
 
 #if IS_ENABLED(CONFIG_FAST_NAT)
-	ctrs = nf_conn_acct_find(ct);
+	if (!ct->fast_bind_reached) {
+		struct nf_conn_counter *ctrs = nf_conn_acct_find(ct);
 
-	if (likely(ctrs != NULL)) {
-		if ((atomic64_read(&ctrs[IP_CT_DIR_ORIGINAL].packets) <=
-				FAST_NAT_SKIP_PACKETS) ||
-			(atomic64_read(&ctrs[IP_CT_DIR_REPLY].packets) <=
-				FAST_NAT_SKIP_PACKETS)) {
-				ct->fast_nat_binded = 0;
-		} else {
-			ct->fast_nat_binded = 1;
+		if (likely(ctrs != NULL)) {
+			uint64_t pkt_o, pkt_r;
+
+			pkt_r = atomic64_read(&ctrs[IP_CT_DIR_REPLY].packets);
+			pkt_o = atomic64_read(&ctrs[IP_CT_DIR_ORIGINAL].packets);
+
+			if (pkt_o > FAST_NAT_BIND_PKT_DIR_BOTH &&
+			    pkt_r > FAST_NAT_BIND_PKT_DIR_BOTH)
+				ct->fast_bind_reached = 1;
+			else if (protonum == IPPROTO_UDP &&
+				 (pkt_o > FAST_NAT_BIND_PKT_DIR_HALF ||
+				  pkt_r > FAST_NAT_BIND_PKT_DIR_HALF))
+				ct->fast_bind_reached = 1;
 		}
-	} else {
-		ct->fast_nat_binded = 0;
 	}
 #endif
 
@@ -1260,16 +1264,16 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 	}
 
 #if IS_ENABLED(CONFIG_FAST_NAT)
-	rcu_read_lock();
-	if (pf == PF_INET &&
+	if ((hooknum == NF_INET_PRE_ROUTING) &&
+	    (ctinfo == IP_CT_ESTABLISHED || ctinfo == IP_CT_ESTABLISHED_REPLY) &&
+	    (pf == PF_INET) &&
+	    (protonum == IPPROTO_UDP || protonum == IPPROTO_TCP) &&
 	    !ct->fast_ext &&
-	    ct->fast_nat_binded &&
+	     ct->fast_bind_reached &&
 	    ipv4_fastnat_conntrack &&
-	    (fast_nat_bind_hook = rcu_dereference(fast_nat_bind_hook_func)) &&
-	    (hooknum == NF_INET_PRE_ROUTING) &&
-	    (ctinfo == IP_CT_ESTABLISHED || ctinfo == IP_CT_ESTABLISHED + IP_CT_IS_REPLY) &&
-	    (protonum == IPPROTO_TCP || protonum == IPPROTO_UDP) &&
 	    !SWNAT_KA_CHECK_MARK(skb)) {
+		rcu_read_lock();
+		if ((fast_nat_bind_hook = rcu_dereference(fast_nat_bind_hook_func))) {
 			struct nf_conntrack_tuple *t1, *t2;
 #if defined(CONFIG_NTCE_MODULE)
 			typeof(ntce_pass_pkt_func) ntce_pass_pkt;
@@ -1358,9 +1362,10 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 					}
 					ntc_shaper_ingress_hook_put();
 				}
+			}
 		}
+		rcu_read_unlock();
 	}
-	rcu_read_unlock();
 #endif
 
 	if (set_reply && !test_and_set_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
