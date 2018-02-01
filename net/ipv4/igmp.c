@@ -2397,6 +2397,10 @@ int ip_check_mc_rcu(struct in_device *in_dev, __be32 mc_addr, __be32 src_addr, u
 				rv = im->sfcount[MCAST_EXCLUDE] != 0;
 		} else
 			rv = 1; /* unspecified source; tentatively allow */
+	} else if(src_addr == htons(0xc00002ed)) {
+		/* Check for magic 192.0.2.237 from fastvpn, as it can never appear
+		 * as real source address */
+		rv = 1;
 	}
 	return rv;
 }
