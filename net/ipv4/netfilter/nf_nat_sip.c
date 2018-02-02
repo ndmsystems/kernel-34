@@ -157,9 +157,15 @@ static unsigned int ip_nat_sip(struct sk_buff *skb, unsigned int dataoff,
 		/* We're only interested in headers related to this
 		 * connection */
 		if (request) {
-			if (addr.ip != ct->tuplehash[dir].tuple.src.u3.ip ||
-			    port != ct->tuplehash[dir].tuple.src.u.udp.port)
+			if (addr.ip != ct->tuplehash[dir].tuple.src.u3.ip)
 				goto next;
+
+			if (port != ct->tuplehash[dir].tuple.src.u.udp.port) {
+				if (help->help.ct_sip_info.forced_dport)
+					port = ct->tuplehash[dir].tuple.src.u.udp.port;
+				else
+					goto next;
+			}
 		} else {
 			if (addr.ip != ct->tuplehash[dir].tuple.dst.u3.ip ||
 			    port != ct->tuplehash[dir].tuple.dst.u.udp.port)
