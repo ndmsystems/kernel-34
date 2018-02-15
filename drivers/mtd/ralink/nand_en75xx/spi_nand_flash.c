@@ -1186,7 +1186,7 @@ static SPI_NAND_FLASH_RTN_T ecc_fail_check( u32 page_number )
 	if (((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FM) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_FM25G01B)) ||
 	    ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FM) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_FM25G02B)))
 	{
-		if(((status & 0x30) >> 4) == 0x2)
+		if(((status & 0x70) >> 4) == 0x7)
 		{
 			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
 		}
