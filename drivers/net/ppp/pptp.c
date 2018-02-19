@@ -58,6 +58,7 @@ extern void (*prebind_from_pptptx)(struct sk_buff * skb,
 #define PPTP_DRIVER_VERSION "0.8.5"
 
 #define MAX_CALLID 65535
+#define PPTP_SEQ_INITIAL	0xffffffff /* uint32 max */
 
 static DECLARE_BITMAP(callid_bitmap, MAX_CALLID + 1);
 static struct pppox_sock __rcu **callid_sock;
@@ -455,11 +456,13 @@ static int pptp_rcv_core(struct sock *sk, struct sk_buff *skb)
 			goto allow_packet;
 	} else {
 #if IS_ENABLED(CONFIG_FAST_NAT)
-		if (likely(!SWNAT_KA_CHECK_MARK(skb) && seq > opt->seq_recv)) {
+		if (likely(!SWNAT_KA_CHECK_MARK(skb) && (seq > opt->seq_recv ||
+				(opt->seq_recv == PPTP_SEQ_INITIAL && WRAPPED(seq, opt->seq_recv))))) {
 			opt->seq_recv = seq;
 		}
 #else
-		if (likely(seq > opt->seq_recv)) {
+		if (likely(seq > opt->seq_recv ||
+					(opt->seq_recv == PPTP_SEQ_INITIAL && WRAPPED(seq, opt->seq_recv)))) {
 			opt->seq_recv = seq;
 		}
 #endif
@@ -744,8 +747,8 @@ static int pptp_create(struct net *net, struct socket *sock)
 
 	spin_lock_init(&opt->seq_ack_lock);
 
-	opt->seq_sent = 0; opt->seq_recv = 0xffffffff;
-	opt->ack_recv = 0; opt->ack_sent = 0xffffffff;
+	opt->seq_sent = 0; opt->seq_recv = PPTP_SEQ_INITIAL;
+	opt->ack_recv = 0; opt->ack_sent = PPTP_SEQ_INITIAL;
 
 	opt->src_addr.magic_num = 0;
 
