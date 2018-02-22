@@ -164,6 +164,7 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 	unsigned int header_len = sizeof(*hdr);
 	struct flowi4 fl4;
 	int islcp;
+	int is_ccp;
 	int len;
 	unsigned char *data;
 	__u8 * iph_int;
@@ -209,6 +210,16 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 	iph_int = (__u8 *)(skb->data) + 2;
 	data = skb->data;
 	islcp = ((data[0] << 8) + data[1]) == PPP_LCP && 1 <= data[2] && data[2] <= 7;
+	is_ccp = atomic_read(&opt->has_ccp);
+
+	if (!is_ccp &&
+		((data[0] == 0) && data[1] == PPP_COMP)) {
+		/* Turn off SEQ window feature with MPPC/MPPE */
+
+		printk(KERN_INFO "PPTP: turn off SEQ window because of PPP compression");
+		atomic_set(&opt->has_ccp, 1);
+		is_ccp = 1;
+	}
 
 	/* compress protocol field */
 	if ((opt->ppp_flags & SC_COMP_PROT) && data[0] == 0 && !islcp)
@@ -312,11 +323,11 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 
 #if IS_ENABLED(CONFIG_FAST_NAT)
 	rcu_read_lock();
-	if (!SWNAT_KA_CHECK_MARK(skb) && SWNAT_PPP_CHECK_MARK(skb)) {
+	if (!is_ccp && !SWNAT_KA_CHECK_MARK(skb) && SWNAT_PPP_CHECK_MARK(skb)) {
 		/* We already have PPP encap, do skip it */
 		SWNAT_FNAT_RESET_MARK(skb);
 		SWNAT_PPP_RESET_MARK(skb);
-	} else if (!SWNAT_KA_CHECK_MARK(skb) && SWNAT_FNAT_CHECK_MARK(skb) &&
+	} else if (!is_ccp && !SWNAT_KA_CHECK_MARK(skb) && SWNAT_FNAT_CHECK_MARK(skb) &&
 		(NULL != (swnat_prebind = rcu_dereference(prebind_from_pptptx)))) {
 
 		sock_hold(sk);
@@ -343,6 +354,7 @@ static int pptp_rcv_core(struct sock *sk, struct sk_buff *skb)
 	int headersize, payload_len, seq;
 	__u8 *payload;
 	struct pptp_gre_header *header;
+	int is_ccp;
 
 	if (!(sk->sk_state & PPPOX_CONNECTED)) {
 		if (sock_queue_rcv_skb(sk, skb))
@@ -350,6 +362,7 @@ static int pptp_rcv_core(struct sock *sk, struct sk_buff *skb)
 		return NET_RX_SUCCESS;
 	}
 
+	is_ccp = atomic_read(&opt->has_ccp);
 	header = (struct pptp_gre_header *)(skb->data);
 	headersize  = sizeof(*header);
 
@@ -422,7 +435,7 @@ static int pptp_rcv_core(struct sock *sk, struct sk_buff *skb)
 	{
 		unsigned int magic = opt->src_addr.magic_num;
 
-		if (likely(seq > opt->seq_recv)) {
+		if (likely(seq > opt->seq_recv || is_ccp)) {
 			opt->seq_recv = seq;
 		}
 
@@ -449,20 +462,23 @@ static int pptp_rcv_core(struct sock *sk, struct sk_buff *skb)
 #endif
 
 	/* check for expected sequence number */
-	if (unlikely((seq + MISSING_WINDOW) < (opt->seq_recv + 1) || WRAPPED(opt->seq_recv, seq))) {
+	if (unlikely((is_ccp ? seq : (seq + MISSING_WINDOW)) < (opt->seq_recv + 1) || WRAPPED(opt->seq_recv, seq))) {
 		if ((payload[0] == PPP_ALLSTATIONS) && (payload[1] == PPP_UI) &&
 				(PPP_PROTOCOL(payload) == PPP_LCP) &&
 				((payload[4] == PPP_LCP_ECHOREQ) || (payload[4] == PPP_LCP_ECHOREP)))
 			goto allow_packet;
 	} else {
 #if IS_ENABLED(CONFIG_FAST_NAT)
-		if (likely(!SWNAT_KA_CHECK_MARK(skb) && (seq > opt->seq_recv ||
-				(opt->seq_recv == PPTP_SEQ_INITIAL && WRAPPED(seq, opt->seq_recv))))) {
+		if (likely(!SWNAT_KA_CHECK_MARK(skb) &&
+				((seq > opt->seq_recv ||
+					(opt->seq_recv == PPTP_SEQ_INITIAL && WRAPPED(seq, opt->seq_recv))) ||
+				 is_ccp))) {
 			opt->seq_recv = seq;
 		}
 #else
-		if (likely(seq > opt->seq_recv ||
-					(opt->seq_recv == PPTP_SEQ_INITIAL && WRAPPED(seq, opt->seq_recv)))) {
+		if (likely((seq > opt->seq_recv ||
+						(opt->seq_recv == PPTP_SEQ_INITIAL && WRAPPED(seq, opt->seq_recv))) ||
+					is_ccp)) {
 			opt->seq_recv = seq;
 		}
 #endif
@@ -751,6 +767,8 @@ static int pptp_create(struct net *net, struct socket *sock)
 	opt->ack_recv = 0; opt->ack_sent = PPTP_SEQ_INITIAL;
 
 	opt->src_addr.magic_num = 0;
+
+	atomic_set(&opt->has_ccp, 0);
 
 	error = 0;
 out:

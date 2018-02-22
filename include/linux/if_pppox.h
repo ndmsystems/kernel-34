@@ -173,6 +173,7 @@ struct pptp_opt {
 	u32 seq_sent, seq_recv;
 	int ppp_flags;
 	spinlock_t seq_ack_lock;
+	atomic_t has_ccp;
 };
 #include <net/sock.h>
 
