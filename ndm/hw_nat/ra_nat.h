@@ -73,9 +73,6 @@ typedef struct {
 #define FOE_MAGIC_PPE_DWORD		0x3fff7276UL	/* HNAT_V1: FVLD=0, HNAT_V2: FOE_Entry=0x3fff */
 #endif
 
-/* gmac_no for EXTIF offload (ra_sw_nat_hook_tx) */
-#define GMAC_ID_MAGIC_EXTIF		0
-
 /* choose one of them to keep HNAT related information in somewhere. */
 //#define HNAT_USE_HEADROOM
 //#define HNAT_USE_TAILROOM
@@ -168,8 +165,50 @@ typedef struct {
 
 //////////////////////////////////////////////////////////////////////
 
+/* gmac_id */
+#define GMAC_ID_MAGIC_EXTIF		0
+#define GMAC_ID_GDM1			1
+#define GMAC_ID_GDM2			2
+
+#if defined(CONFIG_RALINK_MT7621) || defined(CONFIG_ARCH_MT7623)
+
+/* gmac_info fields */
+struct gmac_info {
+	union {
+		struct {
+			/* assume LE for all mt762x */
+			uint32_t gmac_id:	2;	/* 0: external (WiFi), 1: GDM1, 2: GDM2 */
+			uint32_t queue_id:	4;	/* QDMA QoS queue (0..15) */
+			uint32_t hwfq:		1;	/* send via QDMA HWFQ */
+			uint32_t is_wan:	1;	/* assume upstream path */
+			uint32_t resv:		24;
+		} bits;
+		uint32_t word;
+	};
+} __attribute__ ((packed));
+
+#elif defined(CONFIG_RALINK_MT7620)
+
+/* gmac_info fields */
+struct gmac_info {
+	union {
+		struct {
+			/* assume LE for mt7620 */
+			uint32_t gmac_id:	2;	/* 0: external (WiFi), 1: GDM1 */
+			uint32_t resv:		30;
+		} bits;
+		uint32_t word;
+	};
+} __attribute__ ((packed));
+
+#else
+
+/* assume gmac_info == gmac_id for compat */
+
+#endif
+
 extern int (*ra_sw_nat_hook_rx)(struct sk_buff *skb);
-extern int (*ra_sw_nat_hook_tx)(struct sk_buff *skb, int gmac_no);
+extern int (*ra_sw_nat_hook_tx)(struct sk_buff *skb, int gmac_info);
 extern void (*ppe_dev_register_hook)(struct net_device *dev);
 extern void (*ppe_dev_unregister_hook)(struct net_device *dev);
 extern void (*ppe_enable_hook)(int do_ppe_enable);
