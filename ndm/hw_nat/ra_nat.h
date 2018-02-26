@@ -222,6 +222,20 @@ struct gmac_info {
 	};
 } __attribute__ ((packed));
 
+#elif defined(CONFIG_RALINK_MT7620)
+
+/* gmac_info fields */
+struct gmac_info {
+	union {
+		struct {
+			/* assume LE for mt7620 */
+			uint32_t gmac_id:	2;	/* 0: external (WiFi), 1: GDM1 */
+			uint32_t resv:		30;
+		} bits;
+		uint32_t word;
+	};
+} __attribute__ ((packed));
+
 #else
 
 /* assume gmac_info == gmac_id for compat */
