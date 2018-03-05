@@ -17,6 +17,7 @@
 #include <linux/ip.h>
 #include <net/route.h>
 #include <net/ip.h>
+#include <net/icmp.h>
 #include <linux/netfilter.h>
 #include <linux/netfilter_ipv4.h>
 #include <net/netfilter/nf_nat_core.h>
@@ -126,6 +127,17 @@ static inline int ip_skb_dst_mtu(struct sk_buff *skb)
 
 static int fast_nat_bind_hook_egress(struct sk_buff * skb)
 {
+	struct iphdr *iph = ip_hdr(skb);
+
+	if (iph->ttl <= 1) {
+		icmp_send(skb, ICMP_TIME_EXCEEDED, ICMP_EXC_TTL, 0);
+		kfree_skb(skb);
+
+		return 0;
+	}
+
+	ip_decrease_ttl(iph);
+
 	if (skb->len > ip_skb_dst_mtu(skb) && !skb_is_gso(skb))
 		return ip_fragment(skb, fast_nat_path_output);
 
