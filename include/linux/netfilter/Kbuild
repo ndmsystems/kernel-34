@@ -11,6 +11,7 @@ header-y += nfnetlink_acct.h
 header-y += nfnetlink_compat.h
 header-y += nfnetlink_conntrack.h
 header-y += nfnetlink_cttimeout.h
+header-y += nfnetlink_dryrun.h
 header-y += nfnetlink_log.h
 header-y += nfnetlink_queue.h
 header-y += x_tables.h
