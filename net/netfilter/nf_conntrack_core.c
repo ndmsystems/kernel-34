@@ -1290,6 +1290,9 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 				unsigned char _l4hdr[4];
 				__be32 orig_src, new_src;
 				__be16 orig_port = 0;
+#ifdef CONFIG_NF_CONNTRACK_MARK
+				u32 oldmark = skb->mark;
+#endif
 
 				iph = ip_hdr(skb);
 				orig_src = iph->saddr;
@@ -1318,6 +1321,12 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 					ntce_skip_swnat = 0;
 				}
 #endif
+
+#ifdef CONFIG_NF_CONNTRACK_MARK
+				if (ct->mark != 0)
+					skb->mark = ct->mark;
+#endif
+
 				ret = fast_nat_bind_hook(ct, ctinfo, skb, l3proto, l4proto);
 
 				iph = ip_hdr(skb);
@@ -1362,6 +1371,11 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 					}
 					ntc_shaper_ingress_hook_put();
 				}
+#ifdef CONFIG_NF_CONNTRACK_MARK
+				else {
+					skb->mark = oldmark;
+				}
+#endif
 			}
 		}
 		rcu_read_unlock();
