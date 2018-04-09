@@ -633,8 +633,13 @@ static int create_mtd_partitions(struct mtd_info *m,
 	if (ndmpart_di_is_enabled) {
 		off_si = flash_size >> 1;
 
+		/* offset must be aligned */
+		if (is_power_of_2(m->erasesize))
+			off_si &= ~(m->erasesize - 1);
+
 		if (off_si < flash_size_lim) {
-			printk(KERN_ERR "di: invalid flash size limit!\n");
+			printk(KERN_ERR "di: invalid flash size limit (0x%x)\n",
+				off_si);
 			return -EINVAL;
 		}
 
