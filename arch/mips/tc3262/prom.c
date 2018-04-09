@@ -268,9 +268,8 @@ static inline void cpu_dma_round_robin(int mode)
 void __init prom_init(void)
 {
 	unsigned long memsize;
-	unsigned int bus_freq, cpu_freq, cpu_ratio;
+	unsigned int bus_freq, cpu_freq, cpu_ratio, hw_conf;
 	const char *ram_type = "SDRAM";
-	unsigned int hw_conf;
 
 #ifdef CONFIG_ECONET_EN75XX_MP
 	if (!isEN751221)
@@ -304,14 +303,8 @@ void __init prom_init(void)
 	hw_conf = VPint(CR_AHB_HWCONF);
 
 #ifdef CONFIG_ECONET_EN75XX_MP
+	ram_type = (VPint(CR_DMC_BASE + 0xE4) & (1 << 7)) ? "DDR3" : "DDR2";
 	memsize = (GET_DRAM_SIZE) << 20;
-	if (isEN7512) {
-		/* embedded DRAM (QFP) */
-		ram_type = (EFUSE_IS_DDR3) ? "DDR3" : "DDR2";
-	} else {
-		/* external DRAM (BGA) */
-		ram_type = (hw_conf & (1 << 4)) ? "DDR2" : "DDR3";
-	}
 	cpu_ratio = 4;
 #else
 	/* DDR */
