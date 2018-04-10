@@ -51,10 +51,40 @@
 #endif
 #endif
 
-inline int ip6_rcv_finish( struct sk_buff *skb)
+inline int ip6_rcv_finish(struct sk_buff *skb)
 {
+	const struct ipv6hdr *hdr;
+
 	if (skb_dst(skb) == NULL)
 		ip6_route_input(skb);
+
+	if ((hdr = ipv6_hdr(skb)) != NULL &&
+		ipv6_addr_is_multicast(&hdr->daddr)) {
+
+		unsigned int nhoff;
+		int nexthdr;
+
+		rcu_read_lock();
+		nhoff = IP6CB(skb)->nhoff;
+		nexthdr = skb_network_header(skb)[nhoff];
+
+		if (nexthdr == IPPROTO_ICMPV6) {
+			if (!pskb_pull(skb, skb_transport_offset(skb))) {
+				IP6_INC_STATS_BH(
+					dev_net(skb_dst(skb)->dev),
+					ip6_dst_idev(skb_dst(skb)),
+					IPSTATS_MIB_INDISCARDS);
+				rcu_read_unlock();
+				kfree_skb(skb);
+				return 0;
+			}
+
+			raw6_local_deliver(skb, nexthdr);
+			__skb_push(skb, skb_transport_offset(skb));
+		}
+
+		rcu_read_unlock();
+	}
 
 	return dst_input(skb);
 }
