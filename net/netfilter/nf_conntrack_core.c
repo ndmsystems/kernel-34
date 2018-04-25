@@ -1103,6 +1103,17 @@ resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
 	}
 
 	if (!h) {
+		if (unlikely(0
+#if IS_ENABLED(CONFIG_FAST_NAT)
+		|| SWNAT_KA_CHECK_MARK(skb)
+#endif
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+		|| FOE_SKB_IS_KEEPALIVE(skb)
+#endif
+			)) {
+			return NULL;
+		}
+
 		h = init_conntrack(net, tmpl, &tuple, l3proto, l4proto,
 				   skb, dataoff, hash);
 		if (!h)
