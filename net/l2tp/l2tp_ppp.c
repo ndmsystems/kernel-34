@@ -95,11 +95,18 @@
 #include <net/ip.h>
 #include <net/udp.h>
 #include <net/xfrm.h>
+#include <net/fast_vpn.h>
 
 #include <asm/byteorder.h>
 #include <linux/atomic.h>
 
 #include "l2tp_core.h"
+
+#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+extern void (*prebind_from_l2tptx)(struct sk_buff *skb, struct sock *sock,
+	u16 l2w_tid, u16 l2w_sid, u16 w2l_tid, u16 w2l_sid,
+	u32 saddr, u32 daddr, u16 sport, u16 dport);
+#endif /* #if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
 
 #define PPPOL2TP_DRV_VERSION	"V2.0"
 
@@ -401,6 +408,12 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 	struct l2tp_tunnel *tunnel;
 	struct pppol2tp_session *ps;
 	int uhlen, headroom;
+#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+	void (*swnat_prebind)(struct sk_buff *skb, struct sock *sock,
+		u16 l2w_tid, u16 l2w_sid, u16 w2l_tid, u16 w2l_sid,
+		u32 saddr, u32 daddr, u16 sport, u16 dport);
+	struct inet_sock *inet = NULL;
+#endif /* #if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
 
 	if (sock_flag(sk, SOCK_DEAD) || !(sk->sk_state & PPPOX_CONNECTED))
 		goto abort;
@@ -426,6 +439,41 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 		   2;			/* 2 bytes for PPP_ALLSTATIONS & PPP_UI */
 	if (skb_cow_head(skb, headroom))
 		goto abort_put_sess_tun;
+
+#if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE)
+	rcu_read_lock();
+
+	if (SWNAT_PPP_CHECK_MARK(skb)) {
+		/* We already have PPP encap, do skip it */
+		SWNAT_FNAT_RESET_MARK(skb);
+		SWNAT_PPP_RESET_MARK(skb);
+	} else if (SWNAT_FNAT_CHECK_MARK(skb) &&
+		!session->lns_mode &&
+		 uhlen > 0 &&
+		(NULL != (swnat_prebind = rcu_dereference(prebind_from_l2tptx))) &&
+		(NULL != (inet = inet_sk(tunnel->sock)))) {
+
+		sock_hold(sk);
+
+		swnat_prebind(skb,
+			sk,
+			htons(tunnel->peer_tunnel_id),
+			htons(session->peer_session_id),
+			htons(tunnel->tunnel_id),
+			htons(session->session_id),
+			inet->inet_saddr,
+			inet->inet_daddr,
+			inet->inet_sport,
+			inet->inet_dport);
+
+		SWNAT_FNAT_RESET_MARK(skb);
+		SWNAT_PPP_SET_MARK(skb);
+	} else {
+		SWNAT_FNAT_RESET_MARK(skb);
+	}
+
+	rcu_read_unlock();
+#endif /* #if defined(CONFIG_FAST_NAT) || defined(CONFIG_FAST_NAT_MODULE) */
 
 	/* Setup PPP header */
 	__skb_push(skb, 2);
