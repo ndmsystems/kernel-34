@@ -449,6 +449,7 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 		SWNAT_PPP_RESET_MARK(skb);
 	} else if (SWNAT_FNAT_CHECK_MARK(skb) &&
 		!session->lns_mode &&
+		!session->send_seq &&
 		 uhlen > 0 &&
 		(NULL != (swnat_prebind = rcu_dereference(prebind_from_l2tptx))) &&
 		(NULL != (inet = inet_sk(tunnel->sock)))) {
