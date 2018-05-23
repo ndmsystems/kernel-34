@@ -655,6 +655,9 @@ static int ubr_detach(struct net_device *master_dev, int ifindex)
 
 	netdev_rx_handler_unregister(dev1);
 
+	if (master_dev->flags & IFF_ALLMULTI)
+		dev_set_allmulti(dev1, -1);
+
 	if (master_dev->flags & IFF_PROMISC)
 		dev_set_promiscuity(dev1, -1);
 
