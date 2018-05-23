@@ -82,6 +82,11 @@ static inline struct ubr_private *ubr_priv_get_rcu(
 	return rcu_dereference(dev->rx_handler_data);
 }
 
+static inline bool is_netdev_tun(struct net_device *netdev)
+{
+	return (is_tuntap(netdev) && is_tuntap_tun(netdev));
+}
+
 static rx_handler_result_t ubr_handle_frame(struct sk_buff **pskb)
 {
 	struct sk_buff *skb = *pskb;
@@ -118,7 +123,7 @@ static rx_handler_result_t ubr_handle_frame(struct sk_buff **pskb)
 	dst_release(skb_dst(skb));
 	skb_dst_set(skb, NULL);
 
-	if (is_tuntap(ubr->slave_dev) && is_tuntap_tun(ubr->slave_dev)) {
+	if (is_netdev_tun(ubr->slave_dev)) {
 		struct iphdr *iph;
 		struct ethhdr *eth;
 
@@ -295,7 +300,7 @@ static netdev_tx_t ubr_xmit(struct sk_buff *skb,
 		return -ENOTCONN;
 	}
 
-	if (is_tuntap(slave_dev) && is_tuntap_tun(slave_dev)) {
+	if (is_netdev_tun(slave_dev)) {
 		struct ethhdr *eth = (struct ethhdr *)skb->data;
 		unsigned int maclen = 0;
 
@@ -401,6 +406,9 @@ static void ubr_change_rx_flags(struct net_device *dev, int change)
 	struct net_device *slave_dev = master_info->slave_dev;
 
 	if (!slave_dev)
+		return;
+
+	if (is_netdev_tun(slave_dev))
 		return;
 
 	if (change & IFF_ALLMULTI)
@@ -526,14 +534,16 @@ static int ubr_set_mac_addr_force(struct net_device *dev, void *p)
 	int ret = ubr_set_mac_addr(dev, p);
 
 	if (!ret) {
+		struct net_device *slave_dev = ubr0->slave_dev;
+
 		set_bit(MAC_FORCED, &ubr0->flags);
 
-		if (ubr0->slave_dev) {
+		if (slave_dev && !is_netdev_tun(slave_dev)) {
 
-			if (compare_ether_addr(dev->dev_addr, ubr0->slave_dev->dev_addr))
-				dev_set_promiscuity(ubr0->slave_dev, 1);
+			if (compare_ether_addr(dev->dev_addr, slave_dev->dev_addr))
+				dev_set_promiscuity(slave_dev, 1);
 			else
-				dev_set_promiscuity(ubr0->slave_dev, -1);
+				dev_set_promiscuity(slave_dev, -1);
 
 		}
 	}
@@ -601,7 +611,7 @@ static int ubr_atto_master(struct net_device *master_dev, int ifindex)
 	if (!dev1)
 		goto out;
 
-	if (is_tuntap(dev1) && is_tuntap_tun(dev1)) {
+	if (is_netdev_tun(dev1)) {
 		is_tun = 1;
 	} else {
 		if (!test_bit(MAC_FORCED, &ubr0->flags)) {
@@ -622,8 +632,13 @@ static int ubr_atto_master(struct net_device *master_dev, int ifindex)
 	if (err)
 		goto out;
 
-	if (!is_tun && (master_dev->flags & IFF_PROMISC || mac_differ))
-		dev_set_promiscuity(dev1, 1);
+	if (!is_tun) {
+		if ((master_dev->flags & IFF_PROMISC) || mac_differ)
+			dev_set_promiscuity(dev1, 1);
+
+		if (master_dev->flags & IFF_ALLMULTI)
+			dev_set_allmulti(dev1, 1);
+	}
 
 	netif_carrier_on(master_dev);
 	dev1->priv_flags |= IFF_UBRIDGE_PORT;
@@ -651,15 +666,18 @@ static int ubr_detach(struct net_device *master_dev, int ifindex)
 
 	if (ubr0->slave_dev != dev1)
 		goto out;
+
 	ubr0->slave_dev = NULL;
 
 	netdev_rx_handler_unregister(dev1);
 
-	if (master_dev->flags & IFF_ALLMULTI)
-		dev_set_allmulti(dev1, -1);
+	if (!is_netdev_tun(dev1)) {
+		if (master_dev->flags & IFF_ALLMULTI)
+			dev_set_allmulti(dev1, -1);
 
-	if (master_dev->flags & IFF_PROMISC)
-		dev_set_promiscuity(dev1, -1);
+		if (master_dev->flags & IFF_PROMISC)
+			dev_set_promiscuity(dev1, -1);
+	}
 
 	dev1->priv_flags &= ~IFF_UBRIDGE_PORT;
 
