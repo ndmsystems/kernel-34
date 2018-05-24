@@ -4,6 +4,8 @@
 #include <linux/types.h>
 #include <linux/spinlock.h>
 
+#define ETH_SWITCH_HOOKS_MARK_MR_MAC
+
 struct net_device;
 
 typedef bool eth_switch_iface_fn(const struct net_device *const dev);
@@ -15,6 +17,9 @@ typedef int eth_switch_map_mc_mac_fn(const struct net_device *const dev,
 typedef int eth_switch_unmap_mc_mac_fn(const struct net_device *const dev,
 				       const u8 *const uc_mac,
 				       const u8 *const mc_mac);
+
+typedef int eth_switch_mark_mr_mac_fn(const struct net_device *const dev,
+				      const u8 *const mr_mac);
 
 typedef int eth_switch_set_wan_port_fn(const unsigned char port);
 
@@ -58,6 +63,7 @@ eth_switch_##name##_hook_set(eth_switch_##name##_fn *name##_hook)	\
 ETH_SWITCH_DECLARE_HOOK(iface)
 ETH_SWITCH_DECLARE_HOOK(map_mc_mac)
 ETH_SWITCH_DECLARE_HOOK(unmap_mc_mac)
+ETH_SWITCH_DECLARE_HOOK(mark_mr_mac)
 ETH_SWITCH_DECLARE_HOOK(set_wan_port)
 
 ETH_SWITCH_DECLARE_HOOK(mt7530_reg_write_bh);
