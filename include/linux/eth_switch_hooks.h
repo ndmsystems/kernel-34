@@ -19,7 +19,8 @@ typedef int eth_switch_unmap_mc_mac_fn(const struct net_device *const dev,
 				       const u8 *const mc_mac);
 
 typedef int eth_switch_mark_mr_mac_fn(const struct net_device *const dev,
-				      const u8 *const mr_mac);
+				      const u8 *const mr_mac,
+				      bool gquery);
 
 typedef int eth_switch_set_wan_port_fn(const unsigned char port);
 
