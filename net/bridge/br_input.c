@@ -55,14 +55,6 @@ static inline int br_pass_frame_up(struct sk_buff *skb)
 		u64_stats_update_end(&brstats->syncp);
 	}
 
-	if (skb->pkt_type == PACKET_MULTICAST) {
-		typeof(igmpsn_hook) igmpsn;
-
-		igmpsn = rcu_dereference(igmpsn_hook);
-		if (igmpsn)
-			igmpsn(skb);
-	}
-
 	indev = skb->dev;
 	skb->dev = brdev;
 
@@ -120,6 +112,19 @@ int br_handle_frame_finish(struct sk_buff *skb)
 	else if (is_broadcast_ether_addr(dest))
 		skb2 = skb;
 	else if (is_multicast_ether_addr(dest)) {
+
+#ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+		/* pass IGMP/MLD (or all mcast) to igmpsn */
+		if (br->multicast_disabled || BR_INPUT_SKB_CB(skb)->igmp)
+#endif
+		{
+			typeof(igmpsn_hook) igmpsn;
+
+			igmpsn = rcu_dereference(igmpsn_hook);
+			if (igmpsn)
+				igmpsn(skb);
+		}
+
 		mdst = br_mdb_get(br, skb);
 		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) {
 			if ((mdst && mdst->mglist) ||
