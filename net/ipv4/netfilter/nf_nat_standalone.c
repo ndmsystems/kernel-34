@@ -176,13 +176,37 @@ nf_nat_out(unsigned int hooknum,
 	enum ip_conntrack_info ctinfo;
 #endif
 	unsigned int ret;
+	const struct iphdr *iph;
+	u_int8_t tos;
+	__be32 saddr, daddr;
+	u_int32_t mark;
 
 	/* root is playing with raw sockets. */
 	if (skb->len < sizeof(struct iphdr) ||
 	    ip_hdrlen(skb) < sizeof(struct iphdr))
 		return NF_ACCEPT;
 
+	mark = skb->mark;
+	iph = ip_hdr(skb);
+	saddr = iph->saddr;
+	daddr = iph->daddr;
+	tos = iph->tos;
+
 	ret = nf_nat_fn(hooknum, skb, in, out, okfn);
+
+	if (ret != NF_DROP && ret != NF_STOLEN) {
+		iph = ip_hdr(skb);
+
+		if (iph->saddr != saddr ||
+		    iph->daddr != daddr ||
+		    skb->mark != mark ||
+		    iph->tos != tos)
+			if (ip_route_me_harder(skb, RTN_UNSPEC))
+				ret = NF_DROP;
+			else
+				skb->dev = skb_dst(skb)->dev;
+	}
+
 #ifdef CONFIG_XFRM
 	if (ret != NF_DROP && ret != NF_STOLEN &&
 	    (ct = nf_ct_get(skb, &ctinfo)) != NULL) {
