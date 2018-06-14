@@ -28,6 +28,15 @@
 #include <net/netfilter/nf_nat_helper.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 
+#include <net/fast_vpn.h>
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+#include <../ndm/hw_nat/ra_nat.h>
+#endif
+#if IS_ENABLED(CONFIG_FAST_NAT)
+#include <net/netfilter/nf_conntrack.h>
+#include <linux/netfilter/nf_conntrack_common.h>
+#endif
+
 #ifdef CONFIG_XFRM
 static void nat_decode_session(struct sk_buff *skb, struct flowi *fl)
 {
@@ -171,8 +180,8 @@ nf_nat_out(unsigned int hooknum,
 	   const struct net_device *out,
 	   int (*okfn)(struct sk_buff *))
 {
-#ifdef CONFIG_XFRM
-	const struct nf_conn *ct;
+#if IS_ENABLED(CONFIG_XFRM) || IS_ENABLED(CONFIG_FAST_NAT)
+	struct nf_conn *ct;
 	enum ip_conntrack_info ctinfo;
 #endif
 	unsigned int ret;
@@ -180,6 +189,7 @@ nf_nat_out(unsigned int hooknum,
 	u_int8_t tos;
 	__be32 saddr, daddr;
 	u_int32_t mark;
+	struct net_device *dev;
 
 	/* root is playing with raw sockets. */
 	if (skb->len < sizeof(struct iphdr) ||
@@ -200,11 +210,30 @@ nf_nat_out(unsigned int hooknum,
 		if (iph->saddr != saddr ||
 		    iph->daddr != daddr ||
 		    skb->mark != mark ||
-		    iph->tos != tos)
+		    iph->tos != tos) {
+
+			dev = skb->dev;
+
 			if (ip_route_me_harder(skb, RTN_UNSPEC))
 				ret = NF_DROP;
-			else
-				skb->dev = skb_dst(skb)->dev;
+			else {
+				if (dev != skb_dst(skb)->dev) {
+					skb->dev = skb_dst(skb)->dev;
+
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+					FOE_ALG_SKIP(skb);
+#endif
+
+#if IS_ENABLED(CONFIG_FAST_NAT)
+					ct = nf_ct_get(skb, &ctinfo);
+
+					if (ct != NULL) {
+						ct->fast_ext = 1;
+					}
+#endif
+				}
+			}
+		}
 	}
 
 #ifdef CONFIG_XFRM
