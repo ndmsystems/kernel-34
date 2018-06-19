@@ -40,6 +40,8 @@
 #include <../ndm/hw_nat/ra_nat.h>
 #endif
 
+#define EBM_ETH_TYPE 0x6120
+
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)) && !defined(ether_addr_copy)
 static inline void ether_addr_copy(u8 *dst, const u8 *src)
 {
@@ -103,7 +105,7 @@ static rx_handler_result_t ubr_handle_frame(struct sk_buff **pskb)
 
 	ustats = this_cpu_ptr(ubr->stats);
 
-	if (likely(1
+	if (likely(skb->protocol != htons(EBM_ETH_TYPE)
 #if IS_ENABLED(CONFIG_FAST_NAT)
 		&& !SWNAT_KA_CHECK_MARK(skb)
 #endif
@@ -344,7 +346,7 @@ static netdev_tx_t ubr_xmit(struct sk_buff *skb,
 
 	ustats = this_cpu_ptr(ubr->stats);
 
-	if (likely(1
+	if (likely(skb->protocol != htons(EBM_ETH_TYPE)
 #if IS_ENABLED(CONFIG_FAST_NAT)
 		&& !SWNAT_KA_CHECK_MARK(skb)
 #endif
