@@ -238,7 +238,7 @@ void __init mips_nmi_setup(void)
 		(void *)(ebase + 0x200 + VECTORSPACING * 64) :
 		(void *)(ebase + 0x380);
 
-	printk("NMI base is %p\n", base);
+	printk(KERN_INFO "NMI base is %p\n", base);
 
 	/*
 	 * Fill the NMI_Handler address in a register, which is a R/W register
