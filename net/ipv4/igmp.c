@@ -325,6 +325,7 @@ igmp_scount(struct ip_mc_list *pmc, int type, int gdeleted, int sdeleted)
 }
 
 /* source address selection per RFC 3376 section 4.2.13 */
+/* called in rcu_read_lock() section */
 static __be32 igmpv3_get_srcaddr(struct net_device *dev,
 				 const struct flowi4 *fl4)
 {
@@ -389,7 +390,11 @@ static struct sk_buff *igmpv3_newpack(struct net_device *dev, unsigned int mtu)
 	pip->frag_off = htons(IP_DF);
 	pip->ttl      = 1;
 	pip->daddr    = fl4.daddr;
+
+	rcu_read_lock();
 	pip->saddr    = igmpv3_get_srcaddr(dev, &fl4);
+	rcu_read_unlock();
+
 	pip->protocol = IPPROTO_IGMP;
 	pip->tot_len  = 0;	/* filled in later */
 	ip_select_ident(skb, NULL);
@@ -734,7 +739,11 @@ static int igmp_send_report(struct in_device *in_dev, struct ip_mc_list *pmc,
 	iph->frag_off = htons(IP_DF);
 	iph->ttl      = 1;
 	iph->daddr    = dst;
+
+	rcu_read_lock();
 	iph->saddr    = igmpv3_get_srcaddr(dev, &fl4);
+	rcu_read_unlock();
+
 	iph->protocol = IPPROTO_IGMP;
 	ip_select_ident(skb, NULL);
 	((u8*)&iph[1])[0] = IPOPT_RA;
