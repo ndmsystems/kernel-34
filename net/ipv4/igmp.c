@@ -734,7 +734,7 @@ static int igmp_send_report(struct in_device *in_dev, struct ip_mc_list *pmc,
 	iph->frag_off = htons(IP_DF);
 	iph->ttl      = 1;
 	iph->daddr    = dst;
-	iph->saddr    = fl4.saddr;
+	iph->saddr    = igmpv3_get_srcaddr(dev, &fl4);
 	iph->protocol = IPPROTO_IGMP;
 	ip_select_ident(skb, NULL);
 	((u8*)&iph[1])[0] = IPOPT_RA;
