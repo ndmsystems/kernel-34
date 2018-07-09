@@ -69,6 +69,9 @@ irqreturn_t c0_compare_interrupt(int irq, void *dev_id)
 	const int r2 = cpu_has_mips_r2;
 	struct clock_event_device *cd;
 	int cpu = smp_processor_id();
+#ifdef CONFIG_TC3262_CPU_TIMER
+	extern void tc_hpt_timer_ack(int cpu);
+#endif
 
 	/*
 	 * Suckage alert:
@@ -78,6 +81,10 @@ irqreturn_t c0_compare_interrupt(int irq, void *dev_id)
 	 */
 	if (handle_perf_irq(r2))
 		goto out;
+
+#ifdef CONFIG_TC3262_CPU_TIMER
+	tc_hpt_timer_ack(cpu);
+#endif
 
 	/*
 	 * The same applies to performance counter interrupts.  But with the
