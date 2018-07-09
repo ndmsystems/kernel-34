@@ -689,6 +689,18 @@ static void igmpv3_send_cr(struct in_device *in_dev)
 	(void) igmpv3_sendpack(skb);
 }
 
+/* source address selection per RFC 3376 section 4.2.13 */
+static __be32 igmpv2_get_srcaddr(struct in_device *in_dev,
+				 const struct flowi4 *fl4)
+{
+	for_ifa(in_dev) {
+		if (fl4->saddr == ifa->ifa_local)
+			return fl4->saddr;
+	} endfor_ifa(in_dev);
+
+	return htonl(INADDR_ANY);
+}
+
 static int igmp_send_report(struct in_device *in_dev, struct ip_mc_list *pmc,
 	int type)
 {
@@ -739,11 +751,7 @@ static int igmp_send_report(struct in_device *in_dev, struct ip_mc_list *pmc,
 	iph->frag_off = htons(IP_DF);
 	iph->ttl      = 1;
 	iph->daddr    = dst;
-
-	rcu_read_lock();
-	iph->saddr    = igmpv3_get_srcaddr(dev, &fl4);
-	rcu_read_unlock();
-
+	iph->saddr    = igmpv2_get_srcaddr(in_dev, &fl4);
 	iph->protocol = IPPROTO_IGMP;
 	ip_select_ident(skb, NULL);
 	((u8*)&iph[1])[0] = IPOPT_RA;
