@@ -33,6 +33,10 @@ config TC3262_IMEM
 	bool "Enable SPRAM IMEM"
 	default y
 
+config TC3262_CPU_TIMER
+	bool "Use CPU External Timer (per-VPE)"
+	default y
+
 endif
 
 #--------------------------
