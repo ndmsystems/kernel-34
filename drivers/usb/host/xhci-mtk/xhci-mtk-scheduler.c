@@ -542,8 +542,8 @@ int mtk_xhci_scheduler_add_ep(int dev_speed, int is_in, int isTT, int ep_type, i
 
 	if (ret == SCH_SUCCESS) {
 		temp_ep_ctx = (struct xhci_ep_ctx *)ep_ctx;
-		temp_ep_ctx->reserved[0] |= (BPKTS(bPkts) | BCSCOUNT(bCsCount) | BBM(bBm));
-		temp_ep_ctx->reserved[1] |= (BOFFSET(bOffset) | BREPEAT(bRepeat));
+		temp_ep_ctx->reserved[0] |= cpu_to_le32((BPKTS(bPkts) | BCSCOUNT(bCsCount) | BBM(bBm)));
+		temp_ep_ctx->reserved[1] |= cpu_to_le32((BOFFSET(bOffset) | BREPEAT(bRepeat)));
 #if defined (CONFIG_USB_XHCI_HCD_DEBUGGING)
 		printk(KERN_DEBUG "%s: BPKTS: %x, BCSCOUNT: %x, BBM: %x, BOFFSET: %x, BREPEAT: %x\n",
 			__FUNCTION__, bPkts, bCsCount, bBm, bOffset, bRepeat);
