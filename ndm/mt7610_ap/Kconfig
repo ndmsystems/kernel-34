@@ -96,6 +96,14 @@ config MT7610_DFS_SUPPORT
 	bool "802.11h DFS support"
 	default n
 
+config MT7610_DOT11R_FT_SUPPORT
+	bool "802.11r Fast BSS Transition"
+	default n
+
+config MT7610_DOT11K_RRM_SUPPORT
+	bool "802.11k Radio Resource Management"
+	default n
+
 config MT7610_CARRIER_DETECTION_SUPPORT
 	bool "Carrier detect support"
 	default n
