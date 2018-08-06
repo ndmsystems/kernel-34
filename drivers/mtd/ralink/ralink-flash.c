@@ -10,6 +10,7 @@
 #include <linux/backing-dev.h>
 #include <linux/compat.h>
 #include <linux/mount.h>
+#include <linux/mutex.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/map.h>
 #include <linux/mtd/concat.h>
@@ -23,6 +24,8 @@
 #if defined (CONFIG_MTD_NOR_RALINK)
 #include "ralink-flash-map.h"
 #endif
+
+static DEFINE_MUTEX(ra_mutex);
 
 int ra_check_flash_type(void)
 {
@@ -188,6 +191,8 @@ int ra_mtd_write_nm(char *name, loff_t to, size_t len, const u_char *buf)
 
 	bad_shift = 0;
 
+	mutex_lock(&ra_mutex);
+
 	while (cnt > 0) {
 		ofs_align = ofs & ~(mtd->erasesize - 1);	/* aligned to erase boundary */
 		i_len = mtd->erasesize - (ofs - ofs_align);
@@ -271,6 +276,7 @@ int ra_mtd_write_nm(char *name, loff_t to, size_t len, const u_char *buf)
 	}
 
 free_out:
+	mutex_unlock(&ra_mutex);
 	kfree(bak);
 out:
 	put_mtd_device(mtd);
