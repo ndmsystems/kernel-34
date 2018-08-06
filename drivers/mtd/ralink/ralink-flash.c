@@ -294,11 +294,14 @@ int ra_mtd_read_nm(char *name, loff_t from, size_t len, u_char *buf)
 	if (IS_ERR(mtd))
 		return (int)mtd;
 
+	mutex_lock(&ra_mutex);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
 	ret = mtd_read(mtd, from, len, &r_len, buf);
 #else
 	ret = mtd->read(mtd, from, len, &r_len, buf);
 #endif
+	mutex_unlock(&ra_mutex);
+
 	if (ret) {
 		printk("%s: read from 0x%llx failed!\n", __FUNCTION__, from);
 		goto out;
