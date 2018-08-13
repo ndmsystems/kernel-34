@@ -20,6 +20,15 @@
 #include <linux/netfilter_ipv4/ipt_TTL.h>
 #include <linux/netfilter_ipv6/ip6t_HL.h>
 
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+#include <../ndm/hw_nat/ra_nat.h>
+#endif
+
+#if IS_ENABLED(CONFIG_FAST_NAT)
+#include <net/netfilter/nf_conntrack.h>
+#include <linux/netfilter/nf_conntrack_common.h>
+#endif
+
 MODULE_AUTHOR("Harald Welte <laforge@netfilter.org>");
 MODULE_AUTHOR("Maciej Soltysiak <solt@dns.toxicfilms.tv>");
 MODULE_DESCRIPTION("Xtables: Hoplimit/TTL Limit field modification target");
@@ -28,6 +37,10 @@ MODULE_LICENSE("GPL");
 static unsigned int
 ttl_tg(struct sk_buff *skb, const struct xt_action_param *par)
 {
+#if IS_ENABLED(CONFIG_FAST_NAT)
+	struct nf_conn *ct;
+	enum ip_conntrack_info ctinfo;
+#endif
 	struct iphdr *iph;
 	const struct ipt_TTL_info *info = par->targinfo;
 	int new_ttl;
@@ -61,6 +74,18 @@ ttl_tg(struct sk_buff *skb, const struct xt_action_param *par)
 					   htons(new_ttl << 8));
 		iph->ttl = new_ttl;
 	}
+
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+	FOE_ALG_SKIP(skb);
+#endif
+
+#if IS_ENABLED(CONFIG_FAST_NAT)
+	ct = nf_ct_get(skb, &ctinfo);
+
+	if (ct != NULL) {
+		ct->fast_ext = 1;
+	}
+#endif
 
 	return XT_CONTINUE;
 }
