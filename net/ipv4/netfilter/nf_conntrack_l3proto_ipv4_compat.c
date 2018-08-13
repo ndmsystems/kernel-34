@@ -171,6 +171,12 @@ static int ct_seq_show(struct seq_file *s, void *v)
 		if (seq_printf(s, "[ASSURED] "))
 			goto release;
 
+#if IS_ENABLED(CONFIG_FAST_NAT)
+	if (!ct->fast_ext)
+		if (seq_printf(s, "[FASTNAT] "))
+			goto release;
+#endif
+
 #ifdef CONFIG_NF_CONNTRACK_MARK
 	if (seq_printf(s, "mark=%u ", ct->mark))
 		goto release;
