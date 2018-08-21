@@ -16,7 +16,6 @@
 #define _SPI_NAND_CHIP_SIZE_1GBIT			0x08000000
 #define _SPI_NAND_CHIP_SIZE_2GBIT			0x10000000
 #define _SPI_NAND_CHIP_SIZE_4GBIT			0x20000000
-#define _SPI_NAND_CHIP_SIZE_8GBIT			0x40000000
 
 /* SPI NAND Manufacturers ID */
 #define _SPI_NAND_MANUFACTURER_ID_GIGADEVICE		0xC8
@@ -33,12 +32,15 @@
 #define _SPI_NAND_MANUFACTURER_ID_FM			0xA1
 #define _SPI_NAND_MANUFACTURER_ID_XTX			0x0B
 #define _SPI_NAND_MANUFACTURER_ID_MIRA			0xC8
+#define _SPI_NAND_MANUFACTURER_ID_BIWIN			0xBC
+#define _SPI_NAND_MANUFACTURER_ID_FORESEE		0xCD
 
 /* SPI NAND Device ID */
 #define _SPI_NAND_DEVICE_ID_GD5F1GQ4UAYIG	0xF1
 #define _SPI_NAND_DEVICE_ID_GD5F1GQ4UBYIG	0xD1
 #define _SPI_NAND_DEVICE_ID_GD5F1GQ4UCYIG	0xB1
 #define _SPI_NAND_DEVICE_ID_GD5F2GQ4UBYIG	0xD2
+#define _SPI_NAND_DEVICE_ID_GD5F2GQ4UE9IS	0xD5
 #define _SPI_NAND_DEVICE_ID_GD5F2GQ4UCYIG	0xB2
 #define _SPI_NAND_DEVICE_ID_GD5F4GQ4UBYIG	0xD4
 #define _SPI_NAND_DEVICE_ID_GD5F4GQ4UCYIG	0xB4
@@ -56,10 +58,18 @@
 #define _SPI_NAND_DEVICE_ID_EM73C044SNA		0x19
 #define _SPI_NAND_DEVICE_ID_EM73C044SNB		0x11
 #define _SPI_NAND_DEVICE_ID_EM73C044SND		0x1D
+#define _SPI_NAND_DEVICE_ID_EM73C044SNF		0x09
+#define _SPI_NAND_DEVICE_ID_EM73C044VCA		0x18
+#define _SPI_NAND_DEVICE_ID_EM73C044VCD		0x1C
 #define _SPI_NAND_DEVICE_ID_EM73D044SNA		0x12
 #define _SPI_NAND_DEVICE_ID_EM73D044SNC		0x0A
 #define _SPI_NAND_DEVICE_ID_EM73D044SND		0x1E
 #define _SPI_NAND_DEVICE_ID_EM73D044SNF		0x10
+#define _SPI_NAND_DEVICE_ID_EM73D044VCA		0x13
+#define _SPI_NAND_DEVICE_ID_EM73D044VCB		0x14
+#define _SPI_NAND_DEVICE_ID_EM73D044VCD		0x17
+#define _SPI_NAND_DEVICE_ID_EM73D044VCG		0x1F
+#define _SPI_NAND_DEVICE_ID_EM73D044VCH		0x1B
 #define _SPI_NAND_DEVICE_ID_EM73E044SNA		0x03
 #define _SPI_NAND_DEVICE_ID_TC58CVG0S3H		0xC2
 #define _SPI_NAND_DEVICE_ID_TC58CVG1S3H		0xCB
@@ -75,11 +85,19 @@
 #define _SPI_NAND_DEVICE_ID_PN26G01AWSIUG	0xE1
 #define _SPI_NAND_DEVICE_ID_PN26G02AWSIUG	0xE2
 #define _SPI_NAND_DEVICE_ID_ATO25D1GA		0x12
+#define _SPI_NAND_DEVICE_ID_FM25S01			0xA1
 #define _SPI_NAND_DEVICE_ID_FM25G01B		0xD1
 #define _SPI_NAND_DEVICE_ID_FM25G02B		0xD2
 #define _SPI_NAND_DEVICE_ID_FM25G02		0xF2
 #define _SPI_NAND_DEVICE_ID_XT26G02B		0xF2
+#define _SPI_NAND_DEVICE_ID_XT26G01A		0xE1
+#define _SPI_NAND_DEVICE_ID_XT26G02A		0xE2
 #define _SPI_NAND_DEVICE_ID_PSU1GS20BN		0x21
+#define _SPI_NAND_DEVICE_ID_BWJX08U			0xB1
+#define _SPI_NAND_DEVICE_ID_BWET08U			0xB2
+#define _SPI_NAND_DEVICE_ID_FS35ND01GD1F1	0xA1
+#define _SPI_NAND_DEVICE_ID_FS35ND02GS2F1	0xA2
+#define _SPI_NAND_DEVICE_ID_FS35ND02GD1F1	0xB2
 
 /* OOB layout */
 struct spi_nand_flash_ooblayout ooblayout_esmt = {
@@ -146,6 +164,12 @@ struct spi_nand_flash_ooblayout ooblayout_type1 = {
 };
 
 /* only use user meta data with ECC protected */
+struct spi_nand_flash_ooblayout ooblayout_type2 = {
+	.oobsize = 50,
+	.oobfree = {{0,4}, {4,12}, {20,12}, {36,12}, {52,12}}
+};
+
+/* only use user meta data with ECC protected */
 struct spi_nand_flash_ooblayout ooblayout_type6 = {
 	.oobsize = 33,
 	.oobfree = {{0,1}, {8,8}, {24,8}, {40,8}, {56,8}}
@@ -161,6 +185,24 @@ struct spi_nand_flash_ooblayout ooblayout_type10 = {
 struct spi_nand_flash_ooblayout ooblayout_type14 = {
 	.oobsize = 20,
 	.oobfree = {{0,4}, {4,4}, {36,4}, {68,4}, {100,4}}
+};
+
+/* only use user meta data with ECC protected */
+struct spi_nand_flash_ooblayout ooblayout_type15 = {
+	.oobsize = 36,
+	.oobfree = {{0,4}, {4,8}, {20,8}, {36,8}, {52,8}}
+};
+
+/* only use user meta data with ECC protected */
+struct spi_nand_flash_ooblayout ooblayout_type18 = {
+	.oobsize = 96,
+	.oobfree = {{0,24}, {32,24},  {64,24}, {96,24}}
+};
+
+/* only use user meta data with ECC protected */
+struct spi_nand_flash_ooblayout ooblayout_type19 = {
+	.oobsize = 44,
+	.oobfree = {{0,4}, {8,40}}
 };
 
 struct spi_nand_flash_ooblayout ooblayout_etron_73E044SNA = {
@@ -285,14 +327,28 @@ static const struct SPI_NAND_FLASH_INFO_T spi_nand_flash_tables[] = {
 		feature:		SPI_NAND_FLASH_FEATURE_NONE,
 	},
 	{
+		ptr_name:		"GD5F2GQ4UE9IS",
+		mfr_id:			_SPI_NAND_MANUFACTURER_ID_GIGADEVICE,
+		dev_id:			_SPI_NAND_DEVICE_ID_GD5F2GQ4UE9IS,
+		device_size:		_SPI_NAND_CHIP_SIZE_2GBIT,
+		page_size:		_SPI_NAND_PAGE_SIZE_2KBYTE,
+		oob_size:		_SPI_NAND_OOB_SIZE_128BYTE,
+		erase_size:		_SPI_NAND_BLOCK_SIZE_128KBYTE,
+		dummy_mode:		SPI_NAND_FLASH_READ_DUMMY_BYTE_APPEND,
+		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
+		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
+		oob_free_layout:	&ooblayout_type2,
+		feature:		SPI_NAND_FLASH_FEATURE_NONE,
+	},
+	{
 		ptr_name:		"GD5F2GQ4UC",
 		mfr_id:			_SPI_NAND_MANUFACTURER_ID_GIGADEVICE,
 		dev_id:			_SPI_NAND_DEVICE_ID_GD5F2GQ4UCYIG,
 		device_size:		_SPI_NAND_CHIP_SIZE_2GBIT,
 		page_size:		_SPI_NAND_PAGE_SIZE_2KBYTE,
 		oob_size:		_SPI_NAND_OOB_SIZE_128BYTE,
-		erase_size: 		_SPI_NAND_BLOCK_SIZE_128KBYTE,
-		dummy_mode: 		SPI_NAND_FLASH_READ_DUMMY_BYTE_PREPEND,
+		erase_size:		_SPI_NAND_BLOCK_SIZE_128KBYTE,
+		dummy_mode:		SPI_NAND_FLASH_READ_DUMMY_BYTE_PREPEND,
 		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
 		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
 		oob_free_layout:	&ooblayout_gigadevice_128,
@@ -463,8 +519,8 @@ static const struct SPI_NAND_FLASH_INFO_T spi_nand_flash_tables[] = {
 		device_size:		_SPI_NAND_CHIP_SIZE_1GBIT,
 		page_size:		_SPI_NAND_PAGE_SIZE_2KBYTE,
 		oob_size:		_SPI_NAND_OOB_SIZE_64BYTE,
-		erase_size: 		_SPI_NAND_BLOCK_SIZE_128KBYTE,
-		dummy_mode: 		SPI_NAND_FLASH_READ_DUMMY_BYTE_APPEND,
+		erase_size:		_SPI_NAND_BLOCK_SIZE_128KBYTE,
+		dummy_mode:		SPI_NAND_FLASH_READ_DUMMY_BYTE_APPEND,
 		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
 		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
 		oob_free_layout:	&ooblayout_zentel,
@@ -496,7 +552,49 @@ static const struct SPI_NAND_FLASH_INFO_T spi_nand_flash_tables[] = {
 		dummy_mode:		SPI_NAND_FLASH_READ_DUMMY_BYTE_APPEND,
 		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
 		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
+		oob_free_layout:	&ooblayout_type1,
+		feature:		SPI_NAND_FLASH_FEATURE_NONE,
+	},
+	{
+		ptr_name:		"EM73C044SNF",
+		mfr_id:			_SPI_NAND_MANUFACTURER_ID_ETRON,
+		dev_id:			_SPI_NAND_DEVICE_ID_EM73C044SNF,
+		device_size:		_SPI_NAND_CHIP_SIZE_1GBIT,
+		page_size:		_SPI_NAND_PAGE_SIZE_2KBYTE,
+		oob_size:		_SPI_NAND_OOB_SIZE_128BYTE,
+		erase_size:		_SPI_NAND_BLOCK_SIZE_128KBYTE,
+		dummy_mode:		SPI_NAND_FLASH_READ_DUMMY_BYTE_APPEND,
+		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
+		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
+		oob_free_layout:	&ooblayout_type10,
+		feature:		SPI_NAND_FLASH_FEATURE_NONE,
+	},
+	{
+		ptr_name:		"EM73C044VCA",
+		mfr_id:			_SPI_NAND_MANUFACTURER_ID_ETRON,
+		dev_id:			_SPI_NAND_DEVICE_ID_EM73C044VCA,
+		device_size:		_SPI_NAND_CHIP_SIZE_1GBIT,
+		page_size:		_SPI_NAND_PAGE_SIZE_2KBYTE,
+		oob_size:		_SPI_NAND_OOB_SIZE_64BYTE,
+		erase_size:		_SPI_NAND_BLOCK_SIZE_128KBYTE,
+		dummy_mode:		SPI_NAND_FLASH_READ_DUMMY_BYTE_APPEND,
+		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
+		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
 		oob_free_layout: 	&ooblayout_type1,
+		feature:		SPI_NAND_FLASH_FEATURE_NONE,
+	},
+	{
+		ptr_name:		"EM73C044VCD",
+		mfr_id:			_SPI_NAND_MANUFACTURER_ID_ETRON,
+		dev_id:			_SPI_NAND_DEVICE_ID_EM73C044VCD,
+		device_size:		_SPI_NAND_CHIP_SIZE_1GBIT,
+		page_size:		_SPI_NAND_PAGE_SIZE_2KBYTE,
+		oob_size:		_SPI_NAND_OOB_SIZE_64BYTE,
+		erase_size:		_SPI_NAND_BLOCK_SIZE_128KBYTE,
+		dummy_mode:		SPI_NAND_FLASH_READ_DUMMY_BYTE_APPEND,
+		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
+		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
+		oob_free_layout:	&ooblayout_type1,
 		feature:		SPI_NAND_FLASH_FEATURE_NONE,
 	},
 	{
@@ -553,6 +651,76 @@ static const struct SPI_NAND_FLASH_INFO_T spi_nand_flash_tables[] = {
 		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
 		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
 		oob_free_layout:	&ooblayout_type10,
+		feature:		SPI_NAND_FLASH_FEATURE_NONE,
+	},
+	{
+		ptr_name:		"EM73D044VCA",
+		mfr_id:			_SPI_NAND_MANUFACTURER_ID_ETRON,
+		dev_id:			_SPI_NAND_DEVICE_ID_EM73D044VCA,
+		device_size:		_SPI_NAND_CHIP_SIZE_2GBIT,
+		page_size:		_SPI_NAND_PAGE_SIZE_2KBYTE,
+		oob_size:		_SPI_NAND_OOB_SIZE_128BYTE,
+		erase_size:		_SPI_NAND_BLOCK_SIZE_128KBYTE,
+		dummy_mode:		SPI_NAND_FLASH_READ_DUMMY_BYTE_APPEND,
+		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
+		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
+		oob_free_layout:	&ooblayout_type18,
+		feature:		SPI_NAND_FLASH_FEATURE_NONE,
+	},
+	{
+		ptr_name:		"EM73D044VCB",
+		mfr_id:			_SPI_NAND_MANUFACTURER_ID_ETRON,
+		dev_id:			_SPI_NAND_DEVICE_ID_EM73D044VCB,
+		device_size:		_SPI_NAND_CHIP_SIZE_2GBIT,
+		page_size:		_SPI_NAND_PAGE_SIZE_2KBYTE,
+		oob_size:		_SPI_NAND_OOB_SIZE_64BYTE,
+		erase_size:		_SPI_NAND_BLOCK_SIZE_128KBYTE,
+		dummy_mode:		SPI_NAND_FLASH_READ_DUMMY_BYTE_APPEND,
+		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
+		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
+		oob_free_layout:	&ooblayout_type1,
+		feature:		SPI_NAND_FLASH_FEATURE_NONE,
+	},
+	{
+		ptr_name:		"EM73D044VCD",
+		mfr_id:			_SPI_NAND_MANUFACTURER_ID_ETRON,
+		dev_id:			_SPI_NAND_DEVICE_ID_EM73D044VCD,
+		device_size:		_SPI_NAND_CHIP_SIZE_2GBIT,
+		page_size:		_SPI_NAND_PAGE_SIZE_2KBYTE,
+		oob_size:		_SPI_NAND_OOB_SIZE_128BYTE,
+		erase_size:		_SPI_NAND_BLOCK_SIZE_128KBYTE,
+		dummy_mode:		SPI_NAND_FLASH_READ_DUMMY_BYTE_APPEND,
+		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
+		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
+		oob_free_layout:	&ooblayout_type10,
+		feature:		SPI_NAND_FLASH_FEATURE_NONE,
+	},
+	{
+		ptr_name:		"EM73D044VCG",
+		mfr_id:			_SPI_NAND_MANUFACTURER_ID_ETRON,
+		dev_id:			_SPI_NAND_DEVICE_ID_EM73D044VCG,
+		device_size:		_SPI_NAND_CHIP_SIZE_2GBIT,
+		page_size:		_SPI_NAND_PAGE_SIZE_2KBYTE,
+		oob_size:		_SPI_NAND_OOB_SIZE_64BYTE,
+		erase_size:		_SPI_NAND_BLOCK_SIZE_128KBYTE,
+		dummy_mode:		SPI_NAND_FLASH_READ_DUMMY_BYTE_APPEND,
+		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
+		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
+		oob_free_layout:	&ooblayout_type1,
+		feature:		SPI_NAND_FLASH_FEATURE_NONE,
+	},
+	{
+		ptr_name:		"EM73D044VCH",
+		mfr_id:			_SPI_NAND_MANUFACTURER_ID_ETRON,
+		dev_id:			_SPI_NAND_DEVICE_ID_EM73D044VCH,
+		device_size:		_SPI_NAND_CHIP_SIZE_2GBIT,
+		page_size:		_SPI_NAND_PAGE_SIZE_2KBYTE,
+		oob_size:		_SPI_NAND_OOB_SIZE_64BYTE,
+		erase_size:		_SPI_NAND_BLOCK_SIZE_128KBYTE,
+		dummy_mode:		SPI_NAND_FLASH_READ_DUMMY_BYTE_APPEND,
+		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
+		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
+		oob_free_layout:	&ooblayout_type1,
 		feature:		SPI_NAND_FLASH_FEATURE_NONE,
 	},
 	{
@@ -772,6 +940,20 @@ static const struct SPI_NAND_FLASH_INFO_T spi_nand_flash_tables[] = {
 	},
 	/* FM */
 	{
+		ptr_name:		"FM25S01",
+		mfr_id:			_SPI_NAND_MANUFACTURER_ID_FM,
+		dev_id:			_SPI_NAND_DEVICE_ID_FM25S01,
+		device_size:		_SPI_NAND_CHIP_SIZE_1GBIT,
+		page_size:		_SPI_NAND_PAGE_SIZE_2KBYTE,
+		oob_size:		_SPI_NAND_OOB_SIZE_128BYTE,
+		erase_size:		_SPI_NAND_BLOCK_SIZE_128KBYTE,
+		dummy_mode:		SPI_NAND_FLASH_READ_DUMMY_BYTE_APPEND,
+		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
+		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
+		oob_free_layout:	&ooblayout_fm,
+		feature:		SPI_NAND_FLASH_FEATURE_NONE,
+	},
+	{
 		ptr_name:		"FM25G01B",
 		mfr_id:			_SPI_NAND_MANUFACTURER_ID_FM,
 		dev_id:			_SPI_NAND_DEVICE_ID_FM25G01B,
@@ -828,6 +1010,34 @@ static const struct SPI_NAND_FLASH_INFO_T spi_nand_flash_tables[] = {
 		oob_free_layout:	&ooblayout_type1,
 		feature:		SPI_NAND_FLASH_FEATURE_NONE,
 	},
+	{
+		ptr_name:		"XT26G01A",
+		mfr_id:			_SPI_NAND_MANUFACTURER_ID_XTX,
+		dev_id:			_SPI_NAND_DEVICE_ID_XT26G01A,
+		device_size:		_SPI_NAND_CHIP_SIZE_1GBIT,
+		page_size:		_SPI_NAND_PAGE_SIZE_2KBYTE,
+		oob_size:		_SPI_NAND_OOB_SIZE_64BYTE,
+		erase_size:		_SPI_NAND_BLOCK_SIZE_128KBYTE,
+		dummy_mode:		SPI_NAND_FLASH_READ_DUMMY_BYTE_APPEND,
+		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
+		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
+		oob_free_layout:	&ooblayout_type19,
+		feature:		SPI_NAND_FLASH_FEATURE_NONE,
+	},
+	{
+		ptr_name:		"XT26G02A",
+		mfr_id:			_SPI_NAND_MANUFACTURER_ID_XTX,
+		dev_id:			_SPI_NAND_DEVICE_ID_XT26G02A,
+		device_size:		_SPI_NAND_CHIP_SIZE_2GBIT,
+		page_size:		_SPI_NAND_PAGE_SIZE_2KBYTE,
+		oob_size:		_SPI_NAND_OOB_SIZE_64BYTE,
+		erase_size:		_SPI_NAND_BLOCK_SIZE_128KBYTE,
+		dummy_mode:		SPI_NAND_FLASH_READ_DUMMY_BYTE_APPEND,
+		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
+		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
+		oob_free_layout:	&ooblayout_type19,
+		feature:		SPI_NAND_FLASH_FEATURE_NONE,
+	},
 	/* Mira */
 	{
 		ptr_name:		"PSU1GS20BN",
@@ -841,6 +1051,78 @@ static const struct SPI_NAND_FLASH_INFO_T spi_nand_flash_tables[] = {
 		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
 		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
 		oob_free_layout:	&ooblayout_type6,
+		feature:		SPI_NAND_FLASH_FEATURE_NONE,
+	},
+	/* BIWIN */
+	{
+		ptr_name:		"BWJX08U",
+		mfr_id:			_SPI_NAND_MANUFACTURER_ID_BIWIN,
+		dev_id:			_SPI_NAND_DEVICE_ID_BWJX08U,
+		device_size:		_SPI_NAND_CHIP_SIZE_2GBIT,
+		page_size:		_SPI_NAND_PAGE_SIZE_2KBYTE,
+		oob_size:		_SPI_NAND_OOB_SIZE_64BYTE,
+		erase_size:		_SPI_NAND_BLOCK_SIZE_128KBYTE,
+		dummy_mode:		SPI_NAND_FLASH_READ_DUMMY_BYTE_APPEND,
+		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
+		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
+		oob_free_layout:	&ooblayout_type15,
+		feature:		SPI_NAND_FLASH_FEATURE_NONE,
+	},
+	{
+		ptr_name:		"BWET08U",
+		mfr_id:			_SPI_NAND_MANUFACTURER_ID_BIWIN,
+		dev_id:			_SPI_NAND_DEVICE_ID_BWET08U,
+		device_size:		_SPI_NAND_CHIP_SIZE_2GBIT,
+		page_size:		_SPI_NAND_PAGE_SIZE_2KBYTE,
+		oob_size:		_SPI_NAND_OOB_SIZE_128BYTE,
+		erase_size:		_SPI_NAND_BLOCK_SIZE_128KBYTE,
+		dummy_mode:		SPI_NAND_FLASH_READ_DUMMY_BYTE_APPEND,
+		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
+		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
+		oob_free_layout:	&ooblayout_type10,
+		feature:		SPI_NAND_FLASH_FEATURE_NONE,
+	},
+	/* FORESEE */
+	{
+		ptr_name:		"FS35ND01GD1F1",
+		mfr_id:			_SPI_NAND_MANUFACTURER_ID_FORESEE,
+		dev_id:			_SPI_NAND_DEVICE_ID_FS35ND01GD1F1,
+		device_size:		_SPI_NAND_CHIP_SIZE_1GBIT,
+		page_size:		_SPI_NAND_PAGE_SIZE_2KBYTE,
+		oob_size:		_SPI_NAND_OOB_SIZE_64BYTE,
+		erase_size:		_SPI_NAND_BLOCK_SIZE_128KBYTE,
+		dummy_mode:		SPI_NAND_FLASH_READ_DUMMY_BYTE_APPEND,
+		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
+		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
+		oob_free_layout:	&ooblayout_type1,
+		feature:		SPI_NAND_FLASH_FEATURE_NONE,
+	},
+	{
+		ptr_name:		"FS35ND02GS2F1",
+		mfr_id:			_SPI_NAND_MANUFACTURER_ID_FORESEE,
+		dev_id:			_SPI_NAND_DEVICE_ID_FS35ND02GS2F1,
+		device_size:		_SPI_NAND_CHIP_SIZE_2GBIT,
+		page_size:		_SPI_NAND_PAGE_SIZE_2KBYTE,
+		oob_size:		_SPI_NAND_OOB_SIZE_128BYTE,
+		erase_size:		_SPI_NAND_BLOCK_SIZE_128KBYTE,
+		dummy_mode:		SPI_NAND_FLASH_READ_DUMMY_BYTE_APPEND,
+		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
+		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
+		oob_free_layout:	&ooblayout_type1,
+		feature:		SPI_NAND_FLASH_FEATURE_NONE,
+	},
+	{
+		ptr_name:		"FS35ND02GD1F1",
+		mfr_id:			_SPI_NAND_MANUFACTURER_ID_FORESEE,
+		dev_id:			_SPI_NAND_DEVICE_ID_FS35ND02GD1F1,
+		device_size:		_SPI_NAND_CHIP_SIZE_2GBIT,
+		page_size:		_SPI_NAND_PAGE_SIZE_2KBYTE,
+		oob_size:		_SPI_NAND_OOB_SIZE_128BYTE,
+		erase_size:		_SPI_NAND_BLOCK_SIZE_128KBYTE,
+		dummy_mode:		SPI_NAND_FLASH_READ_DUMMY_BYTE_APPEND,
+		read_mode:		SPI_NAND_FLASH_READ_SPEED_MODE_DUAL,
+		write_mode:		SPI_NAND_FLASH_WRITE_SPEED_MODE_SINGLE,
+		oob_free_layout:	&ooblayout_type1,
 		feature:		SPI_NAND_FLASH_FEATURE_NONE,
 	},
 };
