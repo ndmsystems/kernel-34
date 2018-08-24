@@ -94,11 +94,13 @@ enum ip_conntrack_status {
 	__IPS_MAX_BIT = 13,
 };
 
+#ifdef __KERNEL__
 #if IS_ENABLED(CONFIG_FAST_NAT)
 /* Must be more than __IPS_MAX_BIT */
 #define IPS_FASTNAT_BIT 20
 #define IPS_FASTNAT (1 << IPS_FASTNAT_BIT)
 #endif
+#endif /* __KERNEL__ */
 
 /* Connection tracking event types */
 enum ip_conntrack_events {
