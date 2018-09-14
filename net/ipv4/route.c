@@ -2202,6 +2202,48 @@ static int __mkroute_input(struct sk_buff *skb,
 	return err;
 }
 
+#ifdef CONFIG_IP_ROUTE_MULTIPATH
+
+/* To make ICMP packets follow the right flow, the multipath hash is
+ * calculated from the inner IP addresses in reverse order.
+ */
+static int ip_multipath_icmp_hash(struct sk_buff *skb)
+{
+	const struct iphdr *outer_iph = ip_hdr(skb);
+	struct icmphdr _icmph;
+	const struct icmphdr *icmph;
+	struct iphdr _inner_iph;
+	const struct iphdr *inner_iph;
+
+	if (unlikely((outer_iph->frag_off & htons(IP_OFFSET)) != 0))
+		goto standard_hash;
+
+	icmph = skb_header_pointer(skb, outer_iph->ihl * 4, sizeof(_icmph),
+				   &_icmph);
+	if (!icmph)
+		goto standard_hash;
+
+	if (icmph->type != ICMP_DEST_UNREACH &&
+	    icmph->type != ICMP_REDIRECT &&
+	    icmph->type != ICMP_TIME_EXCEEDED &&
+	    icmph->type != ICMP_PARAMETERPROB) {
+		goto standard_hash;
+	}
+
+	inner_iph = skb_header_pointer(skb,
+				       outer_iph->ihl * 4 + sizeof(_icmph),
+				       sizeof(_inner_iph), &_inner_iph);
+	if (!inner_iph)
+		goto standard_hash;
+
+	return fib_multipath_hash(inner_iph->daddr, inner_iph->saddr);
+
+standard_hash:
+	return fib_multipath_hash(outer_iph->saddr, outer_iph->daddr);
+}
+
+#endif /* CONFIG_IP_ROUTE_MULTIPATH */
+
 static int ip_mkroute_input(struct sk_buff *skb,
 			    struct fib_result *res,
 			    const struct flowi4 *fl4,
@@ -2213,8 +2255,15 @@ static int ip_mkroute_input(struct sk_buff *skb,
 	unsigned int hash;
 
 #ifdef CONFIG_IP_ROUTE_MULTIPATH
-	if (res->fi && res->fi->fib_nhs > 1)
-		fib_select_multipath(res);
+	if (res->fi && res->fi->fib_nhs > 1) {
+		int h;
+
+		if (unlikely(ip_hdr(skb)->protocol == IPPROTO_ICMP))
+			h = ip_multipath_icmp_hash(skb);
+		else
+			h = fib_multipath_hash(saddr, daddr);
+		fib_select_multipath(res, h);
+	}
 #endif
 
 	/* create a routing cache entry */
@@ -2634,7 +2683,8 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
  * called with rcu_read_lock();
  */
 
-static struct rtable *ip_route_output_slow(struct net *net, struct flowi4 *fl4)
+static struct rtable *ip_route_output_slow(struct net *net, struct flowi4 *fl4,
+					   int mp_hash)
 {
 	struct net_device *dev_out = NULL;
 	__u8 tos = RT_FL_TOS(fl4);
@@ -2795,8 +2845,11 @@ static struct rtable *ip_route_output_slow(struct net *net, struct flowi4 *fl4)
 	}
 
 #ifdef CONFIG_IP_ROUTE_MULTIPATH
-	if (res.fi->fib_nhs > 1 && fl4->flowi4_oif == 0)
-		fib_select_multipath(&res);
+	if (res.fi->fib_nhs > 1 && fl4->flowi4_oif == 0) {
+		if (mp_hash < 0)
+			mp_hash = fib_multipath_hash(fl4->saddr, fl4->daddr);
+		fib_select_multipath(&res, mp_hash);
+	}
 	else
 #endif
 	if (!res.prefixlen &&
@@ -2827,7 +2880,8 @@ out:
 	return rth;
 }
 
-struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *flp4)
+struct rtable *__ip_route_output_key_hash(struct net *net, struct flowi4 *flp4,
+					  int mp_hash)
 {
 	struct rtable *rth;
 	unsigned int hash;
@@ -2864,9 +2918,9 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *flp4)
 	rcu_read_unlock_bh();
 
 slow_output:
-	return ip_route_output_slow(net, flp4);
+	return ip_route_output_slow(net, flp4, mp_hash);
 }
-EXPORT_SYMBOL_GPL(__ip_route_output_key);
+EXPORT_SYMBOL_GPL(__ip_route_output_key_hash);
 
 static struct dst_entry *ipv4_blackhole_dst_check(struct dst_entry *dst, u32 cookie)
 {
@@ -3117,7 +3171,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void 
 	skb_reset_network_header(skb);
 
 	/* Bugfix: need to give ip_route_input enough of an IP header to not gag. */
-	ip_hdr(skb)->protocol = IPPROTO_ICMP;
+	ip_hdr(skb)->protocol = IPPROTO_UDP;
 	skb_reserve(skb, MAX_HEADER + sizeof(struct iphdr));
 
 	src = tb[RTA_SRC] ? nla_get_be32(tb[RTA_SRC]) : 0;
