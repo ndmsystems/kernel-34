@@ -84,9 +84,10 @@ static inline struct ubr_private *ubr_priv_get_rcu(
 	return rcu_dereference(dev->rx_handler_data);
 }
 
-static inline bool is_netdev_tun(struct net_device *netdev)
+static inline bool is_netdev_rawip(struct net_device *netdev)
 {
-	return (is_tuntap(netdev) && is_tuntap_tun(netdev));
+	return (is_tuntap(netdev) && is_tuntap_tun(netdev)) ||
+			(netdev->type == ARPHRD_NONE);
 }
 
 static rx_handler_result_t ubr_handle_frame(struct sk_buff **pskb)
@@ -125,7 +126,7 @@ static rx_handler_result_t ubr_handle_frame(struct sk_buff **pskb)
 	dst_release(skb_dst(skb));
 	skb_dst_set(skb, NULL);
 
-	if (is_netdev_tun(ubr->slave_dev)) {
+	if (is_netdev_rawip(ubr->slave_dev)) {
 		struct iphdr *iph;
 		struct ethhdr *eth;
 
@@ -302,7 +303,7 @@ static netdev_tx_t ubr_xmit(struct sk_buff *skb,
 		return -ENOTCONN;
 	}
 
-	if (is_netdev_tun(slave_dev)) {
+	if (is_netdev_rawip(slave_dev)) {
 		struct ethhdr *eth = (struct ethhdr *)skb->data;
 		unsigned int maclen = 0;
 
@@ -410,7 +411,7 @@ static void ubr_change_rx_flags(struct net_device *dev, int change)
 	if (!slave_dev)
 		return;
 
-	if (is_netdev_tun(slave_dev))
+	if (is_netdev_rawip(slave_dev))
 		return;
 
 	if (change & IFF_ALLMULTI)
@@ -540,7 +541,7 @@ static int ubr_set_mac_addr_force(struct net_device *dev, void *p)
 
 		set_bit(MAC_FORCED, &ubr0->flags);
 
-		if (slave_dev && !is_netdev_tun(slave_dev)) {
+		if (slave_dev && !is_netdev_rawip(slave_dev)) {
 
 			if (compare_ether_addr(dev->dev_addr, slave_dev->dev_addr))
 				dev_set_promiscuity(slave_dev, 1);
@@ -613,7 +614,7 @@ static int ubr_atto_master(struct net_device *master_dev, int ifindex)
 	if (!dev1)
 		goto out;
 
-	if (is_netdev_tun(dev1)) {
+	if (is_netdev_rawip(dev1)) {
 		is_tun = 1;
 	} else {
 		if (!test_bit(MAC_FORCED, &ubr0->flags)) {
@@ -673,7 +674,7 @@ static int ubr_detach(struct net_device *master_dev, int ifindex)
 
 	netdev_rx_handler_unregister(dev1);
 
-	if (!is_netdev_tun(dev1)) {
+	if (!is_netdev_rawip(dev1)) {
 		if (master_dev->flags & IFF_ALLMULTI)
 			dev_set_allmulti(dev1, -1);
 
