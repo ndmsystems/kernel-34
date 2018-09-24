@@ -605,7 +605,7 @@ static int ubr_atto_master(struct net_device *master_dev, int ifindex)
 	struct net *net = &init_net;
 #endif
 	int err = -ENODEV;
-	int is_tun = 0;
+	int is_rawip = 0;
 
 	if (ubr0->slave_dev != NULL)
 		return -EBUSY;
@@ -615,7 +615,7 @@ static int ubr_atto_master(struct net_device *master_dev, int ifindex)
 		goto out;
 
 	if (is_netdev_rawip(dev1)) {
-		is_tun = 1;
+		is_rawip = 1;
 	} else {
 		if (!test_bit(MAC_FORCED, &ubr0->flags)) {
 			struct sockaddr addr;
@@ -635,7 +635,7 @@ static int ubr_atto_master(struct net_device *master_dev, int ifindex)
 	if (err)
 		goto out;
 
-	if (!is_tun) {
+	if (!is_rawip) {
 		if ((master_dev->flags & IFF_PROMISC) || mac_differ)
 			dev_set_promiscuity(dev1, 1);
 
