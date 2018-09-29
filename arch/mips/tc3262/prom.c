@@ -223,6 +223,9 @@ static inline void tc_fe_setup(void)
 	reg_val &= ~((1U << 21) | (1U << 2) | (1U << 1));
 	VPint(CR_AHB_BASE + 0x834) = reg_val;
 
+	/* wait FE & PPE init done */
+	udelay(1000);
+
 	/* disable PPE engine by default */
 	reg_val = VPint(CR_MAC_BASE + 0x0E00);
 	reg_val &= ~(1U << 0);
