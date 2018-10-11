@@ -64,6 +64,10 @@ config MT7615_DOT11K_RRM_SUPPORT
 	bool "802.11k Radio Resource Management"
 	default n
 
+config MT7615_DOT11V_WNM_SUPPORT
+	bool "802.11v Wireless Network Management"
+	default n
+
 config MT7615_TPC_SUPPORT
 	bool "802.11h TPC support"
 	default n

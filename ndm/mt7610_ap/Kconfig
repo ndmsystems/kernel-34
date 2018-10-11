@@ -104,6 +104,10 @@ config MT7610_DOT11K_RRM_SUPPORT
 	bool "802.11k Radio Resource Management"
 	default n
 
+config MT7610_DOT11V_WNM_SUPPORT
+	bool "802.11v Wireless Network Management"
+	default n
+
 config MT7610_CARRIER_DETECTION_SUPPORT
 	bool "Carrier detect support"
 	default n

@@ -59,6 +59,10 @@ config DOT11K_RRM_SUPPORT
 	bool "802.11k Radio Resource Management"
 	default n
 
+config DOT11V_WNM_SUPPORT
+	bool "802.11v Wireless Network Management"
+	default n
+
 config QOS_DLS_SUPPORT
 	bool "802.11e DLS (Direct-Link Setup)"
 	default n
