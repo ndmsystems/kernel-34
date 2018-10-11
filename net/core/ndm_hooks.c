@@ -119,6 +119,9 @@ EXPORT_SYMBOL(ra_sw_nat_hook_rx);
 int (*ra_sw_nat_hook_tx)(struct sk_buff *skb, int gmac_no) = NULL;
 EXPORT_SYMBOL(ra_sw_nat_hook_tx);
 
+int (*ppe_dev_has_accel_hook)(struct net_device *dev) = NULL;
+EXPORT_SYMBOL(ppe_dev_has_accel_hook);
+
 void (*ppe_dev_register_hook)(struct net_device *dev) = NULL;
 EXPORT_SYMBOL(ppe_dev_register_hook);
 
