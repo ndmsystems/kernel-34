@@ -3713,8 +3713,8 @@ static int in6_dump_addrs(struct inet6_dev *idev, struct sk_buff *skb,
 
 		/* unicast address incl. temp addr */
 		list_for_each_entry(ifa, &idev->addr_list, if_list) {
-			if (++ip_idx < s_ip_idx)
-				continue;
+			if (ip_idx < s_ip_idx)
+				goto next;
 			err = inet6_fill_ifaddr(skb, ifa,
 						NETLINK_CB(cb->skb).pid,
 						cb->nlh->nlmsg_seq,
@@ -3722,6 +3722,8 @@ static int in6_dump_addrs(struct inet6_dev *idev, struct sk_buff *skb,
 						NLM_F_MULTI);
 			if (err <= 0)
 				break;
+next:
+			ip_idx++;
 		}
 		break;
 	}
