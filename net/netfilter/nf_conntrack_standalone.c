@@ -230,6 +230,9 @@ static int ct_seq_show(struct seq_file *s, void *v)
 		goto release;
 #endif
 
+	if (seq_printf(s, "ndm_mark=%u ", ct->ndm_mark))
+		goto release;
+
 	if (ct_show_secctx(s, ct))
 		goto release;
 

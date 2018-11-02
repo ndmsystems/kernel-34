@@ -12,6 +12,11 @@ enum xt_ndmmark_list {
 	XT_NDMMARK_DISCOVERY_DROP   = 0x3
 };
 
+enum xt_ndmmark_bits {
+	XT_NDMMARK_DNAT_MARK        = (1ULL << 6),
+	XT_NDMMARK_DNAT_MASK        = (1ULL << 6)
+};
+
 struct xt_ndmmark_tginfo {
 	__u8 mark, mask;
 };

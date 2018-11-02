@@ -1338,6 +1338,9 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 					skb->mark = ct->mark;
 #endif
 
+				if (ct->ndm_mark != 0)
+					skb->ndm_mark = ct->ndm_mark;
+
 				ret = fast_nat_bind_hook(ct, ctinfo, skb, l3proto, l4proto);
 
 				iph = ip_hdr(skb);

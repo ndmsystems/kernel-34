@@ -124,6 +124,8 @@ struct nf_conn {
 	u_int32_t mark;
 #endif
 
+	u_int8_t ndm_mark;
+
 #ifdef CONFIG_NF_CONNTRACK_SECMARK
 	u_int32_t secmark;
 #endif

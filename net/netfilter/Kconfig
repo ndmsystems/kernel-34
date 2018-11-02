@@ -417,6 +417,12 @@ config NETFILTER_XT_CONNMARK
 	ctmark), similarly to the packet mark (nfmark). Using this
 	target and match, you can set and match on this mark.
 
+config NETFILTER_XT_CONNNDMMARK
+	tristate 'ctndmmark target and match support'
+	depends on NF_CONNTRACK
+	depends on NETFILTER_ADVANCED
+	select NF_CONNTRACK_MARK
+
 config NETFILTER_XT_SET
 	tristate 'set target and match support'
 	depends on IP_SET

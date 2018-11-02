@@ -53,6 +53,7 @@ obj-$(CONFIG_NETFILTER_XTABLES) += x_tables.o xt_tcpudp.o
 obj-$(CONFIG_NETFILTER_XT_MARK) += xt_mark.o
 obj-$(CONFIG_NETFILTER_XT_NDMMARK) += xt_ndmmark.o
 obj-$(CONFIG_NETFILTER_XT_CONNMARK) += xt_connmark.o
+obj-$(CONFIG_NETFILTER_XT_CONNNDMMARK) += xt_connndmmark.o
 obj-$(CONFIG_NETFILTER_XT_SET) += xt_set.o
 
 # targets

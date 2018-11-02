@@ -283,20 +283,22 @@ nla_put_failure:
 	return -1;
 }
 
-#ifdef CONFIG_NF_CONNTRACK_MARK
 static inline int
 ctnetlink_dump_mark(struct sk_buff *skb, const struct nf_conn *ct)
 {
+#ifdef CONFIG_NF_CONNTRACK_MARK
 	if (nla_put_be32(skb, CTA_MARK, htonl(ct->mark)))
 		goto nla_put_failure;
+#endif
+
+	if (nla_put_u8(skb, CTA_NDMMARK, ct->ndm_mark))
+		goto nla_put_failure;
+
 	return 0;
 
 nla_put_failure:
 	return -1;
 }
-#else
-#define ctnetlink_dump_mark(a, b) (0)
-#endif
 
 #ifdef CONFIG_NF_CONNTRACK_SECMARK
 static inline int
@@ -674,6 +676,11 @@ ctnetlink_conntrack_event(unsigned int events, struct nf_ct_event *item)
 	    && ctnetlink_dump_mark(skb, ct) < 0)
 		goto nla_put_failure;
 #endif
+
+	if ((events & (1 << IPCT_NDMMARK) || ct->ndm_mark)
+	    && ctnetlink_dump_mark(skb, ct) < 0)
+		goto nla_put_failure;
+
 	rcu_read_unlock();
 
 	nlmsg_end(skb, nlh);
@@ -1388,6 +1395,9 @@ ctnetlink_change_conntrack(struct nf_conn *ct,
 		ct->mark = ntohl(nla_get_be32(cda[CTA_MARK]));
 #endif
 
+	if (cda[CTA_NDMMARK])
+		ct->ndm_mark = nla_get_u8(cda[CTA_NDMMARK]);
+
 #ifdef CONFIG_NF_NAT_NEEDED
 	if (cda[CTA_NAT_SEQ_ADJ_ORIG] || cda[CTA_NAT_SEQ_ADJ_REPLY]) {
 		err = ctnetlink_change_nat_seq_adj(ct, cda);
@@ -1507,6 +1517,9 @@ ctnetlink_create_conntrack(struct net *net,
 	if (cda[CTA_MARK])
 		ct->mark = ntohl(nla_get_be32(cda[CTA_MARK]));
 #endif
+
+	if (cda[CTA_NDMMARK])
+		ct->ndm_mark = nla_get_u8(cda[CTA_NDMMARK]);
 
 	/* setup master conntrack: this is a confirmed expectation */
 	if (cda[CTA_TUPLE_MASTER]) {
