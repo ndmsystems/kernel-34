@@ -400,7 +400,7 @@ int mtk_xhci_scheduler_add_ep(int dev_speed, int is_in, int isTT, int ep_type, i
 
 #if defined (CONFIG_USB_XHCI_HCD_DEBUGGING)
 	printk(KERN_DEBUG "%s: dev_speed %d, is_in %d, isTT %d, ep_type %d, maxp %d, interval %d, burst %d, mult %d, ep 0x%x, ep_ctx 0x%x, sch_ep 0x%x\n",
-		__FUNCTION__, dev_speed, is_in, isTT, ep_type, maxp, interval, burst, mult, (unsigned int)ep, (unsigned int)ep_ctx, (unsigned int)ep);
+		__FUNCTION__, dev_speed, is_in, isTT, ep_type, maxp, interval, burst, mult, (unsigned int)ep, (unsigned int)ep_ctx, (unsigned int)sch_ep);
 #endif
 
 	if (isTT && ep_type == USB_EP_INT && ((dev_speed == USB_SPEED_LOW) || (dev_speed == USB_SPEED_FULL))) {

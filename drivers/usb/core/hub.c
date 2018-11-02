@@ -4044,20 +4044,21 @@ static struct usb_driver hub_driver = {
 	.supports_autosuspend =	1,
 };
 
-static int khubd_registered;
-static int khubd_started;
+int enable_hub_control = 0;
+EXPORT_SYMBOL(enable_hub_control);
 
 int khubd_start(void)
 {
-	khubd_task = kthread_run(hub_thread, NULL, "khubd");
-
-	if (!IS_ERR(khubd_task)) {
-		khubd_started = 1;
+	if (!enable_hub_control)
 		return 0;
-	}
+
+	khubd_task = kthread_run(hub_thread, NULL, "khubd");
+	if (!IS_ERR(khubd_task))
+		return 0;
 
 	/* Fall through if kernel_thread failed */
-	usb_hub_cleanup();
+	enable_hub_control = 0;
+	usb_deregister(&hub_driver);
 	printk(KERN_ERR "%s: can't start khubd\n", usbcore_name);
 
 	return -1;
@@ -4066,30 +4067,23 @@ EXPORT_SYMBOL(khubd_start);
 
 void khubd_stop(void)
 {
+	if (!enable_hub_control)
+		return;
+
 	kthread_stop(khubd_task);
 
-	khubd_started = 0;
+	usb_deregister(&hub_driver);
+	enable_hub_control = 0;
 }
 EXPORT_SYMBOL(khubd_stop);
 
-int khubd_is_started(void)
-{
-	return khubd_started;
-}
-EXPORT_SYMBOL(khubd_is_started);
-
 int khubd_init(void)
 {
-	if (khubd_registered)
-		return 0;
-
 	if (usb_register(&hub_driver) < 0) {
 		printk(KERN_ERR "%s: can't register hub driver\n",
 		       usbcore_name);
 		return -1;
 	}
-
-	khubd_registered = 1;
 
 	return 0;
 }
@@ -4099,8 +4093,7 @@ int usb_hub_init(void)
 {
 	if(khubd_init())
 		return -1;
-
-	return 0;
+	return khubd_start();
 }
 
 void usb_hub_cleanup(void)
@@ -4114,11 +4107,7 @@ void usb_hub_cleanup(void)
 	 * The hub_disconnect function takes care of releasing the
 	 * individual hub resources. -greg
 	 */
-	usb_deregister(&hub_driver);
-
-	khubd_registered = 0;
 } /* usb_hub_cleanup() */
-EXPORT_SYMBOL(usb_hub_cleanup);
 
 static int descriptors_changed(struct usb_device *udev,
 		struct usb_device_descriptor *old_device_descriptor)
