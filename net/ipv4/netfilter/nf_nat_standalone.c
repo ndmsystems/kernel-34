@@ -27,6 +27,7 @@
 #include <net/netfilter/nf_nat_core.h>
 #include <net/netfilter/nf_nat_helper.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
+#include <linux/netfilter/xt_ndmmark.h>
 
 #include <net/fast_vpn.h>
 #if IS_ENABLED(CONFIG_RA_HW_NAT)
@@ -204,7 +205,9 @@ nf_nat_out(unsigned int hooknum,
 
 	ret = nf_nat_fn(hooknum, skb, in, out, okfn);
 
-	if (ret != NF_DROP && ret != NF_STOLEN) {
+	if (ret != NF_DROP &&
+		ret != NF_STOLEN &&
+		(skb->ndm_mark & XT_NDMMARK_DNAT_MASK == XT_NDMMARK_DNAT_MARK)) {
 		iph = ip_hdr(skb);
 
 		if (iph->saddr != saddr ||
