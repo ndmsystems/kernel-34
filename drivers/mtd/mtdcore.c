@@ -36,17 +36,16 @@
 #include <linux/idr.h>
 #include <linux/backing-dev.h>
 #include <linux/gfp.h>
-#include <linux/root_dev.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 
-#include "mtdcore.h"
-
-#ifdef CONFIG_MTD_NDM_DUAL_IMAGE
-extern int ndmpart_image_cur;
-extern bool ndmpart_di_is_enabled;
+#ifdef CONFIG_MTD_NDM_PARTS
+#include <linux/root_dev.h>
+#include "ndmpart.h"
 #endif
+
+#include "mtdcore.h"
 
 /*
  * backing device capabilities for non-mappable devices (such as NAND flash)
@@ -292,9 +291,6 @@ static struct device_type mtd_devtype = {
 
 int add_mtd_device(struct mtd_info *mtd)
 {
-#ifdef CONFIG_MTD_NDM_PARTS
-	char buf[sizeof("RootFS_1")] = "RootFS";
-#endif
 	struct mtd_notifier *not;
 	int i, error;
 
@@ -377,11 +373,7 @@ int add_mtd_device(struct mtd_info *mtd)
 	__module_get(THIS_MODULE);
 
 #ifdef CONFIG_MTD_NDM_PARTS
-#ifdef CONFIG_MTD_NDM_DUAL_IMAGE
-	if (ndmpart_di_is_enabled)
-		snprintf(buf, sizeof(buf), "RootFS_%d", ndmpart_image_cur);
-#endif
-	if (!strcmp(mtd->name, buf) && ROOT_DEV == 0) {
+	if (ROOT_DEV == 0 && is_mtd_partition_rootfs(mtd)) {
 		pr_info("mtd: device %d (%s) set to be root filesystem\n",
 			mtd->index, mtd->name);
 		ROOT_DEV = MKDEV(MTD_BLOCK_MAJOR, mtd->index);

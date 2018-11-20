@@ -112,18 +112,22 @@ config MTD_CMDLINE_PARTS
 
 config MTD_NDM_PARTS
 	bool "NDM partitions parser"
-	depends on MTD = "y"
+	default y
 
 config MTD_NDM_DUAL_IMAGE
 	bool "Dual image"
+	default y
 	depends on MTD_NDM_PARTS
 
 config MTD_NDM_BOOT_UPDATE
 	bool "Update bootloader"
+	default n
 	depends on MTD_NDM_PARTS
+	select XZ_DEC
 
 config MTD_NDM_CONFIG_TRANSITION
 	bool "Partition \"Config\" transition"
+	default n
 	depends on MTD_NDM_PARTS
 
 config MTD_NDM_CONFIG_TRANSITION_OFFSET

@@ -41,6 +41,8 @@
 #include <prom.h>
 #endif
 
+#include "ndmpart.h"
+
 #define DI_U_STATE_MAGIC		0x55535441	/* "USTA" */
 #define DI_U_STATE_VERSION		1
 
@@ -67,10 +69,6 @@
 #define MTD_MAX_RETRIES			3
 
 #define PART_SIZE_UNKNOWN		(~0)
-
-#if defined(CONFIG_MTD_NAND_MTK) && defined(CONFIG_RALINK_MT7621)
-#define NAND_BB_MODE_SKIP
-#endif
 
 enum part {
 	/* Image 1 */
@@ -123,8 +121,8 @@ static int u_state_commit(void);
 #endif
 
 #ifdef CONFIG_MTD_NDM_DUAL_IMAGE
-int ndmpart_image_cur = 1;
-bool ndmpart_di_is_enabled;
+static int ndmpart_image_cur = 1;
+static bool ndmpart_di_is_enabled;
 #endif
 
 static struct part_dsc parts[PART_MAX] = {
@@ -140,11 +138,13 @@ static struct part_dsc parts[PART_MAX] = {
 	},
 	[PART_KERNEL_1] = {
 		name: "Kernel",
-		skip: true
+		skip: true,
+		read_only: true
 	},
 	[PART_ROOTFS_1] = {
 		name: "RootFS",
-		skip: true
+		skip: true,
+		read_only: true
 	},
 	[PART_FIRMWARE_1] = {
 		name: "Firmware"
@@ -175,11 +175,13 @@ static struct part_dsc parts[PART_MAX] = {
 	},
 	[PART_KERNEL_2] = {
 		name: "Kernel_2",
-		skip: true
+		skip: true,
+		read_only: true
 	},
 	[PART_ROOTFS_2] = {
 		name: "RootFS_2",
-		skip: true
+		skip: true,
+		read_only: true
 	},
 	[PART_FIRMWARE_2] = {
 		name: "Firmware_2",
@@ -574,22 +576,6 @@ static inline int di_image_num_pair_get(int n)
 	return (n == 1) ? 2 : 1;
 }
 
-#ifdef NAND_BB_MODE_SKIP
-extern int mtk_nand_tmp_parts_set(const char *name, uint32_t off,
-				  uint32_t size);
-extern void mtk_nand_tmp_parts_reset(void);
-#else
-static inline int mtk_nand_tmp_parts_set(const char *name, uint32_t off,
-					 uint32_t size)
-{
-	return 0;
-}
-
-static inline void mtk_nand_tmp_parts_reset(void)
-{
-}
-#endif /* NAND_BB_MODE_SKIP */
-
 static int create_mtd_partitions(struct mtd_info *m,
 				 struct mtd_partition **pparts,
 				 struct mtd_part_parser_data *data)
@@ -617,16 +603,10 @@ static int create_mtd_partitions(struct mtd_info *m,
 		flash_size_lim = flash_size;
 
 #ifdef CONFIG_MTD_NDM_BOOT_UPDATE
-	ret = mtk_nand_tmp_parts_set(parts[PART_U_BOOT].name, 0,
-				     parts_size_default_get(PART_U_BOOT, m));
-	if (ret < 0) {
-		printk("%s: mtk_nand_tmp_parts_set error (%d)\n",
-		       __func__, ret);
-		return ret;
-	}
+	/* early fill partition info for NAND */
+	parts[PART_U_BOOT].size = parts_size_default_get(PART_U_BOOT, m);
 
-	ndm_flash_boot(m, 0, parts_size_default_get(PART_U_BOOT, m));
-	mtk_nand_tmp_parts_reset();
+	ndm_flash_boot(m, 0, (uint32_t)parts[PART_U_BOOT].size);
 #endif /* CONFIG_MTD_NDM_BOOT_UPDATE */
 
 #ifdef CONFIG_MTD_NDM_DUAL_IMAGE
@@ -643,18 +623,12 @@ static int create_mtd_partitions(struct mtd_info *m,
 			return -EINVAL;
 		}
 
-		ret = mtk_nand_tmp_parts_set(parts[PART_U_STATE].name, off_si,
-				parts_size_default_get(PART_U_STATE, m));
-		if (ret < 0) {
-			printk("%s: mtk_nand_tmp_parts_set error (%d)\n",
-			       __func__, ret);
-			return ret;
-		}
+		/* early fill partition info for NAND */
+		parts[PART_U_STATE].offset = off_si;
+		parts[PART_U_STATE].size = parts_size_default_get(PART_U_BOOT, m);
+		parts[PART_U_STATE].skip = false;
 
-		ret = u_state_init(m,
-				   off_si,
-				   parts_size_default_get(PART_U_BOOT, m));
-		mtk_nand_tmp_parts_reset();
+		ret = u_state_init(m, off_si, (uint32_t)parts[PART_U_STATE].size);
 		if (ret < 0)
 			return ret;
 
@@ -728,25 +702,23 @@ static int create_mtd_partitions(struct mtd_info *m,
 		s_beg = parts[PART_FIRMWARE_1].offset;
 		s_size = parts[PART_FIRMWARE_1].size;
 
-		ret = mtk_nand_tmp_parts_set(parts[PART_ROOTFS_1].name,
-					     s_beg, s_size);
-		if (ret < 0) {
-			printk("%s: mtk_nand_tmp_parts_set error (%d)\n",
-			       __func__, ret);
-			return ret;
-		}
+		/* early fill partition info for NAND */
+		parts[PART_ROOTFS_1].offset = s_beg;
+		parts[PART_ROOTFS_1].size = s_size;
+		parts[PART_ROOTFS_1].skip = false;
 
 		off = part_rootfs_offset(m, s_beg, s_size);
-		mtk_nand_tmp_parts_reset();
-
 		if (off) {
-			parts[PART_ROOTFS_1].skip = false;
+			/* recalc KERNEL & ROOTFS partitions */
 			parts[PART_ROOTFS_1].offset = off;
 			parts[PART_ROOTFS_1].size = parts[PART_CONFIG_1].offset -
 						    parts[PART_ROOTFS_1].offset;
 
 			parts[PART_KERNEL_1].skip = false;
 			parts[PART_KERNEL_1].size = off - parts[PART_KERNEL_1].offset;
+		} else {
+			/* hide ROOTFS partition (error path) */
+			parts[PART_ROOTFS_1].skip = true;
 		}
 	}
 
@@ -783,19 +755,14 @@ static int create_mtd_partitions(struct mtd_info *m,
 			s_beg = parts[PART_FIRMWARE_2].offset;
 			s_size = parts[PART_FIRMWARE_2].size;
 
-			ret = mtk_nand_tmp_parts_set(parts[PART_ROOTFS_2].name,
-						     s_beg, s_size);
-			if (ret < 0) {
-				printk("%s: mtk_nand_tmp_parts_set error (%d)\n",
-				       __func__, ret);
-				return ret;
-			}
+			/* early fill partition info for NAND */
+			parts[PART_ROOTFS_2].offset = s_beg;
+			parts[PART_ROOTFS_2].size = s_size;
+			parts[PART_ROOTFS_2].skip = false;
 
 			off = part_rootfs_offset(m, s_beg, s_size);
-			mtk_nand_tmp_parts_reset();
-
 			if (off) {
-				parts[PART_ROOTFS_2].skip = false;
+				/* recalc KERNEL & ROOTFS partitions */
 				parts[PART_ROOTFS_2].offset = off;
 				parts[PART_ROOTFS_2].size = parts_offset_end(PART_FIRMWARE_2) -
 							    off;
@@ -803,6 +770,9 @@ static int create_mtd_partitions(struct mtd_info *m,
 				parts[PART_KERNEL_2].skip = false;
 				parts[PART_KERNEL_2].offset = parts[PART_FIRMWARE_2].offset;
 				parts[PART_KERNEL_2].size = off - parts[PART_KERNEL_2].offset;
+			} else {
+				/* hide ROOTFS partition (error path) */
+				parts[PART_ROOTFS_2].skip = true;
 			}
 		}
 	}
@@ -835,6 +805,90 @@ static int create_mtd_partitions(struct mtd_info *m,
 	*pparts = ndm_parts;
 
 	return ndm_parts_num;
+}
+
+#ifdef NAND_BB_MODE_SKIP
+int get_partition_range(int blk, uint32_t bshift, int *blk_start, int *blk_end)
+{
+	int i, blk_end_last;
+	uint64_t offs, size;
+
+	for (i = 0; i < PART_MAX; i++) {
+		if (parts[i].skip)
+			continue;
+
+		offs = parts[i].offset;
+		size = parts[i].size;
+
+		/* skip early not filled partitions */
+		if (size == 0)
+			continue;
+
+		/* skip partition with full flash */
+		if (size == MTDPART_SIZ_FULL)
+			continue;
+
+		*blk_start = (int)(offs >> bshift);
+		blk_end_last = *blk_start + (int)(size >> bshift);
+
+		if (blk_end_last > *blk_start)
+			*blk_end = blk_end_last - 1;
+		else
+			*blk_end = blk_end_last;
+
+		if (blk >= *blk_start && blk <= *blk_end) {
+			/* pick-up merged partition */
+			switch (i) {
+			case PART_KERNEL_1:
+			case PART_ROOTFS_1:
+				offs = parts[PART_FIRMWARE_1].offset;
+				size = parts[PART_FIRMWARE_1].size;
+				*blk_start = (int)(offs >> bshift);
+				*blk_end = *blk_start + (int)(size >> bshift) - 1;
+				break;
+
+			case PART_KERNEL_2:
+			case PART_ROOTFS_2:
+				offs = parts[PART_FIRMWARE_2].offset;
+				size = parts[PART_FIRMWARE_2].size;
+				*blk_start = (int)(offs >> bshift);
+				*blk_end = *blk_start + (int)(size >> bshift) - 1;
+				break;
+			}
+
+			return 0;
+		}
+	}
+
+	return -ENOENT;
+}
+
+bool is_nobbm_partition(uint64_t offs)
+{
+	int i;
+	const int nobbm_parts[] = {
+		PART_STORAGE,
+	};
+
+	/* disable bad block management for given partitions */
+	for (i = 0; i < ARRAY_SIZE(nobbm_parts); i++) {
+		if (!parts[i].skip &&
+		    offs >= parts[i].offset &&
+		    offs < (parts[i].offset + parts[i].size))
+			return true;
+	}
+
+	return false;
+}
+#endif
+
+bool is_mtd_partition_rootfs(struct mtd_info *mtd)
+{
+#ifdef CONFIG_MTD_NDM_DUAL_IMAGE
+	if (ndmpart_image_cur == DI_IMAGE_SECOND)
+		return strcmp(mtd->name, parts[PART_ROOTFS_2].name) == 0;
+#endif
+	return strcmp(mtd->name, parts[PART_ROOTFS_1].name) == 0;
 }
 
 #ifdef CONFIG_MTD_NDM_DUAL_IMAGE

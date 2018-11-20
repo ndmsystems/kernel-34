@@ -13,10 +13,8 @@
 #include <linux/mtd/nand.h>
 #include <linux/mtd/nand_ecc.h>
 #include <linux/mtd/partitions.h>
-#include "../mtdcore.h"
 
 #include <asm/rt2880/rt_mmap.h>
-#include <asm/rt2880/surfboardint.h>
 
 #include <ralink/mtk_nand_dev.h>
 
@@ -25,31 +23,26 @@
 
 #include "ralink-flash.h"
 
-static const char *part_probes[] = { "ndmpart", NULL };
-static struct mtd_partition *mtd_parts;
-static int part_num;
-
-#if defined (CONFIG_MTD_NDM_DUAL_IMAGE)
-extern int ndmpart_image_cur;
-extern bool ndmpart_di_is_enabled;
+#ifdef CONFIG_MTD_NDM_PARTS
+#include "../ndmpart.h"
 #endif
 
-#if defined (CONFIG_JFFS2_FS) || defined (CONFIG_JFFS2_FS_MODULE)
+static const char *part_probes[] = { "ndmpart", NULL };
+
+#if IS_ENABLED(CONFIG_JFFS2_FS)
 #define JFFS2_WORKAROUND
 #endif
 
-#if defined (CONFIG_MTD_UBI) || defined (CONFIG_MTD_UBI_MODULE)
+#if IS_ENABLED(CONFIG_MTD_UBI)
 #define UBIFS_ECC_0_PATCH
 #endif
 
 #if defined (SKIP_BAD_BLOCK)
-static uint32_t storage_offset_begin, storage_offset_end;
-static uint32_t firmware_offset_begin, firmware_size;
-
-static int8_t kernel_idx = -1, rootfs_idx = -1;
-static int shift_on_bbt = 0;
-
-static int is_skip_bad_block(struct mtd_info *mtd, int page);
+#ifndef CONFIG_MTD_NDM_PARTS
+#error SKIP_BAD_BLOCK feature need CONFIG_MTD_NDM_PARTS
+#endif
+static bool shift_on_bbt;
+static bool is_skip_bad_block(struct mtd_info *mtd, int page);
 extern void nand_bbt_set_bad(struct mtd_info *mtd, int page);
 extern int nand_bbt_get(struct mtd_info *mtd, int page);
 #endif
@@ -931,46 +924,6 @@ bool mtk_nand_exec_write_page(struct mtd_info *mtd, u32 u4RowAddr, u32 u4PageSiz
 }
 
 #if defined (SKIP_BAD_BLOCK)
-static int get_start_end_block(struct mtd_info *mtd, int block,
-			       int *start_blk, int *end_blk)
-{
-	struct nand_chip *chip = mtd->priv;
-	int i, end_blk_last, er_shift;
-
-	er_shift = chip->phys_erase_shift;
-
-	for (i = 0; i < part_num; i++) {
-		uint64_t off = mtd_parts[i].offset;
-		uint64_t size = mtd_parts[i].size;
-
-		/* Skip partition with full flash */
-		if (size == MTDPART_SIZ_FULL)
-			continue;
-
-		*start_blk = off >> er_shift;
-		end_blk_last = *start_blk + (size >> er_shift);
-
-		if (end_blk_last > *start_blk)
-			*end_blk = end_blk_last - 1;
-		else
-			*end_blk = end_blk_last;
-
-		if (block >= *start_blk &&
-		    block <= *end_blk) {
-#if defined (CONFIG_MTD_NDM_PARTS)
-			/* Use merged partition */
-			if (i == kernel_idx || i == rootfs_idx) {
-				*start_blk = firmware_offset_begin >> er_shift;
-				*end_blk = *start_blk + (firmware_size >> er_shift) - 1;
-			}
-#endif
-			return 0;
-		}
-	}
-
-	return -1;
-}
-
 static int block_remap(struct mtd_info *mtd, int block)
 {
 	struct nand_chip *chip = mtd->priv;
@@ -981,7 +934,7 @@ static int block_remap(struct mtd_info *mtd, int block)
 	if (!chip->bbt)
 		return block;
 
-	if (get_start_end_block(mtd, block, &start_blk, &end_blk) < 0)
+	if (get_partition_range(block, chip->phys_erase_shift, &start_blk, &end_blk) < 0)
 		return block;
 
 	block_offset = block - start_blk;
@@ -1019,8 +972,8 @@ static int write_next_on_fail(struct mtd_info *mtd, char *write_buf, int page, i
 	int page_per_block_bit = chip->phys_erase_shift - chip->page_shift;
 	int block = page >> page_per_block_bit;
 
-	// find next available block in the same MTD partition 
-	if (get_start_end_block(mtd, block, &start_blk, &end_blk) < 0)
+	/* find next available block in the same MTD partition */
+	if (get_partition_range(block, chip->phys_erase_shift, &start_blk, &end_blk) < 0)
 		return -1;
 
 	buf = kzalloc(mtd->writesize + mtd->oobsize, GFP_KERNEL | GFP_DMA);
@@ -1096,59 +1049,44 @@ static int write_next_on_fail(struct mtd_info *mtd, char *write_buf, int page, i
 	return 0;
 }
 
-static inline bool is_storage_exists(void)
+static bool is_skip_bad_block(struct mtd_info *mtd, int page)
 {
-	return storage_offset_begin ? true : false;
-}
+#ifdef CONFIG_MTD_NDM_PARTS
+	struct nand_chip *chip = mtd->priv;
+	uint64_t offs = (uint64_t)page << chip->page_shift;
 
-static inline bool is_storage_off(uint32_t off)
-{
-	if (off >= storage_offset_begin &&
-	    off <= storage_offset_end)
-		return true;
-
-	return false;
-}
-
-static int is_skip_bad_block(struct mtd_info *mtd, int page)
-{
-	if (is_storage_exists()) {
-		struct nand_chip *chip = mtd->priv;
-		uint32_t off = page << chip->page_shift;
-
-		/* Disable skip bad block for storage. */
-		if (is_storage_off(off))
-			return 0;
-	}
-
-	return 1;
+	/* disable skip bad block for storage (or other) */
+	if (is_nobbm_partition(offs))
+		return false;
+#endif
+	return true;
 }
 
 int check_block_remap(struct mtd_info *mtd, int block)
 {
-	if (shift_on_bbt == 0)
+#ifdef CONFIG_MTD_NDM_PARTS
+	struct nand_chip *chip = mtd->priv;
+	uint64_t offs = (uint64_t)block << chip->phys_erase_shift;
+
+	/* disable skip bad block for storage (or other) */
+	if (is_nobbm_partition(offs))
 		return block;
+#endif
 
-	if (is_storage_exists()) {
-		struct nand_chip *chip = mtd->priv;
-		uint32_t off = block << chip->phys_erase_shift;
-
-		/* Disable skip bad block for storage. */
-		if (is_storage_off(off))
-			return block;
-	}
+	if (!shift_on_bbt)
+		return block;
 
 	return block_remap(mtd, block);
 }
 
 #else
+
 int check_block_remap(struct mtd_info *mtd, int block)
 {
 	return block;
 }
 #endif
 EXPORT_SYMBOL(check_block_remap);
-
 
 #if defined (UBIFS_ECC_0_PATCH)
 static int check_ecc_0(struct mtd_info *mtd, int page)
@@ -2256,61 +2194,6 @@ static int load_fact_bbt(struct mtd_info *mtd)
 }
 #endif
 
-#if defined (CONFIG_MTD_NDM_PARTS)
-static struct mtd_partition *mtd_part_find_by_name(const char *name, int8_t *idx)
-{
-	int i;
-
-	for (i = 0; i < part_num; i++) {
-		struct mtd_partition *mp = mtd_parts + i;
-
-		if (mp->name && !strcmp(name, mp->name)) {
-			if (idx)
-				*idx = i;
-			return mp;
-		}
-	}
-
-	return NULL;
-}
-#endif
-
-#if defined (SKIP_BAD_BLOCK)
-int mtk_nand_tmp_parts_set(const char *name, uint32_t off, uint32_t size)
-{
-	struct mtd_partition *p;
-
-	if (name == NULL)
-		return -EINVAL;
-
-	if (mtd_parts || part_num)
-		return -EEXIST;
-
-	p = kzalloc(sizeof(*mtd_parts), GFP_KERNEL);
-	if (p == NULL)
-		return -ENOMEM;
-
-	p->name = (char *)name;
-	p->offset = off;
-	p->size = size;
-
-	mtd_parts = p;
-	part_num = 1;
-
-	return 0;
-}
-
-void mtk_nand_tmp_parts_reset(void)
-{
-	if (mtd_parts == NULL)
-		return;
-
-	kfree(mtd_parts);
-	mtd_parts = NULL;
-	part_num = 0;
-}
-#endif /* SKIP_BAD_BLOCK */
-
 static int mtk_nand_probe(struct platform_device *pdev)
 {
 	struct mtk_nand_host *host;
@@ -2319,13 +2202,6 @@ static int mtk_nand_probe(struct platform_device *pdev)
 	struct nand_chip *chip;
 	int err = 0;
 	u32 i;
-#if defined (CONFIG_MTD_NDM_PARTS)
-	const char *s;
-	char kern_name[sizeof("Kernel_1")] = "Kernel";
-	char rootfs_name[sizeof("RootFS_1")] = "RootFS";
-	char fw_name[sizeof("Firmware_1")] = "Firmware";
-	struct mtd_partition *mp;
-#endif
 
 	hw = (struct mtk_nand_host_hw *)pdev->dev.platform_data;
 	BUG_ON(!hw);
@@ -2448,69 +2324,21 @@ static int mtk_nand_probe(struct platform_device *pdev)
 	mtd->size = chip->chipsize;
 
 #if defined (SKIP_BAD_BLOCK)
-	shift_on_bbt = 1;
+	shift_on_bbt = true;
 #endif
-	/* register the partitions */
-	part_num = parse_mtd_partitions(mtd, part_probes, &mtd_parts, 0);
-	err = -1;
-	if (part_num > 0)
-		err = add_mtd_partitions(mtd, mtd_parts, part_num);
-	else
-		printk("No partitions found on a flash.");
 
+	/* register the partitions */
+	err = mtd_device_parse_register(mtd, part_probes, NULL, NULL, 0);
 	if (err)
 		goto out_err;
-
-#if defined (CONFIG_MTD_NDM_PARTS)
-	err = -ENXIO;
-
-#if defined (CONFIG_MTD_NDM_DUAL_IMAGE)
-	if (ndmpart_di_is_enabled) {
-		snprintf(kern_name, sizeof(kern_name), "Kernel_%d",
-			 ndmpart_image_cur);
-		snprintf(rootfs_name, sizeof(rootfs_name), "RootFS_%d",
-			 ndmpart_image_cur);
-		snprintf(fw_name, sizeof(fw_name), "Firmware_%d",
-			 ndmpart_image_cur);
-	}
-#endif
-
-	s = kern_name;
-	mp = mtd_part_find_by_name(s, &kernel_idx);
-	if (mp == NULL)
-		goto out_err_part;
-
-	s = rootfs_name;
-	mp = mtd_part_find_by_name(s, &rootfs_idx);
-	if (mp == NULL)
-		goto out_err_part;
-
-	s = fw_name;
-	mp = mtd_part_find_by_name(s, NULL);
-	if (mp == NULL)
-		goto out_err_part;
-
-	firmware_offset_begin = mp->offset;
-	firmware_size = mp->size;
-
-	/* Optional partition */
-	mp = mtd_part_find_by_name("Storage", NULL);
-	if (mp) {
-		storage_offset_begin = mp->offset;
-		storage_offset_end = mp->offset + mp->size - 1;
-	}
-#endif
 
 	platform_set_drvdata(pdev, host);
 	return 0;
 
-out_err_part:
-	printk("Unable to find partition \"%s\"\n", s);
 out_err:
 	MSG(INIT, "%s: [%s] failed, err = %d!\n", MTK_NAND_MODULE_TEXT, __FUNCTION__, err);
 
 	nand_release(mtd);
-	kfree(mtd_parts);
 	kfree(host);
 
 	return err;
@@ -2529,7 +2357,6 @@ static int mtk_nand_remove(struct platform_device *pdev)
 	platform_set_drvdata(pdev, NULL);
 
 	nand_release(mtd);
-	kfree(mtd_parts);
 	kfree(host);
 
 	return 0;
