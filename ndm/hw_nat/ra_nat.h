@@ -17,7 +17,7 @@
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 
-typedef struct {
+struct PdmaRxDescInfo4 {
 	uint16_t MAGIC_TAG;
 #if defined(CONFIG_RALINK_MT7620)
 	uint32_t FOE_Entry:14;
@@ -56,7 +56,7 @@ typedef struct {
 	uint32_t RESV2:4;
 #endif
 #endif
-}  __attribute__ ((packed)) PdmaRxDescInfo4;
+} __packed;
 
 /*
  * DEFINITIONS AND MACROS
@@ -105,13 +105,13 @@ typedef struct {
 
 #endif
 
-#define FOE_MAGIC_TAG(skb)		((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->MAGIC_TAG
-#define FOE_ENTRY_NUM(skb)		((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->FOE_Entry
-#define FOE_ALG(skb)			((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->ALG
+#define FOE_MAGIC_TAG(skb)		((struct PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->MAGIC_TAG
+#define FOE_ENTRY_NUM(skb)		((struct PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->FOE_Entry
+#define FOE_ALG(skb)			((struct PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->ALG
 #if defined(CONFIG_HNAT_V2)
-#define FOE_ENTRY_VALID(skb)		(((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->FOE_Entry != 0x3fff)
-#define FOE_AI(skb)			((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->CRSN
-#define FOE_SP(skb)			((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->SPORT
+#define FOE_ENTRY_VALID(skb)	       (((struct PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->FOE_Entry != 0x3fff)
+#define FOE_AI(skb)			((struct PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->CRSN
+#define FOE_SP(skb)			((struct PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->SPORT
 #ifndef UN_HIT
 #define UN_HIT 0x0D
 #endif
@@ -119,9 +119,9 @@ typedef struct {
 #define HIT_BIND_KEEPALIVE_DUP_OLD_HDR 0x15
 #endif 
 #else
-#define FOE_ENTRY_VALID(skb)		((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->FVLD
-#define FOE_AI(skb)			((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->AI
-#define FOE_SP(skb)			((PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->SP
+#define FOE_ENTRY_VALID(skb)		((struct PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->FVLD
+#define FOE_AI(skb)			((struct PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->AI
+#define FOE_SP(skb)			((struct PdmaRxDescInfo4 *)FOE_INFO_START_ADDR(skb))->SP
 #ifndef UN_HIT
 #define UN_HIT 0x93
 #endif
@@ -138,22 +138,22 @@ typedef struct {
 
 /* mark flow need skipped from PPE */
 #define FOE_ALG_SKIP(skb) \
-	if (IS_SPACE_AVAILABLED(skb) && !FOE_ALG(skb) && IS_MAGIC_TAG_VALID(skb)) FOE_ALG(skb)=1
+	if (IS_SPACE_AVAILABLED(skb) && !FOE_ALG(skb) && IS_MAGIC_TAG_VALID(skb)) FOE_ALG(skb) = 1
 
 #define FOE_ALG_MARK(skb) \
 	FOE_ALG_SKIP(skb)
 
 #if defined(CONFIG_HNAT_V2)
 #define FOE_SKB_IS_KEEPALIVE(skb) \
-	(FOE_AI(skb) == HIT_BIND_KEEPALIVE_DUP_OLD_HDR)
+	(IS_SPACE_AVAILABLED(skb) && IS_MAGIC_TAG_VALID(skb) && FOE_AI(skb) == HIT_BIND_KEEPALIVE_DUP_OLD_HDR)
 #else
 #define FOE_SKB_IS_KEEPALIVE(skb) \
-	(FOE_AI(skb) == HIT_BIND_KEEPALIVE)
+	(IS_SPACE_AVAILABLED(skb) && IS_MAGIC_TAG_VALID(skb) && FOE_AI(skb) == HIT_BIND_KEEPALIVE)
 #endif
 
 /* reset AI for local output flow */
 #define FOE_AI_UNHIT(skb) \
-	if (IS_SPACE_AVAILABLED(skb)) FOE_AI(skb)=UN_HIT
+	if (IS_SPACE_AVAILABLED(skb)) FOE_AI(skb) = UN_HIT
 
 /* fast clear FoE Info (magic_tag,entry_num) */
 #define DO_FAST_CLEAR_FOE(skb) \
@@ -203,7 +203,7 @@ struct gmac_info {
 		} bits;
 		uint32_t word;
 	};
-} __attribute__ ((packed));
+} __packed;
 
 #elif defined(CONFIG_RALINK_MT7621) || defined(CONFIG_ARCH_MT7623)
 
@@ -220,7 +220,7 @@ struct gmac_info {
 		} bits;
 		uint32_t word;
 	};
-} __attribute__ ((packed));
+} __packed;
 
 #elif defined(CONFIG_RALINK_MT7620)
 
@@ -234,7 +234,7 @@ struct gmac_info {
 		} bits;
 		uint32_t word;
 	};
-} __attribute__ ((packed));
+} __packed;
 
 #else
 
