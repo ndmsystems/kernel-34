@@ -145,10 +145,10 @@ typedef struct {
 
 #if defined(CONFIG_HNAT_V2)
 #define FOE_SKB_IS_KEEPALIVE(skb) \
-	(FOE_AI(skb) == HIT_BIND_KEEPALIVE_DUP_OLD_HDR)
+	(IS_SPACE_AVAILABLED(skb) && IS_MAGIC_TAG_VALID(skb) && FOE_AI(skb) == HIT_BIND_KEEPALIVE_DUP_OLD_HDR)
 #else
 #define FOE_SKB_IS_KEEPALIVE(skb) \
-	(FOE_AI(skb) == HIT_BIND_KEEPALIVE)
+	(IS_SPACE_AVAILABLED(skb) && IS_MAGIC_TAG_VALID(skb) && FOE_AI(skb) == HIT_BIND_KEEPALIVE)
 #endif
 
 /* reset AI for local output flow */
