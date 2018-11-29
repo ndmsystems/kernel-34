@@ -202,8 +202,24 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
 	if (unlikely(skb->pkt_type == PACKET_LOOPBACK))
 		return RX_HANDLER_PASS;
 
-	if (!is_valid_ether_addr(eth_hdr(skb)->h_source))
+	if (!is_valid_ether_addr(eth_hdr(skb)->h_source)) {
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+#ifndef CONFIG_HNAT_V2
+		/* direct pass hwnat MC KA to bridge i/f */
+		if (FOE_SKB_IS_KEEPALIVE(skb)) {
+			p = br_port_get_rcu(skb->dev);
+			if (!p || p->state == BR_STATE_DISABLED)
+				goto drop;
+
+			BR_INPUT_SKB_CB(skb)->brdev = p->br->dev;
+			skb->dev = p->br->dev;
+			netif_receive_skb(skb);
+			return RX_HANDLER_CONSUMED;
+		}
+#endif
+#endif
 		goto drop;
+	}
 
 	skb = skb_share_check(skb, GFP_ATOMIC);
 	if (!skb)
