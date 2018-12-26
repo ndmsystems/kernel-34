@@ -984,6 +984,7 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
 
 #ifdef CONFIG_NF_CONNTRACK_MARK
 		ct->mark = exp->master->mark;
+		ct->ndm_mark = exp->master->ndm_mark;
 #endif
 #ifdef CONFIG_NF_CONNTRACK_SECMARK
 		ct->secmark = exp->master->secmark;
@@ -1336,11 +1337,10 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 #ifdef CONFIG_NF_CONNTRACK_MARK
 				if (ct->mark != 0)
 					skb->mark = ct->mark;
-#endif
 
 				if (ct->ndm_mark != 0)
 					skb->ndm_mark = ct->ndm_mark;
-
+#endif
 				ret = fast_nat_bind_hook(ct, ctinfo, skb, l3proto, l4proto);
 
 				iph = ip_hdr(skb);

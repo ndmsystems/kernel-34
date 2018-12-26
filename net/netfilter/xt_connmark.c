@@ -56,11 +56,6 @@ connmark_tg(struct sk_buff *skb, const struct xt_action_param *par)
 	case XT_CONNMARK_SET:
 		newmark = (ct->mark & ~info->ctmask) ^ info->ctmark;
 		if (ct->mark != newmark) {
-#if IS_ENABLED(CONFIG_RA_HW_NAT)
-#if !defined(CONFIG_RA_HW_NAT_QDMA)
-			FOE_ALG_MARK(skb);
-#endif
-#endif
 			ct->mark = newmark;
 			nf_conntrack_event_cache(IPCT_MARK, ct);
 		}

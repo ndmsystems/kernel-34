@@ -283,14 +283,22 @@ nla_put_failure:
 	return -1;
 }
 
+#ifdef CONFIG_NF_CONNTRACK_MARK
 static inline int
 ctnetlink_dump_mark(struct sk_buff *skb, const struct nf_conn *ct)
 {
-#ifdef CONFIG_NF_CONNTRACK_MARK
 	if (nla_put_be32(skb, CTA_MARK, htonl(ct->mark)))
 		goto nla_put_failure;
-#endif
 
+	return 0;
+
+nla_put_failure:
+	return -1;
+}
+
+static inline int
+ctnetlink_dump_ndmmark(struct sk_buff *skb, const struct nf_conn *ct)
+{
 	if (nla_put_u8(skb, CTA_NDMMARK, ct->ndm_mark))
 		goto nla_put_failure;
 
@@ -299,6 +307,10 @@ ctnetlink_dump_mark(struct sk_buff *skb, const struct nf_conn *ct)
 nla_put_failure:
 	return -1;
 }
+#else
+#define ctnetlink_dump_mark(a, b) (0)
+#define ctnetlink_dump_ndmmark(a, b) (0)
+#endif
 
 #ifdef CONFIG_NF_CONNTRACK_SECMARK
 static inline int
@@ -465,6 +477,7 @@ ctnetlink_fill_info(struct sk_buff *skb, u32 pid, u32 seq, u32 type,
 	    ctnetlink_dump_protoinfo(skb, ct) < 0 ||
 	    ctnetlink_dump_helpinfo(skb, ct) < 0 ||
 	    ctnetlink_dump_mark(skb, ct) < 0 ||
+	    ctnetlink_dump_ndmmark(skb, ct) < 0 ||
 	    ctnetlink_dump_secctx(skb, ct) < 0 ||
 	    ctnetlink_dump_id(skb, ct) < 0 ||
 	    ctnetlink_dump_use(skb, ct) < 0 ||
@@ -563,6 +576,7 @@ ctnetlink_nlmsg_size(const struct nf_conn *ct)
 #endif
 #ifdef CONFIG_NF_CONNTRACK_MARK
 	       + nla_total_size(sizeof(u_int32_t)) /* CTA_MARK */
+	       + nla_total_size(sizeof(u_int8_t))  /* CTA_NDMMARK */
 #endif
 	       + ctnetlink_proto_size(ct)
 	       ;
@@ -675,11 +689,11 @@ ctnetlink_conntrack_event(unsigned int events, struct nf_ct_event *item)
 	if ((events & (1 << IPCT_MARK) || ct->mark)
 	    && ctnetlink_dump_mark(skb, ct) < 0)
 		goto nla_put_failure;
-#endif
 
 	if ((events & (1 << IPCT_NDMMARK) || ct->ndm_mark)
-	    && ctnetlink_dump_mark(skb, ct) < 0)
+	    && ctnetlink_dump_ndmmark(skb, ct) < 0)
 		goto nla_put_failure;
+#endif
 
 	rcu_read_unlock();
 
@@ -935,6 +949,7 @@ static const struct nla_policy ct_nla_policy[CTA_MAX+1] = {
 	[CTA_TUPLE_MASTER]	= { .type = NLA_NESTED },
 	[CTA_ZONE]		= { .type = NLA_U16 },
 	[CTA_MARK_MASK]		= { .type = NLA_U32 },
+	[CTA_NDMMARK]		= { .type = NLA_U8 },
 };
 
 static int
@@ -1393,10 +1408,10 @@ ctnetlink_change_conntrack(struct nf_conn *ct,
 #if defined(CONFIG_NF_CONNTRACK_MARK)
 	if (cda[CTA_MARK])
 		ct->mark = ntohl(nla_get_be32(cda[CTA_MARK]));
-#endif
 
 	if (cda[CTA_NDMMARK])
 		ct->ndm_mark = nla_get_u8(cda[CTA_NDMMARK]);
+#endif
 
 #ifdef CONFIG_NF_NAT_NEEDED
 	if (cda[CTA_NAT_SEQ_ADJ_ORIG] || cda[CTA_NAT_SEQ_ADJ_REPLY]) {
@@ -1516,10 +1531,10 @@ ctnetlink_create_conntrack(struct net *net,
 #if defined(CONFIG_NF_CONNTRACK_MARK)
 	if (cda[CTA_MARK])
 		ct->mark = ntohl(nla_get_be32(cda[CTA_MARK]));
-#endif
 
 	if (cda[CTA_NDMMARK])
 		ct->ndm_mark = nla_get_u8(cda[CTA_NDMMARK]);
+#endif
 
 	/* setup master conntrack: this is a confirmed expectation */
 	if (cda[CTA_TUPLE_MASTER]) {

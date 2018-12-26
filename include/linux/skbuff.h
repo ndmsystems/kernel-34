@@ -484,6 +484,9 @@ struct sk_buff {
 #endif
 
 	__u16			queue_mapping;
+#if IS_ENABLED(CONFIG_NETFILTER_XT_NDMMARK)
+	__u8			ndm_mark;
+#endif
 	kmemcheck_bitfield_begin(flags2);
 #ifdef CONFIG_IPV6_NDISC_NODETYPE
 	__u8			ndisc_nodetype:2;
@@ -496,9 +499,6 @@ struct sk_buff {
 #endif
 #if IS_ENABLED(CONFIG_NET_VENDOR_INTEL)
 	__u8			no_fcs:1;
-#endif
-#if IS_ENABLED(CONFIG_NETFILTER_XT_NDMMARK)
-	__u8			ndm_mark:8;
 #endif
 	/* 9/11 bit hole (depending on ndisc_nodetype presence) */
 	kmemcheck_bitfield_end(flags2);

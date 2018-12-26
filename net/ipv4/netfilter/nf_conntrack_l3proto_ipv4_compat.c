@@ -180,10 +180,10 @@ static int ct_seq_show(struct seq_file *s, void *v)
 #ifdef CONFIG_NF_CONNTRACK_MARK
 	if (seq_printf(s, "mark=%u ", ct->mark))
 		goto release;
-#endif
 
 	if (seq_printf(s, "ndm_mark=%u ", ct->ndm_mark))
 		goto release;
+#endif
 
 	if (ct_show_secctx(s, ct))
 		goto release;

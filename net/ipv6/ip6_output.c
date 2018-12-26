@@ -1667,6 +1667,9 @@ int ip6_push_pending_frames(struct sock *sk)
 
 	skb->priority = sk->sk_priority;
 	skb->mark = sk->sk_mark;
+#if IS_ENABLED(CONFIG_NETFILTER_XT_NDMMARK)
+	skb->ndm_mark = sk->sk_ndm_mark;
+#endif
 
 	skb_dst_set(skb, dst_clone(&rt->dst));
 	IP6_UPD_PO_STATS(net, rt->rt6i_idev, IPSTATS_MIB_OUT, skb->len);

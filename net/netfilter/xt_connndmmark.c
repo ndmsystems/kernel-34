@@ -28,10 +28,6 @@
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter/xt_connndmmark.h>
 
-#if IS_ENABLED(CONFIG_RA_HW_NAT)
-#include <../ndm/hw_nat/ra_nat.h>
-#endif
-
 MODULE_AUTHOR("Henrik Nordstrom <hno@marasystems.com>");
 MODULE_DESCRIPTION("Xtables: connection NDM mark operations");
 MODULE_LICENSE("GPL");
@@ -52,19 +48,16 @@ connndmmark_tg(struct sk_buff *skb, const struct xt_action_param *par)
 	case XT_CONNNDMMARK_SET:
 		newmark = (ct->ndm_mark & ~info->ctmask) ^ info->ctmark;
 		if (ct->ndm_mark != newmark) {
-#if IS_ENABLED(CONFIG_RA_HW_NAT)
-#if !defined(CONFIG_RA_HW_NAT_QDMA)
-			FOE_ALG_MARK(skb);
-#endif
-#endif
 			ct->ndm_mark = newmark;
 			nf_conntrack_event_cache(IPCT_NDMMARK, ct);
 		}
 		break;
 	case XT_CONNNDMMARK_RESTORE:
+#if IS_ENABLED(CONFIG_NETFILTER_XT_NDMMARK)
 		newmark = (skb->ndm_mark & ~info->nfmask) ^
 		          (ct->ndm_mark & info->ctmask);
 		skb->ndm_mark = newmark;
+#endif
 		break;
 	}
 
