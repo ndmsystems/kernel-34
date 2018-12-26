@@ -120,11 +120,17 @@ struct nf_conn {
 	/* Timer function; drops refcnt when it goes off. */
 	struct timer_list timeout;
 
-#if defined(CONFIG_NF_CONNTRACK_MARK)
-	u_int32_t mark;
+#if IS_ENABLED(CONFIG_FAST_NAT)
+	u_int8_t fast_ext;
+	u_int8_t fast_bind_reached;
 #endif
 
+#if defined(CONFIG_NF_CONNTRACK_MARK)
 	u_int8_t ndm_mark;
+	/* 8 or 24 bit hole */
+
+	u_int32_t mark;
+#endif
 
 #ifdef CONFIG_NF_CONNTRACK_SECMARK
 	u_int32_t secmark;
@@ -143,12 +149,6 @@ struct nf_conn {
 		char *app_data;
 		unsigned int app_data_len;
 	} layer7;
-#endif
-
-#if IS_ENABLED(CONFIG_FAST_NAT)
-	/* fast nat ext */
-	u_int8_t fast_ext;
-	u_int8_t fast_bind_reached;
 #endif
 
 	/* Extensions */
