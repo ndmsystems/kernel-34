@@ -68,6 +68,10 @@ config MT7615_DOT11V_WNM_SUPPORT
 	bool "802.11v Wireless Network Management"
 	default n
 
+config MT7615_DOT11U_GAS_SUPPORT
+	bool "802.11u Interworking/Gas Support"
+	default n
+
 config MT7615_TPC_SUPPORT
 	bool "802.11h TPC support"
 	default n
@@ -99,6 +103,11 @@ config MT7615_SINGLE_SKU
 config MT7615_RF_LOCKDOWN_SUPPORT
 	bool "Single SKU RF lockdown support"
 	depends on MT7615_SINGLE_SKU
+	default n
+
+config MT7615_PCIE_ASPM_DYM_CTRL_SUPPORT
+	bool "PCIe ASPM Dynamic Control Support"
+	depends on CHIP_MT7615E
 	default n
 
 config MT7615_CFG80211_SUPPORT

@@ -44,13 +44,40 @@ config MT7615_PASSPOINT_R2
 #	bool "AirPlay support"
 #	default n
 
+config MT7615_FTM_SUPPORT
+	bool "FTM support"
+	select MT7615_PASSPOINT_R2
+	default n
+
+config MT7615_MBO_SUPPORT
+	bool "MBO support"
+	select MT7615_DOT11K_RRM_SUPPORT
+	select MT7615_DOT11R_FT_SUPPORT
+	select MT7615_DOT11V_WNM_SUPPORT
+	select MT7615_DOT11U_GAS_SUPPORT
+	default n
+
+config MT7615_MAP_SUPPORT
+	bool "Multi-AP Support"
+	select MT7615_MBO_SUPPORT
+	default n
+
 config MT7615_VOW_SUPPORT
 	bool "MediaAir (VOW) support"
-	default n
+	default y
 
 config MT7615_RED_SUPPORT
 	bool "RED (Random Early Drop) support"
-	default n
+	default y
+
+config MT7615_WPA3_SUPPORT
+	bool "WPA3 auth support"
+	default y
+
+config MT7615_OWE_SUPPORT
+	bool "Enhance OPEN(OWE) auth support"
+	depends on MT7615_WPA3_SUPPORT
+	default y
 
 config MT7615_DSCP_QOS_MAP_SUPPORT
 	bool "DSCP Qos Mapping Support"
