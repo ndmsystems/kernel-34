@@ -156,7 +156,7 @@ static netdev_tx_t vlan_dev_hard_start_xmit(struct sk_buff *skb,
 	unsigned int len;
 	int ret;
 #if IS_ENABLED(CONFIG_FAST_NAT) || IS_ENABLED(CONFIG_RA_HW_NAT)
-	int ka_mark = 0;
+	bool ka_mark = false;
 #endif
 
 	/* Handle non-VLAN frames if they are sent to us, for example by DHCP.
@@ -178,24 +178,29 @@ static netdev_tx_t vlan_dev_hard_start_xmit(struct sk_buff *skb,
 
 	skb->dev = vlan_dev_priv(dev)->real_dev;
 	len = skb->len;
-#if IS_ENABLED(CONFIG_FAST_NAT)
-	ka_mark += SWNAT_KA_CHECK_MARK(skb);
-#endif
-#if IS_ENABLED(CONFIG_RA_HW_NAT)
-	ka_mark += FOE_SKB_IS_KEEPALIVE(skb);
-#endif
-
 #ifdef CONFIG_NETPOLL
 	if (netpoll_tx_running(dev))
 		return skb->dev->netdev_ops->ndo_start_xmit(skb, skb->dev);
 #endif
+
+#if IS_ENABLED(CONFIG_FAST_NAT)
+	if (SWNAT_KA_CHECK_MARK(skb))
+		ka_mark = true;
+#endif
+
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+	if (FOE_SKB_IS_KEEPALIVE(skb))
+		ka_mark = true;
+#endif
+
 	ret = dev_queue_xmit(skb);
 
-	if (likely((ret == NET_XMIT_SUCCESS || ret == NET_XMIT_CN)
 #if IS_ENABLED(CONFIG_FAST_NAT) || IS_ENABLED(CONFIG_RA_HW_NAT)
-		&& !ka_mark
+	if (unlikely(ka_mark))
+		return ret;
 #endif
-			)) {
+
+	if (likely(ret == NET_XMIT_SUCCESS || ret == NET_XMIT_CN)) {
 		struct vlan_pcpu_stats *stats;
 
 		stats = this_cpu_ptr(vlan_dev_priv(dev)->vlan_pcpu_stats);

@@ -54,25 +54,27 @@ bool vlan_do_receive(struct sk_buff **skbp)
 	skb->priority = vlan_get_ingress_priority(vlan_dev, skb->vlan_tci);
 	skb->vlan_tci = 0;
 
+#if IS_ENABLED(CONFIG_FAST_NAT)
+	if (SWNAT_KA_CHECK_MARK(skb))
+		return true;
+#endif
+
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
+	if (FOE_SKB_IS_KEEPALIVE(skb))
+		return true;
+#if !defined(CONFIG_HNAT_V2)
+	if (vlan_dev_priv(vlan_dev)->stat_block_rx &&
+	    skb->pkt_type != PACKET_MULTICAST &&
+	    skb->pkt_type != PACKET_BROADCAST)
+		return true;
+#endif
+#endif
+
 	rx_stats = this_cpu_ptr(vlan_dev_priv(vlan_dev)->vlan_pcpu_stats);
 
 	u64_stats_update_begin(&rx_stats->syncp);
-	if ( 1
-#if IS_ENABLED(CONFIG_RA_HW_NAT)
-#if !defined(CONFIG_HNAT_V2)
-		&& (!vlan_dev_priv(vlan_dev)->stat_block_rx ||
-        skb->pkt_type == PACKET_MULTICAST ||
-        skb->pkt_type == PACKET_BROADCAST)
-#endif
-        && !FOE_SKB_IS_KEEPALIVE(skb)
-#endif
-#if IS_ENABLED(CONFIG_FAST_NAT)
-		&& !SWNAT_KA_CHECK_MARK(skb)
-#endif
-        ) {
-		rx_stats->rx_packets++;
-		rx_stats->rx_bytes += skb->len;
-    }
+	rx_stats->rx_packets++;
+	rx_stats->rx_bytes += skb->len;
 	if (skb->pkt_type == PACKET_MULTICAST)
 		rx_stats->rx_multicast++;
 	u64_stats_update_end(&rx_stats->syncp);
