@@ -131,7 +131,7 @@ int vlan_check_real_dev(struct net_device *real_dev, u16 vlan_id)
 
 /*
  * must be rcu_read_lock protected
- * used in fastvpn driver
+ * used in fastvpn and hw_nat driver
  */
 struct net_device * get_vlan_dev_by_real(struct net_device *real_dev, u16 vlan_id)
 {
@@ -146,9 +146,10 @@ struct net_device * get_vlan_dev_by_real(struct net_device *real_dev, u16 vlan_i
 }
 EXPORT_SYMBOL(get_vlan_dev_by_real);
 
+#if IS_ENABLED(CONFIG_RA_HW_NAT)
 /*
  * must be called from non-preemptable context
- * used in hw_nat and old fastvpn driver
+ * used in hw_nat driver
  */
 void vlan_dev_update_stats(struct net_device *vlan_dev,
 			   u32 recv_bytes, u32 recv_packets,
@@ -170,6 +171,7 @@ void vlan_dev_update_stats(struct net_device *vlan_dev,
 	u64_stats_update_end(&stats->syncp);
 }
 EXPORT_SYMBOL(vlan_dev_update_stats);
+#endif
 
 /*
  * must be called from non-preemptable context
