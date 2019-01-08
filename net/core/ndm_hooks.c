@@ -7,18 +7,23 @@
 #include <net/sock.h>
 #include <linux/skbuff.h>
 
-struct ppp_channel;
 struct net_device;
 struct nf_conn;
 struct new_mc_streams;
 
-void (*ppp_stat_add_tx_hook)(struct ppp_channel *chan, u32 add_pkt,
+#if IS_MODULE(CONFIG_PPP) || !IS_ENABLED(CONFIG_PPP)
+struct ppp_channel;
+
+void (*ppp_stat_add_tx_hook)(struct ppp_channel *pch, u32 add_pkts,
 			     u32 add_bytes) = NULL;
 EXPORT_SYMBOL(ppp_stat_add_tx_hook);
 
-void (*ppp_stat_add_rx_hook)(struct ppp_channel *chan, u32 add_pkt,
+void (*ppp_stat_add_rx_hook)(struct ppp_channel *pch, u32 add_pkts,
 			     u32 add_bytes) = NULL;
 EXPORT_SYMBOL(ppp_stat_add_rx_hook);
+
+void (*ppp_stat_reset_hook)(struct net_device *dev) = NULL;
+EXPORT_SYMBOL(ppp_stat_reset_hook);
 
 #if IS_ENABLED(CONFIG_RA_HW_NAT)
 void (*ppp_stats_update_hook)(struct net_device *dev,
@@ -31,6 +36,7 @@ void (*ppp_stat_block_hook)(struct net_device *dev, int is_block_rx) = NULL;
 EXPORT_SYMBOL(ppp_stat_block_hook);
 #endif
 #endif
+#endif /* IS_MODULE(CONFIG_PPP) */
 
 int (*go_swnat)(struct sk_buff * skb, u8 origin) = NULL;
 EXPORT_SYMBOL(go_swnat);
