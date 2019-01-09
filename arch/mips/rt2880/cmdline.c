@@ -41,6 +41,12 @@
 
 #include <asm/bootinfo.h>
 
+#if defined(CONFIG_RT2880_UART_115200)
+#define TTY_UART_CONSOLE	"console=ttyS0,115200n8"
+#else
+#define TTY_UART_CONSOLE	"console=ttyS0,57600n8"
+#endif
+
 #ifdef CONFIG_UBOOT_CMDLINE
 extern int prom_argc;
 extern int *_prom_argv;
@@ -106,8 +112,22 @@ void __init image_cmdline(char *s, size_t size)
 static inline void image_cmdline(char *s, size_t size) {}
 #endif
 
+static inline void fixup_cmdline(char *s, size_t size)
+{
+	const char *p = TTY_UART_CONSOLE;
+
+	if (strstr(s, "console="))
+		return;
+
+	/* Add space if there are symbols in buffer */
+	if (*s)
+		strlcat(s, " ", size);
+	strlcat(s, p, size);
+}
+
 void  __init prom_init_cmdline(void)
 {
 	uboot_cmdline(arcs_cmdline, sizeof(arcs_cmdline));
 	image_cmdline(arcs_cmdline, sizeof(arcs_cmdline));
+	fixup_cmdline(arcs_cmdline, sizeof(arcs_cmdline));
 }
