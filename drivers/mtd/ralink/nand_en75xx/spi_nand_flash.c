@@ -2709,6 +2709,7 @@ int en7512_nand_mark_badblock(u32 offset, u32 bmt_block)
 
 	_SPI_NAND_PRINTF("en7512_nand_mark_badblock: page_num=0x%x\n", page_number);
 
+	spi_nand_erase_block((offset / (ptr_dev_info_t->erase_size)));
 	rtn_status = spi_nand_write_page(page_number, 0, NULL, 0, 0, &buf[0], 8, ptr_dev_info_t->write_mode);
 	if( rtn_status == SPI_NAND_FLASH_RTN_NO_ERROR)
 	{
