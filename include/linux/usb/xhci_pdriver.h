@@ -27,7 +27,7 @@ struct usb_xhci_pdata {
 	unsigned	spurious_success:1;
 
 	/* initialize vendor-specific USB PHY */
-	void (*uphy_init)(struct platform_device *pdev);
+	int (*uphy_init)(struct platform_device *pdev);
 
 };
 

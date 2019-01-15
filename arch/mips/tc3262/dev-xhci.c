@@ -29,11 +29,11 @@ static struct resource en75xx_xhci_resources[] = {
 static u64 en75xx_xhci_dmamask = DMA_BIT_MASK(32);
 
 #if defined(CONFIG_USB_XHCI_PLATFORM)
-extern void uphy_init(void);
+extern int uphy_init(void);
 
-static void en75xx_uphy_init(struct platform_device *pdev)
+static int en75xx_uphy_init(struct platform_device *pdev)
 {
-	uphy_init();
+	return uphy_init();
 }
 
 /* MTK host controller gives a spurious successful event after a short transfer. Ignore it. */

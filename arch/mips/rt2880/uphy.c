@@ -24,6 +24,14 @@
 #define REG_SSUSB_IP_PW_CTRL1		(ADDR_SIFSLV_IPPC_BASE+0x4)
 #define SSUSB_IP_PDN			(1 << 0)
 
+/* SSUSB_IP_PW_STS1 */
+#define REG_SSUSB_IP_PW_STS1		(ADDR_SIFSLV_IPPC_BASE+0x10)
+#define SSUSB_STS1_SYSPLL_STABLE	(1 << 0)
+#define SSUSB_STS1_REF_RST		(1 << 8)
+#define SSUSB_STS1_SYS125_RST		(1 << 10)
+#define SSUSB_STS1_XHCI_RST		(1 << 11)
+#define SSUSB_STS1_U3_MAC_RST		(1 << 16)
+
 /* SSUSB_U3_CTRL */
 #define REG_SSUSB_U3_CTRL(p)		(ADDR_SIFSLV_IPPC_BASE+0x30+(p*0x08))
 #define SSUSB_U3_PORT_DIS		(1 << 0)
@@ -185,10 +193,10 @@ u2_slew_rate_calibration(int port_id, u32 u2_phy_reg_base)
 
 #if defined (CONFIG_RALINK_MT7621)
 
-static inline void
+static inline int
 u3_phy_init(void)
 {
-	u32 i, reg_val, num_u2_port, num_u3_port;
+	u32 i, reg_val, check_val, num_u2_port, num_u3_port;
 
 	reg_val = sysRegRead(REG_SSUSB_IP_CAP);
 	num_u3_port = SSUSB_U3_PORT_NUM(reg_val);
@@ -218,18 +226,46 @@ u3_phy_init(void)
 		sysRegWrite(REG_SSUSB_U2_CTRL(i), reg_val);
 	}
 
-	msleep(100);
+	/* wait for clocks to be stable */
+	check_val = SSUSB_STS1_SYSPLL_STABLE |
+		    SSUSB_STS1_REF_RST |
+		    SSUSB_STS1_SYS125_RST |
+		    SSUSB_STS1_XHCI_RST;
+
+	if (num_u3_port > 0)
+		check_val |= SSUSB_STS1_U3_MAC_RST;
+
+	for (i = 0; i < 10; i++) {
+		msleep(50);
+		reg_val = sysRegRead(REG_SSUSB_IP_PW_STS1);
+
+		if ((reg_val & check_val) == check_val)
+		{
+			return 0;
+		}
+	}
+
+	printk(KERN_ERR "xhci clocks are not stable (IP_PW_STS1: 0x%x)\n", reg_val);
+
+	return -ENODEV;
 }
 
-void
+int
 uphy_init(void)
 {
-	if (atomic_inc_return(&uphy_init_instance) != 1)
-		return;
+	int ret;
 
-	u3_phy_init();
+	if (atomic_inc_return(&uphy_init_instance) != 1)
+		return 0;
+
+	ret = u3_phy_init();
+	if (ret)
+		return ret;
+
 	u2_slew_rate_calibration(0, ADDR_U2_PHY_P0_BASE);
 	u2_slew_rate_calibration(1, ADDR_U2_PHY_P1_BASE);
+
+	return 0;
 }
 
 #elif defined (CONFIG_RALINK_MT7628)
