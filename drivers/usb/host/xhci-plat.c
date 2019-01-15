@@ -106,8 +106,11 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (!res)
 		return -ENODEV;
 
-	if (pdata && pdata->uphy_init)
-		pdata->uphy_init(pdev);
+	if (pdata && pdata->uphy_init) {
+		ret = pdata->uphy_init(pdev);
+		if (ret)
+			return ret;
+	}
 
 	hcd = usb_create_hcd(driver, &pdev->dev, dev_name(&pdev->dev));
 	if (!hcd)

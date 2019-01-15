@@ -73,6 +73,14 @@
 #define REG_SSUSB_IP_PW_CTRL1		(ADDR_SIFSLV_IPPC_BASE + 0x4)
 #define SSUSB_IP_PDN			(1 << 0)
 
+/* SSUSB_IP_PW_STS1 */
+#define REG_SSUSB_IP_PW_STS1		(ADDR_SIFSLV_IPPC_BASE + 0x10)
+#define SSUSB_STS1_SYSPLL_STABLE	(1 << 0)
+#define SSUSB_STS1_REF_RST		(1 << 8)
+#define SSUSB_STS1_SYS125_RST		(1 << 10)
+#define SSUSB_STS1_XHCI_RST		(1 << 11)
+#define SSUSB_STS1_U3_MAC_RST		(1 << 16)
+
 /* SSUSB_U3_CTRL */
 #define REG_SSUSB_U3_CTRL(p)		(ADDR_SIFSLV_IPPC_BASE + 0x30 + (p * 0x08))
 #define SSUSB_U3_PORT_DIS		(1 << 0)
@@ -201,13 +209,13 @@ u2_slew_rate_calibration(int port_id, u32 u2_phy_reg_base)
 	uphy_write32(u2_phy_reg_base + OFS_U2_PHY_ACR0, reg_val);
 }
 
-void
+int
 uphy_init(void)
 {
-	u32 i, reg_val, num_port_u2, num_port_u3;
+	u32 i, reg_val, check_val, num_port_u2, num_port_u3;
 
 	if (atomic_inc_return(&uphy_init_instance) != 1)
-		return;
+		return 0;
 
 	/* patch TxDetRx Timing for E1, from DR 20160421, Biker_20160516 */
 	reg_val = uphy_read32(ADDR_SIFSLV_PHYD_B2_BASE + 0x28);
@@ -294,7 +302,26 @@ uphy_init(void)
 		uphy_write32(REG_SSUSB_U2_CTRL(i), reg_val);
 	}
 
-	msleep(100);
+	/* wait for clocks to be stable */
+	check_val = SSUSB_STS1_SYSPLL_STABLE |
+		    SSUSB_STS1_REF_RST |
+		    SSUSB_STS1_SYS125_RST |
+		    SSUSB_STS1_XHCI_RST;
+
+	if (num_port_u3 > 0)
+		check_val |= SSUSB_STS1_U3_MAC_RST;
+
+	for (i = 0; i < 10; i++) {
+		msleep(50);
+		reg_val = uphy_read32(REG_SSUSB_IP_PW_STS1);
+
+		if ((reg_val & check_val) == check_val)
+			return 0;
+	}
+
+	printk(KERN_ERR "xhci clocks are not stable (IP_PW_STS1: 0x%x)\n", reg_val);
+
+	return -ENODEV;
 }
 #endif
 
