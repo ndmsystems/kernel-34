@@ -769,6 +769,11 @@ static int usb_uevent(struct device *dev, struct kobj_uevent_env *env)
 			   usb_dev->descriptor.bDeviceProtocol))
 		return -ENOMEM;
 
+	if (usb_dev->config &&
+		add_uevent_var(env, "NUMIFACES=%d",
+			   usb_dev->config->desc.bNumInterfaces))
+		return -ENOMEM;
+
 	return 0;
 }
 
