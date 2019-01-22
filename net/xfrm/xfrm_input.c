@@ -198,7 +198,12 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
 		skb_dst_force(skb);
 
 #if IS_ENABLED(CONFIG_RALINK_HWCRYPTO)
-		if (family == AF_INET && atomic_read(&esp_mtk_hardware)) {
+		if (atomic_read(&esp_mtk_hardware) &&
+		    x->type->proto == IPPROTO_ESP
+#ifndef CONFIG_RALINK_HWCRYPTO_ESP6
+		 && family == AF_INET
+#endif
+		   ) {
 			err = x->type->input(x, skb);
 
 			/* check skb in progress */

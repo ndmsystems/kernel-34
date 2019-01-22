@@ -543,7 +543,6 @@ EXPORT_SYMBOL(__xfrm_state_destroy);
 
 int __xfrm_state_delete(struct xfrm_state *x)
 {
-	void (*ipsec_do_free)(unsigned int spi);
 	struct net *net = xs_net(x);
 	int err = -ESRCH;
 
@@ -566,17 +565,25 @@ int __xfrm_state_delete(struct xfrm_state *x)
 		err = 0;
 
 #if IS_ENABLED(CONFIG_RALINK_HWCRYPTO)
-		rcu_read_lock();
-		if ((x->type != NULL) &&
-			atomic_read(&esp_mtk_hardware) &&
-			(NULL != (ipsec_do_free = rcu_dereference(eip93Adapter_free))) &&
-			(x->type->description) &&
-			(x->type->description[0] == 'E') &&
-			(x->type->description[3] == '4')) { // 'ESP4'
+		if (atomic_read(&esp_mtk_hardware) &&
+		    x->type != NULL) {
+			/* test ESP4 or ESP6 module */
+			if (x->type->description[0] == 'E' &&
+#ifdef CONFIG_RALINK_HWCRYPTO_ESP6
+			    x->type->description[1] == 'S'
+#else
+			    x->type->description[3] == '4'
+#endif
+			    ) {
+				typeof(eip93Adapter_free) ipsec_spi_free;
 
-			ipsec_do_free(x->id.spi);
+				rcu_read_lock();
+				ipsec_spi_free = rcu_dereference(eip93Adapter_free);
+				if (ipsec_spi_free)
+					ipsec_spi_free(x->id.spi);
+				rcu_read_unlock();
+			}
 		}
-		rcu_read_unlock();
 #endif
 	}
 
