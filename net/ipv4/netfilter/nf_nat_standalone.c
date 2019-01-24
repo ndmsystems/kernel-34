@@ -207,7 +207,7 @@ nf_nat_out(unsigned int hooknum,
 
 	if (ret != NF_DROP &&
 		ret != NF_STOLEN &&
-		((skb->ndm_mark & XT_NDMMARK_DNAT_MASK) == XT_NDMMARK_DNAT_MARK)) {
+		((skb->ndm_mark & XT_NDMMARK_DNAT) == XT_NDMMARK_DNAT)) {
 		iph = ip_hdr(skb);
 
 		if (iph->saddr != saddr ||

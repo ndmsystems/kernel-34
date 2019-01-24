@@ -6,15 +6,17 @@
 /* Must be in-sync with ndm/Netfilter/Typedefs.h */
 
 enum xt_ndmmark_list {
-	XT_NDMMARK_EMPTY            = 0x0,
-	XT_NDMMARK_IPSEC_INPUT      = 0x1,
-	XT_NDMMARK_IPSEC_OUTPUT     = 0x2,
-	XT_NDMMARK_DISCOVERY_DROP   = 0x3
-};
-
-enum xt_ndmmark_bits {
-	XT_NDMMARK_DNAT_MARK        = (1ULL << 6),
-	XT_NDMMARK_DNAT_MASK        = (1ULL << 6)
+	XT_NDMMARK_EMPTY            = 0x00,
+	XT_NDMMARK_IPSEC_INPUT      = 0x01,
+	XT_NDMMARK_IPSEC_OUTPUT     = 0x02,
+	XT_NDMMARK_IPSEC_MASK       = 0x03,
+	XT_NDMMARK_DISCOVERY_DROP   = 0x03,
+	XT_NDMMARK_DNAT             = 0x80, // with mask
+	XT_NDMMARK_PPTP_VPN         = 0x40, // with mask
+	XT_NDMMARK_SSTP_VPN         = 0x20, // with mask
+	XT_NDMMARK_L2TP_IPSEC_VPN   = 0x10, // with mask
+	XT_NDMMARK_CHILLI           = 0x08, // with mask
+	XT_NDMMARK_ALL              = 0xff  // all-wide mask
 };
 
 struct xt_ndmmark_tginfo {
