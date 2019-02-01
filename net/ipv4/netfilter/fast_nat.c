@@ -132,8 +132,7 @@ static int fast_nat_bind_hook_egress(struct sk_buff * skb)
 	if (iph->ttl <= 1) {
 		icmp_send(skb, ICMP_TIME_EXCEEDED, ICMP_EXC_TTL, 0);
 		kfree_skb(skb);
-
-		return 0;
+		return -EPERM;
 	}
 
 	ip_decrease_ttl(iph);
