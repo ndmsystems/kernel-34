@@ -1956,8 +1956,8 @@ EXPORT_SYMBOL(usb_get_os_str_desc_hook);
  */
 static int usb_enumerate_device(struct usb_device *udev)
 {
-	int (*usb_get_os_str_descriptor)(struct usb_device *udev);
 	int err;
+	typeof(usb_get_os_str_desc_hook) usb_get_os_str_desc;
 
 	if (udev->config == NULL) {
 		err = usb_get_configuration(udev);
@@ -1975,15 +1975,19 @@ static int usb_enumerate_device(struct usb_device *udev)
 	udev->serial = usb_cache_string(udev, udev->descriptor.iSerialNumber);
 
 	/* Get Microsoft Compatible ID Feature Descriptors, McMCC, 19112013 */
-	if ((usb_get_os_str_descriptor = rcu_dereference(usb_get_os_str_desc_hook))) {
-		err = usb_get_os_str_descriptor(udev);
-		if (err < 0)
-			return err;
+	err = 0;
+	rcu_read_lock();
+	usb_get_os_str_desc = rcu_dereference(usb_get_os_str_desc_hook);
+	if (usb_get_os_str_desc)
+		err = usb_get_os_str_desc(udev);
+	rcu_read_unlock();
 
-		if (err == 1) {
-			usb_set_device_state(udev, USB_STATE_RECONNECTING);
-			return -ENODEV;
-		}
+	if (err < 0)
+		return err;
+
+	if (err == 1) {
+		usb_set_device_state(udev, USB_STATE_RECONNECTING);
+		return -ENODEV;
 	}
 
 	err = usb_enumerate_device_otg(udev);
@@ -4044,40 +4048,7 @@ static struct usb_driver hub_driver = {
 	.supports_autosuspend =	1,
 };
 
-int enable_hub_control = 0;
-EXPORT_SYMBOL(enable_hub_control);
-
-int khubd_start(void)
-{
-	if (!enable_hub_control)
-		return 0;
-
-	khubd_task = kthread_run(hub_thread, NULL, "khubd");
-	if (!IS_ERR(khubd_task))
-		return 0;
-
-	/* Fall through if kernel_thread failed */
-	enable_hub_control = 0;
-	usb_deregister(&hub_driver);
-	printk(KERN_ERR "%s: can't start khubd\n", usbcore_name);
-
-	return -1;
-}
-EXPORT_SYMBOL(khubd_start);
-
-void khubd_stop(void)
-{
-	if (!enable_hub_control)
-		return;
-
-	kthread_stop(khubd_task);
-
-	usb_deregister(&hub_driver);
-	enable_hub_control = 0;
-}
-EXPORT_SYMBOL(khubd_stop);
-
-int khubd_init(void)
+int usb_hub_init(void)
 {
 	if (usb_register(&hub_driver) < 0) {
 		printk(KERN_ERR "%s: can't register hub driver\n",
@@ -4085,20 +4056,24 @@ int khubd_init(void)
 		return -1;
 	}
 
-	return 0;
-}
-EXPORT_SYMBOL(khubd_init);
+	khubd_task = kthread_run(hub_thread, NULL, "khubd");
+	if (!IS_ERR(khubd_task))
+		return 0;
 
-int usb_hub_init(void)
-{
-	if(khubd_init())
-		return -1;
-	return khubd_start();
+	/* Fall through if kernel_thread failed */
+	usb_deregister(&hub_driver);
+	printk(KERN_ERR "%s: can't start khubd\n", usbcore_name);
+
+	return -1;
 }
 
 void usb_hub_cleanup(void)
 {
-	khubd_stop();
+	if (IS_ERR_OR_NULL(khubd_task))
+		return;
+
+	kthread_stop(khubd_task);
+	khubd_task = NULL;
 
 	/*
 	 * Hub resources are freed for us by usb_deregister. It calls
@@ -4107,7 +4082,18 @@ void usb_hub_cleanup(void)
 	 * The hub_disconnect function takes care of releasing the
 	 * individual hub resources. -greg
 	 */
+	usb_deregister(&hub_driver);
 } /* usb_hub_cleanup() */
+
+#if IS_ENABLED(CONFIG_USB_XHCI_HCD) && !defined(CONFIG_USB_XHCI_NO_USB3)
+int usb_hub_restart(void)
+{
+	usb_hub_cleanup();
+
+	return usb_hub_init();
+}
+EXPORT_SYMBOL(usb_hub_restart);
+#endif
 
 static int descriptors_changed(struct usb_device *udev,
 		struct usb_device_descriptor *old_device_descriptor)

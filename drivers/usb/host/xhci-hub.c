@@ -21,12 +21,9 @@
  */
 
 #include <linux/gfp.h>
-#include <linux/module.h>
 #include <asm/unaligned.h>
 
 #include "xhci.h"
-
-extern int usb3_disable;
 
 #define	PORT_WAKE_BITS	(PORT_WKOC_E | PORT_WKDISC_E | PORT_WKCONN_E)
 #define	PORT_RWC_BITS	(PORT_CSC | PORT_PEC | PORT_WRC | PORT_OCC | \
@@ -548,13 +545,29 @@ void xhci_del_comp_mod_timer(struct xhci_hcd *xhci, u32 status, u16 wIndex)
 	}
 }
 
-/* Implementation USB3-to-USB2 switch, McMCC, 13102014 */
-void (*usb3_to_usb2_set_hook)(struct xhci_hcd *xhci, unsigned short port) = NULL;
-EXPORT_SYMBOL(usb3_to_usb2_set_hook);
+#ifdef CONFIG_USB_XHCI_NO_USB3
+static int xhci_usb2_mode = 1;
+#else
+#include <linux/module.h>
+#include <linux/atomic.h>
 
-int (*force_usb2_hook)(void) = NULL;
-EXPORT_SYMBOL(force_usb2_hook);
-/* End */
+static int xhci_usb2_mode;
+extern int usb_hub_restart(void);
+
+int xhci_hub_restart(int usb2_mode)
+{
+	const int xhci_usb2_mode_new = usb2_mode ? 1 : 0;
+
+	if (xhci_usb2_mode == xhci_usb2_mode_new)
+		return 0;
+
+	xhci_usb2_mode = xhci_usb2_mode_new;
+	wmb();
+
+	return usb_hub_restart();
+}
+EXPORT_SYMBOL(xhci_hub_restart);
+#endif
 
 int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 		u16 wIndex, char *buf, u16 wLength)
@@ -569,7 +582,6 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 	struct xhci_bus_state *bus_state;
 	u16 link_state = 0;
 	u16 wake_mask = 0;
-	int (*force_usb2)(void);
 
 	max_ports = xhci_get_ports(hcd, &port_array);
 	bus_state = &xhci->bus_state[hcd_index(hcd)];
@@ -846,10 +858,7 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 			 * the roothub is registered.
 			 */
 
-			if ((force_usb2 = rcu_dereference(force_usb2_hook)))
-				usb3_disable = force_usb2();
-
-			if (usb3_disable && hcd->speed == HCD_USB3)
+			if (xhci_usb2_mode && hcd->speed >= HCD_USB3)
 				xhci_writel(xhci, temp & ~PORT_POWER, port_array[wIndex]);
 			else
 				xhci_writel(xhci, temp | PORT_POWER, port_array[wIndex]);

@@ -41,6 +41,10 @@ config USB_XHCI_HCD_DEBUGGING
 
 	  If unsure, say N.
 
+config USB_XHCI_NO_USB3
+	bool "Disable power from N/C USB3 ports"
+	default n
+
 config USB_EHCI_HCD
 	tristate "EHCI HCD (USB 2.0) support"
 	depends on USB && USB_ARCH_HAS_EHCI
