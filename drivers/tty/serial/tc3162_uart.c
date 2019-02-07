@@ -513,7 +513,7 @@ static int __init tc3162_uart_init(void)
 
 	if (ret) {
 		pr_err("unable to register a console port\n");
-		uart_register_driver(&tc3162_uart_driver);
+		uart_unregister_driver(&tc3162_uart_driver);
 		goto stop_thread;
 	}
 
@@ -524,7 +524,7 @@ stop_thread:
 	tc3162_uart_tx_thread = NULL;
 	spin_unlock_irqrestore(&tc3162_uart_tx_lock, flags);
 
-	kthread_stop(tc3162_uart_tx_thread);
+	kthread_stop(tx_thread);
 
 	return ret;
 }
