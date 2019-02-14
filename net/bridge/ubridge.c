@@ -225,6 +225,38 @@ int ubr_update_stats(struct net_device *dev, unsigned long rxbytes,
 }
 EXPORT_SYMBOL(ubr_update_stats);
 
+void ubr_reset_stats(struct net_device *dev)
+{
+	int cpu;
+	struct ubr_private *ubr = netdev_priv(dev);
+
+	if (!is_ubridge(dev) || ubr == NULL)
+		return;
+
+	local_bh_disable();
+
+	for_each_possible_cpu(cpu) {
+		struct br_cpu_netstats *ustats;
+
+		ustats = per_cpu_ptr(ubr->stats, cpu);
+
+		u64_stats_update_begin(&ustats->syncp);
+		ustats->rx_bytes = 0;
+		ustats->rx_packets = 0;
+		ustats->tx_bytes = 0;
+		ustats->tx_packets = 0;
+		u64_stats_update_end(&ustats->syncp);
+	}
+
+	dev->stats.tx_errors = 0;
+	dev->stats.tx_dropped = 0;
+	dev->stats.rx_errors = 0;
+	dev->stats.rx_dropped = 0;
+
+	local_bh_enable();
+}
+EXPORT_SYMBOL(ubr_reset_stats);
+
 static int ubr_init(struct net_device *dev)
 {
 	struct ubr_private *ubr = netdev_priv(dev);
