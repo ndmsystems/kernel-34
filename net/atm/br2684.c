@@ -224,7 +224,7 @@ static int br2684_xmit_vcc(struct sk_buff *skb, struct net_device *dev,
 
 	eth = (struct ethhdr *)skb->data;
 
-	if (vlan_tx_tag_present(skb) || eth->h_proto == htons(ETH_P_8021Q))
+	if (eth->h_proto == htons(ETH_P_8021Q))
 		min_len = ETH_ZLEN + VLAN_HLEN;
 	else
 		min_len = ETH_ZLEN;
