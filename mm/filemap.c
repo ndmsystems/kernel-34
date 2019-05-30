@@ -45,69 +45,79 @@
 #include <asm/mman.h>
 
 #if defined(CONFIG_PAGECACHE_RECLAIM)
-/*
- * Start release pagecache (via kswapd) at the percentage.
- */
-int pagecache_ratio __read_mostly = 100;
-static unsigned long pagecache_limit = 0;
+int pagecache_ratio __read_mostly;
+static DEFINE_PER_CPU(struct delayed_work, pagecache_reclaim_dw);
 
-/* Call reclaim after exceeding the limit by this threshold */
-#define PAGECACHE_RECLAIM_THRESHOLD 1024 /* 4MB */
+unsigned long shrink_all_pagecache_memory(unsigned long nr_pages);
 
-static void setup_pagecache_limit(void)
-{
-	if (pagecache_ratio > 100)
-		pagecache_ratio = 100;
-	else
-	if (pagecache_ratio < 5)
-		pagecache_ratio = 5;
-
-	if (pagecache_ratio == 100)
-		pagecache_limit = 0;
-	else
-		pagecache_limit = (unsigned long)pagecache_ratio * nr_free_pagecache_pages() / 100;
-}
-
-int pagecache_ratio_sysctl_handler(ctl_table *table, int write,
-	void __user *buffer, size_t *length, loff_t *ppos)
-{
-	proc_dointvec_minmax(table, write, buffer, length, ppos);
-	setup_pagecache_limit();
-	return 0;
-}
-
-extern unsigned long shrink_all_pagecache_memory(unsigned long nr_pages);
+#define PAGECACHE_RECLAIM_DELAY		(HZ / 2)
+#define PAGECACHE_RECLAIM_THRESHOLD	(2 * 1024 * 1024 / PAGE_SIZE)	/* 2MB */
+#define PAGECACHE_LIMIT_MIN		(1 * 1024 * 1024 / PAGE_SIZE)	/* 1MB */
 
 unsigned long check_pagecache_overlimit(void)
 {
-	unsigned long current_pagecache, current_pagecache_limit;
+	long current_pagecache, current_pagecache_limit;
+	long file_pcache_pages, file_mapped_pages, free_pages;
 
-	current_pagecache_limit = pagecache_limit;
-
-	if (!current_pagecache_limit)
+	if (pagecache_ratio == 0)
 		return 0;
 
-	current_pagecache = global_page_state(NR_FILE_PAGES) -
-		global_page_state(NR_FILE_MAPPED);
-	/* NR_FILE_PAGES includes shared memory, swap cache and
-	 * buffers.  Hence exclude NR_FILE_MAPPED, since we would
-	 * not reclaim mapped pages.  Unmapped pagecache pages
-	 * is what we really want to target */
+	file_pcache_pages = global_page_state(NR_FILE_PAGES) -
+			    global_page_state(NR_SHMEM) -
+			    total_swapcache_pages;
+	file_mapped_pages = global_page_state(NR_FILE_MAPPED);
 
-	if (unlikely(current_pagecache > current_pagecache_limit))
-		return (current_pagecache - current_pagecache_limit);
+	/* Reclaim unmapped pages only */
+	current_pagecache = file_pcache_pages - file_mapped_pages;
+
+	free_pages = global_page_state(NR_FREE_PAGES) + file_pcache_pages -
+		     totalreserve_pages;
+
+	/* Calculate limit from ratio */
+	current_pagecache_limit = free_pages * (100 - pagecache_ratio) / 100;
+	if (current_pagecache_limit < PAGECACHE_LIMIT_MIN)
+		current_pagecache_limit = PAGECACHE_LIMIT_MIN;
+
+	/* Calculate overlimit */
+	if (current_pagecache > current_pagecache_limit)
+		return current_pagecache - current_pagecache_limit;
 
 	return 0;
 }
 
-static inline void balance_pagecache(void)
+static inline void pagecache_reclaim_async(void)
+{
+	if (pagecache_ratio) {
+		int cpu = raw_smp_processor_id();
+
+		schedule_delayed_work_on(cpu,
+			&per_cpu(pagecache_reclaim_dw, cpu),
+			__round_jiffies_relative(PAGECACHE_RECLAIM_DELAY, cpu));
+	}
+}
+
+static void pagecache_reclaim_work(struct work_struct *w)
 {
 	unsigned long nr_pages = check_pagecache_overlimit();
 
 	/* Don't call reclaim for each page */
-	if (unlikely(nr_pages > PAGECACHE_RECLAIM_THRESHOLD))
+	if (nr_pages > PAGECACHE_RECLAIM_THRESHOLD)
 		shrink_all_pagecache_memory(nr_pages);
 }
+
+static int __init pagecache_reclaim_init(void)
+{
+	int cpu;
+
+	for_each_possible_cpu(cpu) {
+		struct delayed_work *dw = &per_cpu(pagecache_reclaim_dw, cpu);
+
+		INIT_DELAYED_WORK(dw, pagecache_reclaim_work);
+	}
+
+	return 0;
+}
+fs_initcall(pagecache_reclaim_init);
 #endif
 
 /*
@@ -1363,7 +1373,7 @@ out:
 	file_accessed(filp);
 
 #if defined(CONFIG_PAGECACHE_RECLAIM)
-	balance_pagecache();
+	pagecache_reclaim_async();
 #endif
 }
 
@@ -2541,9 +2551,9 @@ generic_file_buffered_write(struct kiocb *iocb, const struct iovec *iov,
 	}
 
 #if defined(CONFIG_PAGECACHE_RECLAIM)
-	balance_pagecache();
+	if (written)
+		pagecache_reclaim_async();
 #endif
-
 	return written ? written : status;
 }
 EXPORT_SYMBOL(generic_file_buffered_write);

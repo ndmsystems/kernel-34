@@ -17,8 +17,6 @@
 
 #if defined(CONFIG_PAGECACHE_RECLAIM)
 extern int pagecache_ratio;
-extern int pagecache_ratio_sysctl_handler(struct ctl_table *, int,
-			void __user *, size_t *, loff_t *);
 #endif
 
 /*
