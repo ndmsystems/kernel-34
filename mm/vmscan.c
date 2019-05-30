@@ -71,8 +71,9 @@ typedef unsigned __bitwise__ reclaim_mode_t;
 #define RECLAIM_MODE_LUMPYRECLAIM	((__force reclaim_mode_t)0x08u)
 #define RECLAIM_MODE_COMPACTION		((__force reclaim_mode_t)0x10u)
 
-
-extern int check_pagecache_overlimit(void);
+#if defined(CONFIG_PAGECACHE_RECLAIM)
+unsigned long check_pagecache_overlimit(void);
+#endif
 
 struct scan_control {
 	/* Incremented by the number of inactive pages that were scanned */
@@ -100,7 +101,6 @@ struct scan_control {
 	int order;
 
 #if defined(CONFIG_PAGECACHE_RECLAIM)
-	int swappiness;
 	int reclaim_pagecache_only;  /* Set when called from
 					pagecache controller */
 #endif
@@ -810,6 +810,7 @@ static unsigned long shrink_page_list(struct list_head *page_list,
 			/* Check if this is a pagecache page they are not mapped */
 			if (page_mapped(page))
 				goto keep_locked;
+
 			/* Check if pagecache limit is exceeded */
 			if (!check_pagecache_overlimit())
 				goto keep_locked;
@@ -913,7 +914,7 @@ static unsigned long shrink_page_list(struct list_head *page_list,
 
 #if defined(CONFIG_PAGECACHE_RECLAIM)
 			/* Reclaim even referenced pagecache pages if over limit */
-			if (!check_pagecache_overlimit() && references == PAGEREF_RECLAIM_CLEAN)
+			if (references == PAGEREF_RECLAIM_CLEAN && !check_pagecache_overlimit())
 #else
 			if (references == PAGEREF_RECLAIM_CLEAN)
 #endif
@@ -1917,11 +1918,7 @@ static int vmscan_swappiness(struct mem_cgroup_zone *mz,
 			     struct scan_control *sc)
 {
 	if (global_reclaim(sc))
-#if defined(CONFIG_PAGECACHE_RECLAIM)
-		return sc->swappiness;
-#else
 		return vm_swappiness;
-#endif
 	return mem_cgroup_swappiness(mz->mem_cgroup);
 }
 
@@ -1943,7 +1940,14 @@ static void get_scan_count(struct mem_cgroup_zone *mz, struct scan_control *sc,
 	u64 fraction[2], denominator;
 	enum lru_list lru;
 	int noswap = 0;
+	int swappiness;
 	bool force_scan = false;
+
+	swappiness = vmscan_swappiness(mz, sc);
+#if defined(CONFIG_PAGECACHE_RECLAIM)
+	if (sc->reclaim_pagecache_only)
+		swappiness = 0;
+#endif
 
 	/*
 	 * If the zone or memcg is small, nr[l] can be 0.  This
@@ -1990,7 +1994,7 @@ static void get_scan_count(struct mem_cgroup_zone *mz, struct scan_control *sc,
 	 * With swappiness at 100, anonymous and file have the same priority.
 	 * This scanning priority is essentially the inverse of IO cost.
 	 */
-	anon_prio = vmscan_swappiness(mz, sc);
+	anon_prio = swappiness;
 	file_prio = 200 - anon_prio;
 
 	/*
@@ -2036,7 +2040,7 @@ out:
 		unsigned long scan;
 
 		scan = zone_nr_lru_pages(mz, lru);
-		if (priority || noswap || !vmscan_swappiness(mz, sc)) {
+		if (priority || noswap || !swappiness) {
 			scan >>= priority;
 			if (!scan && force_scan)
 				scan = SWAP_CLUSTER_MAX;
@@ -2479,10 +2483,6 @@ unsigned long try_to_free_pages(struct zonelist *zonelist, int order,
 		.may_unmap = 1,
 		.may_swap = 1,
 		.order = order,
-#if defined(CONFIG_PAGECACHE_RECLAIM)
-		.swappiness = vm_swappiness,
-		.reclaim_pagecache_only = 0,
-#endif
 		.target_mem_cgroup = NULL,
 		.nodemask = nodemask,
 	};
@@ -2508,11 +2508,7 @@ unsigned long shrink_all_pagecache_memory(unsigned long nr_pages)
 	struct reclaim_state reclaim_state;
 	struct scan_control sc = {
 		.gfp_mask = GFP_KERNEL,
-		.may_swap = 0,
-		.may_writepage = 1,
 		.nr_to_reclaim = nr_pages,
-		.order = 0,
-		.swappiness = 0, /* Do not swap, only pagecache reclaim */
 		.reclaim_pagecache_only = 1, /* Flag it */
 	};
 	struct shrink_control shrink = {
@@ -2550,10 +2546,6 @@ unsigned long mem_cgroup_shrink_node_zone(struct mem_cgroup *memcg,
 		.may_unmap = 1,
 		.may_swap = !noswap,
 		.order = 0,
-#if defined(CONFIG_PAGECACHE_RECLAIM)
-		.swappiness = vm_swappiness,
-		.reclaim_pagecache_only = 0,
-#endif
 		.target_mem_cgroup = memcg,
 	};
 	struct mem_cgroup_zone mz = {
@@ -2596,10 +2588,6 @@ unsigned long try_to_free_mem_cgroup_pages(struct mem_cgroup *memcg,
 		.may_swap = !noswap,
 		.nr_to_reclaim = SWAP_CLUSTER_MAX,
 		.order = 0,
-#if defined(CONFIG_PAGECACHE_RECLAIM)
-		.swappiness = vm_swappiness,
-		.reclaim_pagecache_only = 0,
-#endif
 		.target_mem_cgroup = memcg,
 		.nodemask = NULL, /* we don't care the placement */
 		.gfp_mask = (gfp_mask & GFP_RECLAIM_MASK) |
@@ -2785,10 +2773,6 @@ static unsigned long balance_pgdat(pg_data_t *pgdat, int order,
 		 */
 		.nr_to_reclaim = ULONG_MAX,
 		.order = order,
-#if defined(CONFIG_PAGECACHE_RECLAIM)
-		.swappiness = vm_swappiness,
-		.reclaim_pagecache_only = 0,
-#endif
 		.target_mem_cgroup = NULL,
 	};
 	struct shrink_control shrink = {
@@ -3314,10 +3298,6 @@ unsigned long shrink_all_memory(unsigned long nr_to_reclaim)
 		.nr_to_reclaim = nr_to_reclaim,
 		.hibernation_mode = 1,
 		.order = 0,
-#if defined(CONFIG_PAGECACHE_RECLAIM)
-		.swappiness = vm_swappiness,
-		.reclaim_pagecache_only = 0,
-#endif
 	};
 	struct shrink_control shrink = {
 		.gfp_mask = sc.gfp_mask,
@@ -3507,10 +3487,6 @@ static int __zone_reclaim(struct zone *zone, gfp_t gfp_mask, unsigned int order)
 				       SWAP_CLUSTER_MAX),
 		.gfp_mask = gfp_mask,
 		.order = order,
-#if defined(CONFIG_PAGECACHE_RECLAIM)
-		.swappiness = vm_swappiness,
-		.reclaim_pagecache_only = 0,
-#endif
 	};
 	struct shrink_control shrink = {
 		.gfp_mask = sc.gfp_mask,
