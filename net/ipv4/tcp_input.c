@@ -1402,13 +1402,13 @@ static u8 tcp_sacktag_one(struct sock *sk,
 /* Shift newly-SACKed bytes from this skb to the immediately previous
  * already-SACKed sk_buff. Mark the newly-SACKed bytes as such.
  */
-static int tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
+static int tcp_shifted_skb(struct sock *sk, struct sk_buff *prev,
+			   struct sk_buff *skb,
 			   struct tcp_sacktag_state *state,
 			   unsigned int pcount, int shifted, int mss,
 			   int dup_sack)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
-	struct sk_buff *prev = tcp_write_queue_prev(sk, skb);
 	u32 start_seq = TCP_SKB_CB(skb)->seq;	/* start of newly-SACKed */
 	u32 end_seq = start_seq + shifted;	/* end of newly-SACKed */
 
@@ -1430,7 +1430,7 @@ static int tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
 	TCP_SKB_CB(skb)->seq += shifted;
 
 	skb_shinfo(prev)->gso_segs += pcount;
-	WARN_ON_ONCE(skb_shinfo(skb)->gso_segs < pcount);
+	WARN_ON_ONCE(tcp_skb_pcount(skb) < pcount);
 	skb_shinfo(skb)->gso_segs -= pcount;
 
 	/* When we're adding to gso_segs == 1, gso_size will be zero,
@@ -1522,7 +1522,6 @@ static struct sk_buff *tcp_shift_skb_data(struct sock *sk, struct sk_buff *skb,
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct sk_buff *prev;
 	int mss;
-	int next_pcount;
 	int pcount = 0;
 	int len;
 	int in_sack;
@@ -1619,7 +1618,7 @@ static struct sk_buff *tcp_shift_skb_data(struct sock *sk, struct sk_buff *skb,
 
 	if (!tcp_skb_shift(prev, skb, pcount, len))
 		goto fallback;
-	if (!tcp_shifted_skb(sk, skb, state, pcount, len, mss, dup_sack))
+	if (!tcp_shifted_skb(sk, prev, skb, state, pcount, len, mss, dup_sack))
 		goto out;
 
 	/* Hole filled allows collapsing with the next as well, this is very
@@ -1636,10 +1635,10 @@ static struct sk_buff *tcp_shift_skb_data(struct sock *sk, struct sk_buff *skb,
 		goto out;
 
 	len = skb->len;
-	next_pcount = tcp_skb_pcount(skb);
-	if (tcp_skb_shift(prev, skb, next_pcount, len)) {
-		pcount += next_pcount;
-		tcp_shifted_skb(sk, skb, state, next_pcount, len, mss, 0);
+	if (tcp_skb_shift(prev, skb, tcp_skb_pcount(skb), len)) {
+		pcount += tcp_skb_pcount(skb);
+		tcp_shifted_skb(sk, prev, skb, state, tcp_skb_pcount(skb),
+				len, mss, 0);
 	}
 out:
 	state->fack_count += pcount;
