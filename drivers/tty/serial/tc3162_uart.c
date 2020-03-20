@@ -15,9 +15,9 @@
 #include <linux/rcupdate.h>
 #include <asm/tc3162/tc3162.h>
 
-#ifdef CONFIG_RALINK_RT6855A
+#ifdef CONFIG_RALINK_RT6855A || CONFIG_RALINK_RT63365
 
-// RT6856
+// RT6856 / RT63368
 
 #define TC3162_NR_PORTS				1
 #define TC3162_UART_SIZE			0x30
