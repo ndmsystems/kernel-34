@@ -599,6 +599,10 @@ errout:
 	return err;
 }
 
+const struct nla_policy rtm_ipv4_dump_policy[RTA_MAX + 1] = {
+	[RTA_TABLE]		= { .type = NLA_U32 },
+};
+
 static int inet_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
 {
 	struct net *net = sock_net(skb->sk);
@@ -607,11 +611,31 @@ static int inet_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
 	struct fib_table *tb;
 	struct hlist_node *node;
 	struct hlist_head *head;
-	int dumped = 0;
+	int dumped = 0, err, remaining;
+	struct nlattr *attr;
+	struct rtmsg *rtm;
+	u32 tb_id = 0;
 
-	if (nlmsg_len(cb->nlh) >= sizeof(struct rtmsg) &&
-	    ((struct rtmsg *) nlmsg_data(cb->nlh))->rtm_flags & RTM_F_CLONED)
-		return ip_rt_dump(skb, cb);
+	if (nlmsg_len(cb->nlh) >= sizeof(struct rtmsg)) {
+		rtm = nlmsg_data(cb->nlh);
+
+		if (rtm->rtm_flags & RTM_F_CLONED)
+			return ip_rt_dump(skb, cb);
+
+		err = nlmsg_validate(cb->nlh, sizeof(*rtm),
+			RTA_MAX, rtm_ipv4_dump_policy);
+
+		if (err >= 0) {
+			nlmsg_for_each_attr(attr, cb->nlh,
+					sizeof(struct rtmsg), remaining) {
+				switch (nla_type(attr)) {
+				case RTA_TABLE:
+					tb_id = nla_get_u32(attr);
+					break;
+				}
+			}
+		}
+	}
 
 	s_h = cb->args[0];
 	s_e = cb->args[1];
@@ -625,9 +649,11 @@ static int inet_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
 			if (dumped)
 				memset(&cb->args[2], 0, sizeof(cb->args) -
 						 2 * sizeof(cb->args[0]));
-			if (fib_table_dump(tb, skb, cb) < 0)
-				goto out;
-			dumped = 1;
+			if (likely(tb_id == 0 || (tb_id != 0 && tb_id == tb->tb_id))) {
+				if (fib_table_dump(tb, skb, cb) < 0)
+					goto out;
+				dumped = 1;
+			}
 next:
 			e++;
 		}
