@@ -373,7 +373,8 @@ void usbnet_skb_return (struct usbnet *dev, struct sk_buff *skb)
 
 		rcu_read_lock();
 		if ((dev->driver_info->flags & FLAG_MULTI_PACKET) ||
-			!(dev->driver_info->flags & FLAG_ETHER) ||
+			(dev->driver_info->flags & FLAG_POINTTOPOINT) ||
+			(dev->driver_info->flags & FLAG_NOARP) ||
 			(NULL == (swnat_hook = rcu_dereference(go_swnat))) ||
 			!swnat_hook(skb, SWNAT_ORIGIN_USB_MAC)) {
 			rcu_read_unlock();
@@ -1354,7 +1355,8 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
 #endif
 		rcu_read_lock();
 		if (!(info->flags & FLAG_MULTI_PACKET) &&
-			 (info->flags & FLAG_ETHER) &&
+			!(info->flags & FLAG_POINTTOPOINT) &&
+			!(info->flags & FLAG_NOARP) &&
 			 (SWNAT_PPP_CHECK_MARK(skb) || SWNAT_FNAT_CHECK_MARK(skb)) &&
 			 (NULL != (swnat_prebind_hook =
 					rcu_dereference(prebind_from_usb_mac)))) {
