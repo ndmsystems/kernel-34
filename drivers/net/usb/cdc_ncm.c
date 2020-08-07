@@ -1197,7 +1197,7 @@ cdc_ncm_fill_tx_frame(struct usbnet *dev, struct sk_buff *skb, __le32 sign)
 	if (!skb_out) {
 		if (ctx->tx_low_mem_val == 0) {
 			ctx->tx_curr_size = ctx->tx_max;
-			skb_out = alloc_skb(ctx->tx_curr_size, GFP_ATOMIC);
+			skb_out = alloc_skb(ctx->tx_curr_size, GFP_ATOMIC | __GFP_NOWARN);
 			/* If the memory allocation fails we will wait longer
 			 * each time before attempting another full size
 			 * allocation again to not overload the system
@@ -1219,7 +1219,7 @@ cdc_ncm_fill_tx_frame(struct usbnet *dev, struct sk_buff *skb, __le32 sign)
 					(u32)USB_CDC_NCM_NTB_MIN_OUT_SIZE);
 			else
 				ctx->tx_curr_size = USB_CDC_NCM_NTB_MIN_OUT_SIZE;
-			skb_out = alloc_skb(ctx->tx_curr_size, GFP_ATOMIC);
+			skb_out = alloc_skb(ctx->tx_curr_size, GFP_ATOMIC | __GFP_NOWARN);
 
 			/* No allocation possible so we will abort */
 			if (skb_out == NULL) {
