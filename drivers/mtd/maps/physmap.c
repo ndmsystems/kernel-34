@@ -93,8 +93,7 @@ static const char *rom_probe_types[] = {
 					"qinfo_probe",
 					"map_rom",
 					NULL };
-static const char *part_probe_types[] = { "cmdlinepart", "RedBoot", "afs",
-					  NULL };
+static const char *part_probe_types[] = { "cmdlinepart", "ndmpart", NULL };
 
 static int physmap_flash_probe(struct platform_device *dev)
 {

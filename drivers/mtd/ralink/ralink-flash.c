@@ -21,7 +21,7 @@
 #include <asm/rt2880/rt_mmap.h>
 
 #include "ralink-flash.h"
-#if defined (CONFIG_MTD_NOR_RALINK)
+#if 0
 #include "ralink-flash-map.h"
 #endif
 
@@ -29,7 +29,7 @@ static DEFINE_MUTEX(ra_mutex);
 
 int ra_check_flash_type(void)
 {
-#if defined (CONFIG_MTD_NOR_RALINK)
+#if 0
 	int boot_from = BOOT_FROM_NOR;
 #elif defined (CONFIG_MTD_NAND_RALINK)
 	int boot_from = BOOT_FROM_NAND;
@@ -315,7 +315,7 @@ out:
 }
 EXPORT_SYMBOL(ra_mtd_read_nm);
 
-#if defined (CONFIG_MTD_NOR_RALINK)
+#if 0
 
 #define NUM_FLASH_BANKS		1
 static struct mtd_info *ralink_mtd[NUM_FLASH_BANKS];
