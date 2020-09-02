@@ -22,11 +22,31 @@ static int lm_match(struct device *dev, struct device_driver *drv)
 	return 1;
 }
 
+static int lm_bus_probe(struct device *dev)
+{
+	struct lm_device *lmdev = to_lm_device(dev);
+	struct lm_driver *lmdrv = to_lm_driver(dev->driver);
+
+	return lmdrv->probe(lmdev);
+}
+
+static int lm_bus_remove(struct device *dev)
+{
+	struct lm_device *lmdev = to_lm_device(dev);
+	struct lm_driver *lmdrv = to_lm_driver(dev->driver);
+
+	if (lmdrv->remove)
+		lmdrv->remove(lmdev);
+	return 0;
+}
+
 static struct bus_type lm_bustype = {
 	.name		= "logicmodule",
 	.match		= lm_match,
-//	.suspend	= lm_suspend,
-//	.resume		= lm_resume,
+	.probe		= lm_bus_probe,
+	.remove		= lm_bus_remove,
+//	.suspend	= lm_bus_suspend,
+//	.resume		= lm_bus_resume,
 };
 
 static int __init lm_init(void)
@@ -36,33 +56,9 @@ static int __init lm_init(void)
 
 postcore_initcall(lm_init);
 
-static int lm_bus_probe(struct device *dev)
-{
-	struct lm_device *lmdev = to_lm_device(dev);
-	struct lm_driver *lmdrv = to_lm_driver(dev->driver);
-
-	if(lmdrv->probe !=NULL) {
-		return lmdrv->probe(lmdev);
-	}
-	return 0;
-}
-
-static int lm_bus_remove(struct device *dev)
-{
-	struct lm_device *lmdev = to_lm_device(dev);
-	struct lm_driver *lmdrv = to_lm_driver(dev->driver);
-
-	if(lmdrv->remove != NULL) {
-	    lmdrv->remove(lmdev);
-	}
-	return 0;
-}
-
 int lm_driver_register(struct lm_driver *drv)
 {
 	drv->drv.bus = &lm_bustype;
-	drv->drv.probe = lm_bus_probe;
-	drv->drv.remove = lm_bus_remove;
 	return driver_register(&drv->drv);
 }
 
