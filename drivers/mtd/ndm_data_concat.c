@@ -74,6 +74,8 @@ static int __init init_ndm_data_concat(void)
 	struct mtd_info *data_2_mtd = NULL;
 	int err = 0;
 
+	memset(mymtd, 0, sizeof(mymtd));
+
 	pr_info("Searching for suitable data partitions...\n");
 
 	data_1_mtd = get_mtd_device_nm(MTD_PART_DATA_1);
@@ -97,9 +99,9 @@ static int __init init_ndm_data_concat(void)
 
 	register_mtd_parser(&ndm_data_parser);
 
-	/* Combine the two flash banks into a single MTD device & register it: */
+	/* Combine the two partitions into a single MTD device & register it: */
 	merged_mtd = mtd_concat_create(mymtd,
-		data_2_mtd == NULL ? 1 : 2,
+		mymtd[1] == NULL ? 1 : 2,
 		"NDM combined Data partition");
 	if (merged_mtd)
 		err = mtd_device_parse_register(
