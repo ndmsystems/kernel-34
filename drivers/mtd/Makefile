@@ -35,3 +35,5 @@ obj-y		+= chips/ lpddr/ maps/ devices/ nand/ onenand/ tests/
 obj-$(CONFIG_MTD_UBI)		+= ubi/
 
 obj-y	+= ralink/
+
+obj-m	+= ndm_data_concat.o
