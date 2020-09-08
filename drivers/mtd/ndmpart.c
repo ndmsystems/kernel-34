@@ -81,6 +81,7 @@ enum part {
 	PART_CONFIG_1,
 	PART_STORAGE,		/* optional */
 	PART_DUMP,		/* optional */
+	PART_DATA_1,
 	/* Image 2 */
 	PART_U_STATE,
 	PART_U_CONFIG_RES,
@@ -89,6 +90,7 @@ enum part {
 	PART_ROOTFS_2,		/* optional */
 	PART_FIRMWARE_2,	/* optional */
 	PART_CONFIG_2,		/* optional */
+	PART_DATA_2,
 	/* Pseudo */
 	PART_FULL,
 	PART_MAX
@@ -160,6 +162,10 @@ static struct part_dsc parts[PART_MAX] = {
 		name: "Dump",
 		skip: true
 	},
+	[PART_DATA_1] = {
+		name: "Data_1",
+		skip: true
+	},
 	/* Image 2 */
 	[PART_U_STATE] = {
 		name: "U-State",
@@ -189,6 +195,10 @@ static struct part_dsc parts[PART_MAX] = {
 	},
 	[PART_CONFIG_2] = {
 		name: "Config_2",
+		skip: true
+	},
+	[PART_DATA_2] = {
+		name: "Data_2",
 		skip: true
 	},
 	/* Pseudo */
@@ -671,6 +681,8 @@ static int create_mtd_partitions(struct mtd_info *m,
 		parts[PART_DUMP].size = CONFIG_MTD_NDM_DUMP_SIZE;
 	}
 
+	parts[PART_DATA_1].offset = 0;
+
 	/* Calculate & fill unknown fields */
 	if (use_dump && !use_storage) {
 		parts[PART_CONFIG_1].offset = parts[PART_DUMP].offset -
@@ -685,6 +697,10 @@ static int create_mtd_partitions(struct mtd_info *m,
 					     parts[PART_STORAGE].size;
 		parts[PART_CONFIG_1].offset = parts[PART_STORAGE].offset -
 					      parts[PART_CONFIG_1].size;
+		parts[PART_DATA_1].offset = parts[PART_DUMP].offset +
+					      parts[PART_DUMP].size;
+		parts[PART_DATA_1].size = flash_size_lim - parts[PART_DATA_1].offset;
+		parts[PART_DATA_1].skip = false;
 	} else {
 		parts[PART_CONFIG_1].offset = flash_size_lim -
 					      parts[PART_CONFIG_1].size;
@@ -748,6 +764,14 @@ static int create_mtd_partitions(struct mtd_info *m,
 		parts[PART_CONFIG_2].skip = false;
 		parts[PART_CONFIG_2].offset = off_si + parts[PART_CONFIG_1].offset;
 		parts[PART_CONFIG_2].size = parts[PART_CONFIG_1].size;
+
+		if (parts[PART_DATA_1].offset != 0) {
+			parts[PART_DATA_1].size = off_si - parts[PART_DATA_1].offset;
+			parts[PART_DATA_2].offset =
+				parts[PART_CONFIG_2].offset + parts[PART_CONFIG_2].size;
+			parts[PART_DATA_2].size = flash_size - parts[PART_DATA_2].offset;
+			parts[PART_DATA_2].skip = false;
+		}
 
 		if (ndmpart_image_cur == DI_IMAGE_SECOND) {
 			uint32_t s_beg, s_size;
