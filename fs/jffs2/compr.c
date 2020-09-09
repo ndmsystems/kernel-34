@@ -236,6 +236,9 @@ uint16_t jffs2_compress(struct jffs2_sb_info *c, struct jffs2_inode_info *f,
 	case JFFS2_COMPR_MODE_FORCEZLIB:
 		ret = jffs2_selected_compress(JFFS2_COMPR_ZLIB, data_in,
 				cpage_out, datalen, cdatalen);
+	case JFFS2_COMPR_MODE_FORCELZMA:
+		ret = jffs2_selected_compress(JFFS2_COMPR_LZMA, data_in,
+				cpage_out, datalen, cdatalen);
 		break;
 	default:
 		pr_err("unknown compression mode\n");
@@ -378,6 +381,9 @@ int __init jffs2_compressors_init(void)
 #ifdef CONFIG_JFFS2_LZO
 	jffs2_lzo_init();
 #endif
+#ifdef CONFIG_JFFS2_LZMA
+        jffs2_lzma_init();
+#endif
 /* Setting default compression mode */
 #ifdef CONFIG_JFFS2_CMODE_NONE
 	jffs2_compression_mode = JFFS2_COMPR_MODE_NONE;
@@ -401,6 +407,9 @@ int __init jffs2_compressors_init(void)
 int jffs2_compressors_exit(void)
 {
 /* Unregistering compressors */
+#ifdef CONFIG_JFFS2_LZMA
+        jffs2_lzma_exit();
+#endif
 #ifdef CONFIG_JFFS2_LZO
 	jffs2_lzo_exit();
 #endif

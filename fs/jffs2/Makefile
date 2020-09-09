@@ -19,3 +19,10 @@ jffs2-$(CONFIG_JFFS2_RTIME)	+= compr_rtime.o
 jffs2-$(CONFIG_JFFS2_ZLIB)	+= compr_zlib.o
 jffs2-$(CONFIG_JFFS2_LZO)	+= compr_lzo.o
 jffs2-$(CONFIG_JFFS2_SUMMARY)   += summary.o
+
+jffs2-$(CONFIG_JFFS2_LZMA) += lzma/LzFind.o
+jffs2-$(CONFIG_JFFS2_LZMA) += lzma/LzmaEnc.o
+jffs2-$(CONFIG_JFFS2_LZMA) += lzma/LzmaDec.o
+jffs2-$(CONFIG_JFFS2_LZMA) += compr_lzma.o
+
+EXTRA_CFLAGS += -Iinclude/linux -Iinclude/linux/lzma -include types.h

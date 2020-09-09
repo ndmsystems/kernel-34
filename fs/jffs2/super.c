@@ -91,6 +91,10 @@ static const char *jffs2_compr_name(unsigned int compr)
 	case JFFS2_COMPR_MODE_FORCEZLIB:
 		return "zlib";
 #endif
+#ifdef CONFIG_JFFS2_LZMA
+	case JFFS2_COMPR_MODE_FORCELZMA:
+		return "lzma";
+#endif
 	default:
 		/* should never happen; programmer error */
 		WARN_ON(1);
@@ -214,6 +218,11 @@ static int jffs2_parse_options(struct jffs2_sb_info *c, char *data)
 			else if (!strcmp(name, "zlib"))
 				c->mount_opts.compr =
 						JFFS2_COMPR_MODE_FORCEZLIB;
+#endif
+#ifdef CONFIG_JFFS2_LZMA
+			else if (!strcmp(name, "lzma"))
+				c->mount_opts.compr =
+						JFFS2_COMPR_MODE_FORCELZMA;
 #endif
 			else {
 				pr_err("Error: unknown compressor \"%s\"\n",
@@ -373,14 +382,41 @@ static int __init init_jffs2_fs(void)
 	BUILD_BUG_ON(sizeof(struct jffs2_raw_inode) != 68);
 	BUILD_BUG_ON(sizeof(struct jffs2_raw_summary) != 32);
 
-	pr_info("version 2.2."
+	pr_info("version 2.2"
 #ifdef CONFIG_JFFS2_FS_WRITEBUFFER
 	       " (NAND)"
 #endif
 #ifdef CONFIG_JFFS2_SUMMARY
-	       " (SUMMARY) "
+	       " (SUMMARY)"
 #endif
-	       " © 2001-2006 Red Hat, Inc.\n");
+#ifdef CONFIG_JFFS2_ZLIB
+	       " (ZLIB)"
+#endif
+#ifdef CONFIG_JFFS2_LZO
+	       " (LZO)"
+#endif
+#ifdef CONFIG_JFFS2_LZMA
+	       " (LZMA)"
+#endif
+#ifdef CONFIG_JFFS2_RTIME
+	       " (RTIME)"
+#endif
+#ifdef CONFIG_JFFS2_RUBIN
+	       " (RUBIN)"
+#endif
+#ifdef  CONFIG_JFFS2_CMODE_NONE
+	       " (CMODE_NONE)"
+#endif
+#ifdef CONFIG_JFFS2_CMODE_PRIORITY
+	       " (CMODE_PRIORITY)"
+#endif
+#ifdef CONFIG_JFFS2_CMODE_SIZE
+	       " (CMODE_SIZE)"
+#endif
+#ifdef CONFIG_JFFS2_CMODE_FAVOURLZO
+	       " (CMODE_FAVOURLZO)"
+#endif
+	       " (c) 2001-2006 Red Hat, Inc.\n");
 
 	jffs2_inode_cachep = kmem_cache_create("jffs2_i",
 					     sizeof(struct jffs2_inode_info),
