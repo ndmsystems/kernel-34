@@ -892,6 +892,8 @@ bool is_nobbm_partition(uint64_t offs)
 	int i;
 	const int nobbm_parts[] = {
 		PART_STORAGE,
+		PART_DATA_1,
+		PART_DATA_2
 	};
 
 	/* disable bad block management for given partitions */

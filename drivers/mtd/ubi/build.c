@@ -39,6 +39,7 @@
 #include <linux/stringify.h>
 #include <linux/namei.h>
 #include <linux/stat.h>
+#include <linux/major.h>
 #include <linux/miscdevice.h>
 #include <linux/log2.h>
 #include <linux/kthread.h>
@@ -492,7 +493,9 @@ static int uif_init(struct ubi_device *ubi, int *ref)
 	 * volume character devices start from 1. Thus, we allocate one major
 	 * number and ubi->vtbl_slots + 1 minor numbers.
 	 */
-	err = alloc_chrdev_region(&dev, 0, ubi->vtbl_slots + 1, ubi->ubi_name);
+	dev = MKDEV(UBI_MAJOR, 0);
+
+	err = register_chrdev_region(dev, ubi->vtbl_slots + 1, ubi->ubi_name);
 	if (err) {
 		ubi_err("cannot register UBI character devices");
 		return err;
