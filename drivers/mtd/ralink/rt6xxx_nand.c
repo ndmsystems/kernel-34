@@ -2198,6 +2198,7 @@ ra_nand_init(void)
 #endif
 	ranfc_mtd->erasesize		= (1u << ra->flash->erase_shift);
 	ranfc_mtd->writesize		= (1u << ra->flash->page_shift);
+	ranfc_mtd->writebufsize = ranfc_mtd->writesize;
 	ranfc_mtd->oobsize 		= (1u << ra->flash->oob_shift);
 	ranfc_mtd->oobavail		= ra->oob->oobavail;
 	ranfc_mtd->ecclayout		= ra->oob;
